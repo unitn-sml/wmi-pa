@@ -1,0 +1,74 @@
+
+from pysmt.shortcuts import Symbol
+from pysmt.typing import BOOL, REAL
+
+
+QUERY_PREFIX = "query"
+WMI_PREFIX = "wmi"
+
+PREFIXES = [QUERY_PREFIX, WMI_PREFIX]
+
+def new_query_label(index):
+    """Returns a query WMI label."""    
+    return _new_label(QUERY_PREFIX, index)
+
+def new_wmi_label(index):
+    """Returns a fresh WMI label."""
+    return _new_label(WMI_PREFIX, index)
+
+def is_query_label(variable):
+    """Returns True if the variable is a query label, False otherwise."""    
+    return variable.symbol_name().startswith(QUERY_PREFIX)
+
+def is_wmi_label(variable):
+    """Returns True if the variable is a WMI label, False otherwise."""
+    return variable.symbol_name().startswith(WMI_PREFIX)
+
+def contains_labels(formula):
+    """Returns True if the formula contains variables with reserved names,
+    False otherwise.
+
+    """    
+    for prefix in PREFIXES:
+        for var in get_boolean_variables(formula):
+            if var.symbol_name().startswith(prefix):
+                return True
+        for var in get_real_variables(formula):
+            if var.symbol_name().startswith(prefix):
+                return True
+    return False
+
+def get_boolean_variables(formula):
+    """Returns the list of Boolean variables in the formula."""
+    return _get_variables(formula, BOOL)
+
+def get_real_variables(formula):
+    """Returns the list of real variables in the formula."""    
+    return _get_variables(formula, REAL)
+
+def get_lra_atoms(formula):
+    """Returns the list of LRA atoms in the formula."""    
+    return {a for a in formula.get_atoms() if a.is_theory_relation()}
+    
+
+def _get_variables(formula, type_):
+    return {a for a in formula.get_free_variables() if a.get_type() == type_}
+
+def _new_label(prefix, index):
+    label_name = "{}_{}".format(prefix, index)
+    return Symbol(label_name)
+
+def _gcd(a, b):
+    """Return greatest common divisor using Euclid's Algorithm."""
+    while b:      
+        a, b = b, a % b
+    return a
+
+def _lcm(a, b):
+    """Return lowest common multiple."""
+    return a * b // _gcd(a, b)
+
+def lcmm(args):
+    """Return lcm of args."""   
+    return reduce(_lcm, args)
+
