@@ -4,7 +4,7 @@ Efficient WMI via SMT-Based Predicate Abstraction
 Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
 in Proceedings of IJCAI 2017
 
-##Required software:
+## Required software:
 - [sympy](http://www.sympy.org/en/index.html)
 - [NetworkX](https://networkx.github.io/)
 - [Matplotlib](https://matplotlib.org/)
@@ -14,19 +14,17 @@ in Proceedings of IJCAI 2017
 LattE's binary folder must be present in the PATH environment variable.
 
 In order to run the comparison with PRAiSE, the command line interface .jar
-must be called *praise.jar* and must be located in:
-
-     *src/thirdparties/*
+must be called *praise.jar* and must be located in *src/thirdparties/*.
 
 The version used in the experiments reported in the paper is provided.
 
 
 
-##Examples
+## Examples
 We provide some examples that show how to write a model and evaluate their WMI.
 To run the code in *examples/*, type: python exampleX.py
 
-##Experiments
+## Experiments
 The *experiments/* folder contains the code used to run the experiments reported in the paper.
 Each experiment folder comes with Shell scripts that show how to run them.
 
