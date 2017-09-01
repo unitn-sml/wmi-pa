@@ -1,8 +1,9 @@
 # wmi-pa
 Python2 implementation of the method presented in:
-Efficient WMI via SMT-Based Predicate Abstraction
-Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
-in Proceedings of IJCAI 2017
+
+  Efficient WMI via SMT-Based Predicate Abstraction
+  Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
+  in Proceedings of IJCAI 2017
 
 ## Required software:
 - [sympy](http://www.sympy.org/en/index.html)
