@@ -14,7 +14,7 @@ Python2 implementation of the method presented in:
 
 LattE's binary folder must be present in the PATH environment variable.
 
-In order to run the comparison with PRAiSE, the command line interface .jar
+In order to run the comparison with [PRAiSE](http://aic-sri-international.github.io/aic-praise/), the command line interface .jar
 must be called *praise.jar* and must be located in *src/thirdparties/*.
 
 The version used in the experiments reported in the paper is provided.
