@@ -22,13 +22,16 @@ class QueryEngine(Loggable):
     DEF_MODE = WMI.MODE_PA
 
     MSG_NEGATIVE_RES = "WMI returned a negative result: {}"
+    MSG_INCONSISTENT_SUPPORT = "The model is inconsistent"
 
-    def __init__(self, support, weights):
+    def __init__(self, support, weights, check_consistency=False):
         """Default constructor.
 
-        Keyword arguments:
-        support -- pysmt formula encoding the support
-        weights -- pysmt formula encoding the FIUC weight function
+        Keyword arguments: 
+        support -- pysmt formula encoding the
+        support weights -- pysmt formula encoding the FIUC weight
+        function check_consistency -- if True, raises a WMIRuntimeException if
+            the model is inconsistent (default: False)
 
         """
         self.init_sublogger(__name__)
@@ -46,7 +49,10 @@ class QueryEngine(Loggable):
         self.weights = Weights(weights)
         self.logger.debug("Support: {}".format(serialize(support)))
         self.logger.debug("Weights: {}".format(serialize(weights)))
-        self.wmi = WMI()        
+        self.wmi = WMI()
+
+        if check_consistency and not self.wmi.check_consistency(support):
+            raise WMIRuntimeException(QueryEngine.MSG_INCONSISTENT_SUPPORT)
 
     def perform_query(self, query, evidence = None, mode = None):
         """Performs a query P(Q). Optional evidence can be specified, performing
@@ -109,6 +115,7 @@ class QueryEngine(Loggable):
             
             normalized_p = wmi_e_q / wmi_e
             n_integrations = n_e_q + n_e
+            
         elif wmi_e_q == 0:
             normalized_p = 0.0
             n_integrations = n_e_q
@@ -121,6 +128,55 @@ class QueryEngine(Loggable):
         msg = "Norm. P(Q|E): {}, n_integrations: {}"
         self.logger.debug(msg.format(normalized_p, n_integrations))
         return normalized_p, n_integrations
+
+    def enumerate_TTAs(self, query, evidence = None):
+        """Enumerates the total truth assignments computed for the given query.
+        
+        Keyword arguments:
+        query -- pysmt formula encoding the query
+        evidence -- pysmt formula encoding the evidence (optional, default: None)
+
+        """
+        self.labels = set()
+        msg = "Enumerating TTAs for P(Q|E), Q: {},E: {}".format(serialize(query),
+                                                        serialize(evidence)
+                                                        if evidence != None
+                                                        else "None")
+        self.logger.debug(msg)
+        if evidence:
+            if contains_labels(evidence):
+                msg = "The evidence contains variables with reserved names."
+                self.logger.error(msg)
+                raise WMIRuntimeException(msg)
+            bool_evidence = self._label_lra_atoms(evidence)
+            f_e = And(self.support, bool_evidence)
+        else:
+            f_e = self.support
+
+        if contains_labels(query):
+            msg = "The query contains variables with reserved names."
+            self.logger.error(msg)
+            raise WMIRuntimeException(msg)
+
+        bool_query = self._label_lra_atoms(query)
+        f_e_q = And(f_e, bool_query)
+
+        # extract the domain of integration according to the model,
+        # query and evidence
+        domX = get_real_variables(f_e_q)
+        domA = get_boolean_variables(f_e_q) - self.labels
+
+        n_ttas_e_q = self.wmi.enumerate_TTAs(f_e_q, self.weights, domA, domX)
+        if n_ttas_e_q > 0:
+            n_ttas_e = self.wmi.enumerate_TTAs(f_e, self.weights, domA, domX)  
+            if n_ttas_e == 0:
+                msg = "(Knowledge base & Evidence) is inconsistent."
+                self.logger.error(msg)
+                raise WMIRuntimeException(msg)
+            
+            return n_ttas_e_q + n_ttas_e
+        else:
+            return 0
     
     def _label_lra_atoms(self, formula):
         lra_atoms = [a for a in formula.get_atoms() if a.is_theory_relation()]
@@ -147,9 +203,11 @@ if __name__ == "__main__":
 
     query = c
     query = LE(x, Real(0.5))
-    qe = QueryEngine(formula, weights)
+    qe = QueryEngine(formula, weights, check_consistency=True)
 
-    qe.perform_query(query, mode=WMI.MODE_PA)
+    print "is consistent?", 
+    print "Query:", qe.perform_query(query, mode=WMI.MODE_PA)
+    print "TTAs:", qe.enumerate_TTAs(query)
     
 
 """

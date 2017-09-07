@@ -71,7 +71,7 @@ class WMI:
         """
         self.logger = get_sublogger(__name__)
         self.integrator = Integrator()
-        self.n_threads = WMI.DEF_THREADS if n_threads == None else n_threads        
+        self.n_threads = WMI.DEF_THREADS if n_threads == None else n_threads
 
     def compute(self, formula, weights, mode, domA=None, domX=None):
         """Computes WMI(formula, weights, X, A). Returns the result and the
@@ -131,6 +131,53 @@ class WMI:
             volume, n_integrations))
 
         return volume, n_integrations
+
+    def enumerate_TTAs(self, formula, weights, domA=None, domX=None):
+        """Enumerates the total truth assignments for 
+        WMI(formula, weights, X, A).
+
+        Keyword arguments:
+        formula -- pysmt formula
+        weights -- Weights instance encoding the FIUC weight function
+        domA -- set of pysmt vars encoding the Boolean integration domain (optional)
+        domX -- set of pysmt vars encoding the real integration domain (optional)
+
+        """
+        if isinstance(weights, FNode):
+            weights = Weights(weights)
+            
+        A = get_boolean_variables(formula)
+        x = get_real_variables(formula)
+        dom_msg = "The domain of integration of the numerical variables" +\
+                  " should be x. The domain of integration of the Boolean" +\
+                  " variables should be a superset of A."
+
+        if domA != None:
+            query_labels = {a for a in A if is_query_label(a)}
+            if len(A - set(domA) - query_labels) > 0:
+                self.logger.error(dom_msg)
+                raise WMIRuntimeException(dom_msg)
+
+        if domX != None and not set(domX) == x:
+            self.logger.error(dom_msg)
+            raise WMIRuntimeException(dom_msg) 
+            
+        formula = And(formula, weights.labelling)
+
+        return len(self._compute_TTAs(formula, weights))
+
+    def check_consistency(self, formula):
+        """Returns True iff the formula has at least a total truth assignment
+        which is both theory-consistent and it propositionally satisfies it.
+
+        Keyword arguments:
+        formula -- a pysmt formula
+
+        """
+        for _ in self._model_iterator_base(formula):
+            return True
+        
+        return False                
 
     @staticmethod
     def _convert_to_latte(atom_assignments, weights):
@@ -201,7 +248,7 @@ class WMI:
         result.append(py_model)
         return 1
 
-    def _compute_WMI_AllSMT(self, formula, weights):
+    def _compute_TTAs(self, formula, weights):
         labels = {}
         expressions = []
         allsat_variables = set()
@@ -218,6 +265,10 @@ class WMI:
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
+        return models
+
+    def _compute_WMI_AllSMT(self, formula, weights):
+        models = self._compute_TTAs(formula, weights)
         latte_problems = []
         for index, model in enumerate(models):
             # retrieve truth assignments for the original atoms of the formula
