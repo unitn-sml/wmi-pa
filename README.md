@@ -22,7 +22,7 @@ The version used in the experiments reported in the paper is provided.
 
 
 ## Examples
-We provide some examples that show how to write a model and evaluate their WMI.
+We provide some examples that show how to write a model and evaluate weighted model integrals on it.
 To run the code in *examples/*, type: python exampleX.py
 
 ## Experiments
