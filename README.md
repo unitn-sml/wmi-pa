@@ -1,7 +1,7 @@
 # wmi-pa
 Python2 implementation of the method presented in:
 
-  Efficient WMI via SMT-Based Predicate Abstraction
+  [Efficient WMI via SMT-Based Predicate Abstraction](https://www.ijcai.org/proceedings/2017/100)  
   Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
   in Proceedings of IJCAI 2017
 
@@ -14,7 +14,7 @@ Python2 implementation of the method presented in:
 
 LattE's binary folder must be present in the PATH environment variable.
 
-In order to run the comparison with PRAiSE, the command line interface .jar
+In order to run the comparison with [PRAiSE](http://aic-sri-international.github.io/aic-praise/), the command line interface .jar
 must be called *praise.jar* and must be located in *src/thirdparties/*.
 
 The version used in the experiments reported in the paper is provided.
@@ -22,7 +22,7 @@ The version used in the experiments reported in the paper is provided.
 
 
 ## Examples
-We provide some examples that show how to write a model and evaluate their WMI.
+We provide some examples that show how to write a model and evaluate weighted model integrals on it.
 To run the code in *examples/*, type: python exampleX.py
 
 ## Experiments
