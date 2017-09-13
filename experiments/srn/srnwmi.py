@@ -69,7 +69,7 @@ class SRNWMI:
     JOURNEY_NAME = "xe{}"
     TIME_NAME = "te{}"
 
-    def __init__(self, graph, partitions, encoding=ENC_ALT):
+    def __init__(self, graph, partitions, encoding=ENC_DEF):
         """Default constructor.
         Initializes the query-independent data.
 
