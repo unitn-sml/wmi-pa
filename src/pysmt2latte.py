@@ -263,9 +263,10 @@ class Bound:
             else:
                 variable_monomials.append(monomial)
         poly.monomials = variable_monomials
+
         
         # convert the constants to integers (LattE requirement for the polytope)
-        denominators = [m.exponents.values()[0].denominator
+        denominators = [m.coefficient.denominator
                         for m in poly.monomials] + [b.denominator]
         lcd = lcmm(denominators)
         self.coefficients = {}
