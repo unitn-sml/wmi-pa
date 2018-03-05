@@ -6,12 +6,13 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 from os.path import dirname, abspath
-from subprocess import check_output
+from subprocess import Popen, PIPE
+from time import sleep
 from fractions import Fraction
-from pysmt.shortcuts import *
-from pysmt.typing import *
+from praiselang import *
+from pysmt.typing import REAL, BOOL
 
-from wmiexception import WMIRuntimeException, WMIParsingError
+from wmiexception import WMIRuntimeException, WMIParsingError, WMITimeoutException
 from pysmt2latte import is_pow
 
 
@@ -23,13 +24,14 @@ class PRAiSE:
 
         src/thirdparties/
 
-    Attributes:
-    variables -- dict {variable_name : type}
-    model -- the PRAiSE model
-
     """
-    def __init__(self):
-        """Default constructor."""        
+
+    DEF_TIMEOUT = 10000
+    POLL_DELTA = 1
+    
+    def __init__(self, timeout=DEF_TIMEOUT):
+        """Default constructor."""
+        self.timeout = timeout
         self.model_path = None
         jar_directory = dirname(abspath(__file__)) + "/thirdparties/"
         self.jar_path = jar_directory + "praise.jar"
@@ -71,8 +73,8 @@ class PRAiSE:
         Keyword arguments:
         query -- string representing the query
 
-        Raises:
-        WMIRuntimeException -- If the model was not dumped on disk.
+        Raises: WMIRuntimeException -- If the model was not dumped on
+                                       disk or timeout occurs.
 
         """
         if not self.model_path:
@@ -80,19 +82,36 @@ class PRAiSE:
         if not isinstance(query, str):
             query = self._convert_formula(query)
 
-        res = str(check_output(["java", "-jar", self.jar_path,
-                                self.model_path, "--query", query]))
-        
-        return PRAiSE._parse_result(res)
 
+        tout = int(self.timeout / PRAiSE.POLL_DELTA)
+        task = Popen(["java", "-jar", self.jar_path, self.model_path,
+                      "--query", query], stdout=PIPE, stderr=PIPE)
+
+        # polling every POLL_DELTA seconds
+        while task.poll() is None and tout > 0:
+            sleep(PRAiSE.POLL_DELTA)
+            tout -= PRAiSE.POLL_DELTA
+
+        if task.poll() != None:
+            out, err = task.communicate()
+
+            if err != '':
+                msg = "PRAiSE error: {}"
+                raise WMIRuntimeException(msg.format(err))
+
+            return PRAiSE._parse_result(out)
+        
+        else:
+            raise WMITimeoutException()
+        
     
     def _get_definitions(self):
         definitions = []        
         for var_name, var_type in self.variables.iteritems():
             if var_type == BOOL:
-                definitions.append("random {} : Boolean;".format(var_name))
+                definitions.append(BooleanVar(var_name))
             elif var_type == REAL:
-                definitions.append("random {} : Real;".format(var_name))
+                definitions.append(RealVar(var_name))
             else:
                 raise WMIParsingError("Unknown type", None)
         return "\n".join(definitions)
@@ -101,14 +120,20 @@ class PRAiSE:
     def _parse_result(praise_out):
         for line in praise_out.split("\n"):
             line = line.strip()
-            if line.startswith("RESULT"):
-                result_str = line.partition("= ")[-1]
-                return float(Fraction(result_str))
+            if line.startswith("Result"):
+                result_str = line.partition(": ")[-1].strip()
+                numerator, denominator = result_str.split("/")                
+                numerator = int(float(numerator))
+                denominator = int(float(denominator))
+                return float(Fraction(numerator, denominator))
     
 
     def _convert_formula(self, formula, update_vars = False):
+
+        # 0-ariety expressions
         if formula.is_constant():
             return str(formula.constant_value()).lower()
+        
         elif formula.is_symbol():
             # whenever a variable is found, return its name and optionally add
             # an entry to the variables dictionary with the corresponding type
@@ -117,61 +142,70 @@ class PRAiSE:
                 var_type = formula.get_type()
                 self.variables[var_name] = var_type
             return var_name
-        elif formula.is_bool_op():
-            if formula.is_not():
-                return "(not {})".format(self._convert_formula(formula.arg(0),
-                                                              update_vars))
-            else:
-                if formula.is_and():
-                    op = "and"
-                elif formula.is_or():
-                    op = "or"
-                elif formula.is_implies():
-                    op = "=>"
-                elif formula.is_iff():
-                    op = "<=>"
-                else:
-                    raise WMIParsingError("Unhandled Boolean operator", formula)
-                    
-                args = []
-                for arg in formula.args():
-                    args.append(self._convert_formula(arg, update_vars))
-                return "(" + " {} ".format(op).join(args) + ")"
-        elif formula.is_theory_relation():
-            if formula.is_le():
-                op = "<="
-            elif formula.is_lt():
-                op = "<"
-            elif formula.is_equals():
-                op = "="
-            else:
-                raise WMIParsingError("Unhandled theory relation", formula)
-            left = self._convert_formula(formula.arg(0), update_vars)
-            right = self._convert_formula(formula.arg(1), update_vars)
-            return "({} {} {})".format(left, op, right)
-        elif formula.is_theory_op():
-            if formula.is_plus():
-                op = "+"
-            elif formula.is_minus():
-                op = "-"
-            elif formula.is_times():
-                op = "*"
-            elif is_pow(formula):
-                op = "^"
-            else:
-                raise WMIParsingError("Unhandled theory operator", formula)
+        
+        else:
+            # recursively convert subformulas
             args = []
             for arg in formula.args():
                 args.append(self._convert_formula(arg, update_vars))
-            return "(" + " {} ".format(op).join(args) + ")"
-        else:
-            raise WMIParsingError("Unhandled formula format", formula)
+
+            # boolean operators
+            if formula.is_not():
+                assert(len(args) == 1)
+                return Not(args[0])
+            
+            elif formula.is_and():
+                return And(args)
+            
+            elif formula.is_or():
+                return Or(args)
+            
+            elif formula.is_implies():
+                assert(len(args) == 2)
+                return Implies(args[0], args[1])
+            
+            elif formula.is_iff():
+                assert(len(args) == 2)
+                return Iff(args[0], args[1])
+
+            # theory relations
+            elif formula.is_le():
+                assert(len(args) == 2)
+                return LE(args[0], args[1])
+            
+            elif formula.is_lt():
+                assert(len(args) == 2)
+                return LT(args[0], args[1])
+            
+            elif formula.is_equals():
+                assert(len(args) == 2)
+                return Equals(args[0], args[1])
+
+            # algebraic operators
+            if formula.is_plus():
+                return Plus(args)
+            
+            elif formula.is_minus():
+                return Minus(args)
+            
+            elif formula.is_times():
+                return Times(args)
+            
+            elif is_pow(formula):
+                assert(len(args) == 2)
+                return Pow(args[0], args[1])
+            
+            else:
+                raise WMIParsingError("Unhandled formula format", formula)
             
     def _convert_weights(self, weights):
         statements = []
         for atom, weight in weights.iteritems():
             cond = self._convert_formula(atom)
-            pos = self._convert_formula(weight[0])
-            neg = self._convert_formula(weight[1])
-            statements.append("if {}\nthen {}\nelse {};".format(cond, pos, neg))
-        return "\n".join(statements)            
+            then = self._convert_formula(weight[0])
+            else_ = self._convert_formula(weight[1])
+
+            ite = ITE(cond, then, else_) + ";"
+            statements.append(ite)
+            
+        return "\n".join(statements)

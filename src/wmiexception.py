@@ -23,3 +23,9 @@ class WMIRuntimeException(WMIException):
 
     def __init__(self, message):
         super(WMIRuntimeException,self).__init__(message)
+
+
+class WMITimeoutException(WMIException):
+    def __init__(self):
+        msg = "Timeout occurred"
+        super(WMITimeoutException, self).__init__(msg)

@@ -4,21 +4,18 @@ from itertools import product
 from pysmt.shortcuts import And, Iff, Symbol, get_env
 from pysmt.typing import BOOL
 
+from utils import new_cond_label, is_cond_label
 
 class Weights:
 
-    LABEL_TEMPL = "cond_{}"
-
-    def __init__(self, weight_func, support=None, expand=False, cache=True):
+    def __init__(self, weight_func, expand=False, cache=True):
         self.weights, subs = Weights.label_conditions(weight_func)
+        self.labels = set(subs.values())
         labelling_list = []
         for cond, label in subs.items():
             labelling_list.append(Iff(cond, label))
 
         self.labelling = And(labelling_list)
-
-        if support != None:
-            self.labelling = And(support, self.labelling)
         
         self.n_conditions = len(subs)
         if cache:
@@ -33,9 +30,10 @@ class Weights:
         for atom, value in assignment.iteritems():            
             assert(isinstance(value,bool)), "Assignment value should be Boolean"
             if (atom.is_symbol() and atom.get_type() == BOOL and
-                atom.symbol_name().startswith("cond_")):
+                     is_cond_label(atom)):
                 index = int(atom.symbol_name().partition("_")[-1])
                 label_assignment[index] = value
+            
         assert(not None in label_assignment),\
             "Couldn't retrieve the complete assignment"
         label_assignment = tuple(label_assignment)
@@ -99,7 +97,7 @@ class Weights:
         if node.is_ite():
             cond, then, _else = node.args()
             if not cond in subs:
-                label = Symbol(Weights.LABEL_TEMPL.format(len(subs)))
+                label = new_cond_label(len(subs))
                 subs[cond] = label
 
             subs = Weights._find_conditions(then, subs)

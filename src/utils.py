@@ -3,18 +3,27 @@ from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, REAL
 
 
+COND_PREFIX = "cond"
 QUERY_PREFIX = "query"
 WMI_PREFIX = "wmi"
 
-PREFIXES = [QUERY_PREFIX, WMI_PREFIX]
+PREFIXES = [COND_PREFIX, QUERY_PREFIX, WMI_PREFIX]
+
+def new_cond_label(index):
+    """Returns a condition label."""
+    return _new_label(COND_PREFIX, index)
 
 def new_query_label(index):
-    """Returns a query WMI label."""    
+    """Returns a query label."""    
     return _new_label(QUERY_PREFIX, index)
 
 def new_wmi_label(index):
-    """Returns a fresh WMI label."""
+    """Returns a generic WMI label."""
     return _new_label(WMI_PREFIX, index)
+
+def is_cond_label(variable):
+    """Returns True if the variable is a condition label, False otherwise."""    
+    return variable.symbol_name().startswith(COND_PREFIX)
 
 def is_query_label(variable):
     """Returns True if the variable is a query label, False otherwise."""    
@@ -24,18 +33,20 @@ def is_wmi_label(variable):
     """Returns True if the variable is a WMI label, False otherwise."""
     return variable.symbol_name().startswith(WMI_PREFIX)
 
+def is_label(variable):
+    for prefix in PREFIXES:
+        if variable.symbol_name().startswith(prefix):
+            return True
+    return False
+
 def contains_labels(formula):
     """Returns True if the formula contains variables with reserved names,
     False otherwise.
 
     """    
-    for prefix in PREFIXES:
-        for var in get_boolean_variables(formula):
-            if var.symbol_name().startswith(prefix):
-                return True
-        for var in get_real_variables(formula):
-            if var.symbol_name().startswith(prefix):
-                return True
+    for var in get_boolean_variables(formula):
+        if is_label(var):
+            return True
     return False
 
 def get_boolean_variables(formula):

@@ -1,6 +1,6 @@
 
 
-from random import seed, random, randint, sample, choice
+from random import choice, randint, random, sample, seed, shuffle
 
 from pysmt.shortcuts import Symbol, Plus, Times, Pow, Ite, Real, And, Or, Not, \
     LE, LT
@@ -22,11 +22,6 @@ class ModelGenerator:
     # maximum number of children of a formula's internal node
     MAX_BREADTH = 4
 
-    MODE_IJCAI = "MODE_IJCAI"
-    MODE_TREE = "MODE_TREE"
-
-    MODES = [MODE_IJCAI, MODE_TREE]
-
     def __init__(self, n_reals, n_bools, seedn=None):
         # initialize the real/boolean variables
         self.reals = []
@@ -40,6 +35,66 @@ class ModelGenerator:
         if seedn != None:
             self.seedn = seedn
             seed(seedn)
+
+
+    def generate_support_cond(self, real_only=True):
+        subformulas = []
+        # generate the domains of the real variables
+        for rvar in self.reals:
+            subformulas.append(ModelGenerator._random_domain(rvar))
+
+        if not real_only:
+            subformulas.append(self._random_boolean_formula(depth))
+
+        return And(subformulas)
+
+    def generate_weights_cond(self, n_real_cond, n_bool_cond):
+
+        # TODO: what about overlapping?        
+        lra_conditions = [self._random_inequality() for _ in range(n_real_cond)]
+        bool_conditions = [self._random_boolean_formula(1)
+                           for _ in range(n_bool_cond)]
+
+        conditions = lra_conditions + bool_conditions
+        n_cond = n_real_cond + n_bool_cond
+        n_leaves = n_cond + 1
+        leaves = [self._random_polynomial() for _ in range(n_leaves)]
+        shuffle(conditions)
+
+        nodes = conditions + leaves
+        i = n_cond - 1
+        while i >= 0:
+            nodes[i] = Ite(nodes[i], nodes[2*i+1], nodes[2*i+2])
+            i -= 1
+
+        return nodes[0]
+
+    def generate_cond_problem(self, n_real_cond, n_bool_cond):
+        lra_conditions = [self._random_inequality() for _ in range(n_real_cond)]
+        bool_conditions = [self._random_boolean_formula(1)
+                           for _ in range(n_bool_cond)]
+
+        conditions = lra_conditions + bool_conditions
+        n_cond = n_real_cond + n_bool_cond
+        n_leaves = n_cond + 1
+        shuffle(conditions)
+        polynomials = [self._random_polynomial() for _ in range(n_leaves)]
+        w_nodes = conditions + polynomials
+        #subdomains = [self.generate_support_cond() for _ in range(n_leaves)]
+        #chi_nodes = conditions + subdomains
+
+        support = And([Implies(cond, self.generate_support_cond())
+                       for cond in conditions])
+
+        i = n_cond - 1
+        while i >= 0:
+            w_nodes[i] = Ite(w_nodes[i], w_nodes[2*i+1], w_nodes[2*i+2])
+            #chi_nodes[i] = Ite(chi_nodes[i], chi_nodes[2*i+1], chi_nodes[2*i+2])
+            i -= 1
+
+        #return w_nodes[0], chi_nodes[0]
+        return w_nodes[0], support
+        
 
     def generate_support_tree(self, depth, domains=None):
         subformulas = []
@@ -59,7 +114,7 @@ class ModelGenerator:
         subformulas.append(self._random_formula(depth))
         return And(subformulas)
 
-    def generate_support_legacy(self, n_conjuncts, max_disjunct_size, atr=0.5):
+    def generate_support_ijcai17(self, n_conjuncts, max_disjunct_size, atr=0.5):
         subformulas = []
         for rvar in self.reals:
             subformulas.append(ModelGenerator._random_domain(rvar))
@@ -91,7 +146,7 @@ class ModelGenerator:
             else:
                 return op(left, right)
 
-    def generate_weights_legacy(self, pos_only=True):
+    def generate_weights_ijcai17(self, pos_only=True):
         subformulas = []
         for a in self.bools:
             pos = self._random_polynomial()
@@ -105,8 +160,10 @@ class ModelGenerator:
             monomials.append(self._random_monomial())
         return Plus(monomials)
 
-    def _random_monomial(self):
-        size = randint(1, len(self.reals))
+    def _random_monomial(self, minsize=None, maxsize=None):
+        minsize = minsize if minsize else 1
+        maxsize = maxsize if maxsize else len(self.reals)
+        size = randint(minsize, maxsize)
         rvars = sample(self.reals, size)
         coeff = self._random_coefficient()
         pows = [coeff]
@@ -114,28 +171,39 @@ class ModelGenerator:
             exponent = Real(randint(0, self.MAX_EXPONENT))
             pows.append(Pow(rvar, exponent))
         return Times(pows)
+
+    def _random_boolean_formula(self, depth):
+        return self._random_formula(depth, theta=0.0)
+
+    def _random_lra_formula(self, depth):
+        return self._random_formula(depth, theta=1.0)    
         
-    def _random_formula(self, depth):
+    def _random_formula(self, depth, theta=0.5):
         if depth <= 0:
-            return self._random_atom()
+            return self._random_atom(theta)
         else:            
             op = choice([And, Or, Not])
             if op == Not:
-                return Not(self._random_formula(depth))
+                return Not(self._random_formula(depth, theta))
             else:
                 breadth = randint(2, self.MAX_BREADTH)
-                children = [self._random_formula(depth - 1)
+                children = [self._random_formula(depth - 1, theta)
                             for _ in xrange(breadth)]
                 return op(children)
 
-    def _random_atom(self):
-        return choice([self._random_inequality, self._random_boolean])()
+    def _random_atom(self, theta=0.5):
+        if random() < theta:
+            return self._random_inequality()
+        else:
+            return self._random_boolean()
 
     def _random_boolean(self):
         return choice(self.bools)
         
-    def _random_inequality(self):        
-        size = randint(1, len(self.reals))
+    def _random_inequality(self, minsize=None, maxsize=None):
+        minsize = max(1, minsize) if minsize else 1
+        maxsize = min(maxsize, len(self.reals)) if maxsize else len(self.reals)
+        size = randint(minsize, maxsize)
         rvars = sample(self.reals, size)
         monomials = []
         for rvar in rvars:

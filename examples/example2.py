@@ -38,11 +38,12 @@ print "Weight function:", serialize(w)
 print "Support:", serialize(chi)
 
 weights = Weights(w, chi)
+chi = And(chi, weights.labelling)
 
 wmi = WMI()
 print
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA]:
-    result, n_integrations = wmi.compute(phi, weights, mode)
+    result, n_integrations = wmi.compute(And(phi, chi), weights, mode)
     print "WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations)
 
         

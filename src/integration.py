@@ -20,6 +20,13 @@ from wmiexception import WMIRuntimeException
 
 class Integrator(Loggable):
 
+    ALG_TRIANGULATE = "--triangulate"
+    ALG_CONE_DECOMPOSE = "--cone-decompose"
+    DEF_ALGORITHM = ALG_CONE_DECOMPOSE
+
+    ALGORITHMS = [ALG_TRIANGULATE, ALG_CONE_DECOMPOSE]
+
+
     # template name for the temporary folder
     FOLDER_TEMPLATE = "latte_{}"
     # temporary files
@@ -27,8 +34,11 @@ class Integrator(Loggable):
     POLYNOMIAL_TEMPLATE = "polynomial.latte"
     OUTPUT_TEMPLATE = "output.txt"
 
-    def __init__(self):
+    def __init__(self, algorithm=None):        
         self.init_sublogger(__name__)
+        self.algorithm = algorithm or Integrator.DEF_ALGORITHM
+        assert(self.algorithm in Integrator.ALGORITHMS)
+            
 
     def integrate_raw(self, coefficients, rng, index=0):
         # create a temporary folder containing the input and output files
@@ -149,7 +159,7 @@ class Integrator(Loggable):
     def _call_latte(self, polynomial_file, polytope_file, output_file):
         with open(output_file,'w') as f:
             return_value = call(["integrate",
-                                 "--valuation=integrate", "--triangulate",
+                                 "--valuation=integrate", self.algorithm,
                                  "--monomials=" + polynomial_file,
                                  polytope_file], stdout=f, stderr=f)
             if return_value != 0:

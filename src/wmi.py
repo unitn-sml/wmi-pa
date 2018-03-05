@@ -14,6 +14,7 @@ Currently, three algorithms are supported:
 __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
+from math import fsum
 from functools import partial
 from multiprocessing import Pool
 
@@ -26,8 +27,8 @@ from integration import Integrator
 from pysmt2latte import Polytope, Polynomial
 from wmiexception import WMIParsingError, WMIRuntimeException
 from weights import Weights
-from utils import is_query_label, new_wmi_label, get_boolean_variables,\
-    get_real_variables
+from utils import is_label, new_wmi_label, \
+    get_boolean_variables, get_real_variables
 
 
 # apparently Pool.map requires an unbound top-level method, here it is
@@ -49,7 +50,7 @@ class WMI:
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA]
 
     # default number of threads used
-    DEF_THREADS = 4
+    DEF_THREADS = 7
 
     # the following two methods were overwritten to allow the serialization
     # of the class instances (logger contains unserializable data structures).
@@ -85,11 +86,9 @@ class WMI:
         domX -- set of pysmt vars encoding the real integration domain (optional)
 
         """
-        if isinstance(weights, FNode):
-            weights = Weights(weights)
             
         self.logger.debug("Computing WMI with mode: {}".format(mode))
-        A = get_boolean_variables(formula)
+        A = {x for x in get_boolean_variables(formula) if not is_label(x)}
         x = get_real_variables(formula)
         dom_msg = "The domain of integration of the numerical variables" +\
                   " should be x. The domain of integration of the Boolean" +\
@@ -99,21 +98,20 @@ class WMI:
         # formula, whereas domA can be a superset of the boolean
         # variables A. The resulting volume is multiplied by 2^|domA - A|.
         factor = 1
+        self.logger.debug("A: {}, domA: {}".format(A, domA))
         if domA != None:
-            query_labels = {a for a in A if is_query_label(a)}
-            if len(A - set(domA) - query_labels) > 0:
+            if len(A - domA) > 0:
                 self.logger.error(dom_msg)
                 raise WMIRuntimeException(dom_msg)
             else:
-                factor = 2**len(set(domA) - A)
+                factor = 2**len(domA - A)
 
 
-        self.logger.debug("A: {}, domA: {}, factor: {}".format(A, domA, factor))
+        self.logger.debug("factor: {}".format(factor))
         if domX != None and not set(domX) == x:
             self.logger.error(dom_msg)
             raise WMIRuntimeException(dom_msg) 
             
-        formula = And(formula, weights.labelling)
 
         compute_with_mode = {WMI.MODE_BC : self._compute_WMI_BC,
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
@@ -146,15 +144,14 @@ class WMI:
         if isinstance(weights, FNode):
             weights = Weights(weights)
             
-        A = get_boolean_variables(formula)
+        A = {x for x in get_boolean_variables(formula) if not is_label(x)}
         x = get_real_variables(formula)
         dom_msg = "The domain of integration of the numerical variables" +\
                   " should be x. The domain of integration of the Boolean" +\
                   " variables should be a superset of A."
 
         if domA != None:
-            query_labels = {a for a in A if is_query_label(a)}
-            if len(A - set(domA) - query_labels) > 0:
+            if len(A - domA) > 0:
                 self.logger.error(dom_msg)
                 raise WMIRuntimeException(dom_msg)
 
@@ -164,9 +161,10 @@ class WMI:
             
         formula = And(formula, weights.labelling)
 
-        return len(self._compute_TTAs(formula, weights))
+        return len(self._compute_TTAs(formula, weights)[0])
 
-    def check_consistency(self, formula):
+    @staticmethod
+    def check_consistency(formula):
         """Returns True iff the formula has at least a total truth assignment
         which is both theory-consistent and it propositionally satisfies it.
 
@@ -174,7 +172,7 @@ class WMI:
         formula -- a pysmt formula
 
         """
-        for _ in self._model_iterator_base(formula):
+        for _ in WMI._model_iterator_base(formula):
             return True
         
         return False                
@@ -265,10 +263,10 @@ class WMI:
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
-        return models
+        return models, labels
 
     def _compute_WMI_AllSMT(self, formula, weights):
-        models = self._compute_TTAs(formula, weights)
+        models, labels = self._compute_TTAs(formula, weights)
         latte_problems = []
         for index, model in enumerate(models):
             # retrieve truth assignments for the original atoms of the formula
@@ -422,7 +420,7 @@ class WMI:
     def _parallel_volume_computation(self, latte_problems):
         pool = Pool(self.n_threads)
         integrate_alias = partial(integrate_worker, self)
-        volume = sum(pool.map(integrate_alias, latte_problems))
+        volume = fsum(pool.map(integrate_alias, latte_problems))
         pool.close()
         pool.join()
         return volume
@@ -478,5 +476,4 @@ class WMI:
             return assignments, over_left and over_right
         else:
             return {}, False
-
 

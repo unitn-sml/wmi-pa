@@ -25,10 +25,7 @@ class SRNParser(Loggable):
     DEF_N_PARTITIONS = 12
     MAX_TIME = 60 * 3
 
-    ERR_FIT = "Can't fit the distribution"
-    
-    # remove this
-    Y_INTERCEPT = 100
+    ERR_FIT = "Can't fit the distribution"    
 
     def __init__(self, n_partitions = None):
         """Default constructor, sets the parameters for the time partitioning
