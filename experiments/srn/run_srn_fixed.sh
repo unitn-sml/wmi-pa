@@ -4,6 +4,7 @@ then
     cd data
     gunzip MAR15.csv.tar.gz
     tar -xf MAR15.csv.tar
+    cd ..
 fi
 
 python srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=6 -o AIJ_SRN_s42_i10_1_6.experiment
