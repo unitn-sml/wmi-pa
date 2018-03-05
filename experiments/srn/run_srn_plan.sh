@@ -1,4 +1,10 @@
 
+if [ ! -e data/MAR15.csv ]
+then
+    cd data
+    gunzip MAR15.csv.tar.gz
+    tar -xf MAR15.csv.tar
+fi
 
 python srnplan.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=1 -o AIJ_PLAN_s42_i10_1_1.experiment
 python srnplan.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=2 --max-length=2 -o AIJ_PLAN_s42_i10_2_2.experiment
