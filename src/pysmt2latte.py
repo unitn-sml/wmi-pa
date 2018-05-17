@@ -143,11 +143,11 @@ class Monomial:
         self.coefficient = Fraction(1)
         self.exponents = {}
         try:
-            if len(expression.args()) == 0:
-                self._parse_term(expression)
+            if expression.is_times():
+                for sub in expression.args():
+                    self._parse_sub(sub)
             else:
-                for term in expression.args():                
-                    self._parse_term(term)
+                self._parse_sub(expression)
         except WMIParsingError as e:
             raise WMIParsingError(Monomial.PARSING_ERROR_MSG, expression)
 
@@ -176,7 +176,7 @@ class Monomial:
         """Negates the monomial by changing the sign of the coefficient."""
         self.coefficient *= -1
 
-    def _parse_term(self, expression):
+    def _parse_sub(self, expression):
         if expression.is_real_constant():
             self.coefficient = self.coefficient * expression.constant_value()
         elif expression.is_symbol():
