@@ -13,6 +13,7 @@ __author__ = 'Paolo Morettin'
 from fractions import Fraction
 import networkx as nx
 from pysmt.operators import POW
+from pysmt.shortcuts import Plus, Real, Times
 from sympy2pysmt import get_canonical_form
 from utils import lcmm
 from wmiexception import WMIParsingError, WMIRuntimeException
@@ -236,8 +237,8 @@ class Bound:
         elif left.is_real_constant():
             self._parse_expression(right, left, True, aliases)
         else:
-            msg = "One of the two sides should be a real constant"
-            raise WMIParsingError(msg, expression)
+            self._parse_expression(Plus(left,Times(Real(-1),right)),Real(0),
+                                   False, aliases)
 
     def _parse_expression(self, polynomial, constant, negate, aliases):
         assert(constant.is_real_constant()),\
