@@ -23,6 +23,7 @@ class ModelGenerator:
     MAX_BREADTH = 4
 
     def __init__(self, n_reals, n_bools, seedn=None):
+        assert(n_reals + n_bools > 0)
         # initialize the real/boolean variables
         self.reals = []
         for i in xrange(n_reals):
@@ -192,7 +193,11 @@ class ModelGenerator:
                 return op(children)
 
     def _random_atom(self, theta=0.5):
-        if random() < theta:
+        if len(self.bools) == 0:
+            return self._random_inequality()
+        elif len(self.reals) == 0:
+            return self._random_boolean()            
+        elif random() < theta:
             return self._random_inequality()
         else:
             return self._random_boolean()
