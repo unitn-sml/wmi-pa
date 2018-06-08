@@ -351,7 +351,7 @@ class WMI:
                     lra_assignments, over = WMI._parse_lra_formula(f_next)
                     subs = {k : Bool(v) for k, v in lra_assignments.iteritems()}
                     atom_assignments.update(lra_assignments)
-                    if over or (serialize(f_before) == serialize(f_next)):
+                    if over or lra_assignments == {}:
                         break
                 
                 if not over:
