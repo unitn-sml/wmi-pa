@@ -1,9 +1,11 @@
 # wmi-pa
-Python2 implementation of the method presented in:
+~~Python 2~~ Python 3 implementation of the method presented in:
 
   [Efficient WMI via SMT-Based Predicate Abstraction](https://www.ijcai.org/proceedings/2017/100)  
   Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
   in Proceedings of IJCAI 2017
+  
+  (the latest python 2 release can be found in Releases > last_py2_version)
 
 ## Required software:
 - [sympy](http://www.sympy.org/en/index.html)
