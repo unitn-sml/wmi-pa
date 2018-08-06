@@ -228,3 +228,27 @@ class ModelGenerator:
         lower = -randint(0, ModelGenerator.DOMAIN_BOUNDS)
         upper = randint(0, ModelGenerator.DOMAIN_BOUNDS)
         return And(LE(Real(lower), var), LE(var, Real(upper)))
+
+
+if __name__ == '__main__':
+    from pysmt.shortcuts import Bool, write_smtlib
+    from sys import argv
+    
+    output_name = argv[1]
+    n_reals = int(argv[2])
+    n_bools = int(argv[3])
+    depth = int(argv[4])
+    seedn = int(argv[5])
+    
+    gen = ModelGenerator(n_reals, n_bools, seedn)
+    support = gen.generate_support_tree(depth)        
+    weights = gen.generate_weights_tree(depth)
+    query = Bool(True)
+
+    support_filename = output_name + "_0.support"
+    weights_filename = output_name + "_0.weights"
+    query_filename = output_name + "_0.query"
+
+    write_smtlib(support, support_filename)
+    write_smtlib(weights, weights_filename)
+    write_smtlib(query, query_filename)
