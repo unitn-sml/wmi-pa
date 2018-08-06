@@ -102,7 +102,8 @@ class Weights:
 
             subs = Weights._find_conditions(then, subs)
             subs = Weights._find_conditions(_else, subs)
-        elif node.args() > 0:
-            for child in node.args():
-                subs = Weights._find_conditions(child, subs)
+
+        for child in node.args():
+            subs = Weights._find_conditions(child, subs)
+
         return subs
