@@ -200,7 +200,7 @@ class SRNPlan(StrategicRoadNetwork):
 
         t_min, t_max = partitions[0], partitions[-1]
         t_steps = [randint(0, (t_max - t_min) / 2)]
-        for i in xrange(len(path) - 1):
+        for i in range(len(path) - 1):
             curr_time = t_steps[-1]
             curr_part = SRNPlan._tp_to_partition(partitions, curr_time)
             curr_node, next_node = path[i], path[i + 1]

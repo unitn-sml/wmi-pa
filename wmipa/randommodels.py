@@ -26,10 +26,10 @@ class ModelGenerator:
         assert(n_reals + n_bools > 0)
         # initialize the real/boolean variables
         self.reals = []
-        for i in xrange(n_reals):
+        for i in range(n_reals):
             self.reals.append(Symbol(self.TEMPL_REALS.format(i), REAL))
         self.bools = []
-        for i in xrange(n_bools):
+        for i in range(n_bools):
             self.bools.append(Symbol(self.TEMPL_BOOLS.format(i)))
 
         # set the seed number, if specified
@@ -120,13 +120,13 @@ class ModelGenerator:
         for rvar in self.reals:
             subformulas.append(ModelGenerator._random_domain(rvar))
 
-        for _ in xrange(n_conjuncts):
+        for _ in range(n_conjuncts):
             size = randint(1, max_disjunct_size + 1)
             lra_size = int(size * atr)
             bool_size = size - lra_size
             bool_disj = Or(sample(self.bools, bool_size))
             lra_conj = []
-            for _ in xrange(lra_size):
+            for _ in range(lra_size):
                 lra_conj.append(self._random_inequality())
                 
             disj = Or(And(lra_conj), bool_disj)
@@ -157,7 +157,7 @@ class ModelGenerator:
         
     def _random_polynomial(self):
         monomials = []
-        for i in xrange(randint(1, self.MAX_MONOMIALS)):
+        for i in range(randint(1, self.MAX_MONOMIALS)):
             monomials.append(self._random_monomial())
         return Plus(monomials)
 
@@ -189,7 +189,7 @@ class ModelGenerator:
             else:
                 breadth = randint(2, self.MAX_BREADTH)
                 children = [self._random_formula(depth - 1, theta)
-                            for _ in xrange(breadth)]
+                            for _ in range(breadth)]
                 return op(children)
 
     def _random_atom(self, theta=0.5):

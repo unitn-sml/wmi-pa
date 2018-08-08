@@ -11,12 +11,11 @@ from os.path import dirname, abspath
 from subprocess import Popen, PIPE
 from time import sleep
 from fractions import Fraction
-import praiselang as pl
 from pysmt.typing import REAL, BOOL
-
-from wmiexception import WMIRuntimeException, WMIParsingError,\
+import wmipa.praiselang as pl
+from wmipa.wmiexception import WMIRuntimeException, WMIParsingError,\
     WMITimeoutException
-from pysmt2latte import is_pow
+from wmipa.pysmt2latte import is_pow
 
 
 class PRAiSEInference:
@@ -97,7 +96,7 @@ class PRAiSEInference:
     @staticmethod
     def _get_definitions(variables):
         definitions = []        
-        for var_name, var_type in variables.iteritems():
+        for var_name, var_type in variables.items():
             if var_type == BOOL:
                 definitions.append(pl.BooleanVar(var_name))
             elif var_type == REAL:
@@ -202,11 +201,11 @@ if __name__ == "__main__":
     from pysmt.typing import REAL
 
     def compute_print(method, query, evidence):
-        print "query: ", serialize(query)
-        print "evidence: ", serialize(evidence) if evidence else "-"
+        print("query: ", serialize(query))
+        print("evidence: ", serialize(evidence) if evidence else "-")
         prob = method.compute_normalized_probability(query, evidence)
-        print "normalized: ", prob
-        print "--------------------------------------------------"
+        print("normalized: ", prob)
+        print("--------------------------------------------------")
 
     x = Symbol("x", REAL)
     A = Symbol("A")
@@ -216,9 +215,9 @@ if __name__ == "__main__":
                   Ite(A, Times(Real(-2), x), Times(Real(-1),x)))
 
     praise = PRAiSEInference(support, weights)
-    print "support: ", serialize(support)
-    print "weights: ", serialize(weights)
-    print "=================================================="
+    print("support: ", serialize(support))
+    print("weights: ", serialize(weights))
+    print("==================================================")
 
     suite = [(A, None),
              (And(A, LE(Real(0), x)), None),

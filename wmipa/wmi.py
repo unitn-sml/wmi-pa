@@ -22,13 +22,16 @@ import mathsat
 from pysmt.shortcuts import *
 from pysmt.typing import BOOL, REAL
 from pysmt.fnode import FNode
-from logger import  get_sublogger
-from integration import Integrator
-from pysmt2latte import Polytope, Polynomial
-from wmiexception import WMIParsingError, WMIRuntimeException
-from weights import Weights
-from utils import is_label, new_wmi_label, \
+
+from wmipa import Integrator
+from wmipa import Weights
+
+from wmipa.logger import  get_sublogger
+from wmipa.pysmt2latte import Polytope, Polynomial
+from wmipa.utils import is_label, new_wmi_label, \
     get_boolean_variables, get_real_variables
+from wmipa.wmiexception import WMIParsingError, WMIRuntimeException
+
 
 
 # apparently Pool.map requires an unbound top-level method, here it is
@@ -186,7 +189,7 @@ class WMI:
         """
         bounds = []
         aliases = {}
-        for atom, value in atom_assignments.iteritems():            
+        for atom, value in atom_assignments.items():            
             assert(isinstance(value,bool)), "Assignment value should be Boolean"
             # skip atoms without variables
             if len(atom.get_free_variables()) == 0:
@@ -238,7 +241,7 @@ class WMI:
             # constrain the solver to find a different assignment
             solver.add_assertion(
                 Not(And([Iff(var,val)
-                         for var,val in atom_assignments.iteritems()])))
+                         for var,val in atom_assignments.items()])))
 
     @staticmethod
     def _callback(model, converter, result):
@@ -271,7 +274,7 @@ class WMI:
         for index, model in enumerate(models):
             # retrieve truth assignments for the original atoms of the formula
             atom_assignments = {}
-            for atom, value in WMI._get_assignments(model).iteritems():
+            for atom, value in WMI._get_assignments(model).items():
                 if atom in labels:
                     atom = labels[atom]
                 atom_assignments[atom] = value
@@ -315,11 +318,11 @@ class WMI:
                 lambda model : WMI._callback(model, converter, lra_assignments))
             for mu_lra in lra_assignments:                    
                 assignments = {}
-                for atom, value in WMI._get_assignments(mu_lra).iteritems():
+                for atom, value in WMI._get_assignments(mu_lra).items():
                     if atom in labels:
                         atom = labels[atom]
                     assignments[atom] = value
-                    
+
                 integrand, polytope =  WMI._convert_to_latte(
                         assignments, weights)
                 latte_problems.append((integrand, polytope, index))
@@ -342,14 +345,14 @@ class WMI:
                 atom_assignments = {}
                 boolean_assignments = WMI._get_assignments(model)
                 atom_assignments.update(boolean_assignments)
-                subs = {k : Bool(v) for k, v in boolean_assignments.iteritems()}
+                subs = {k : Bool(v) for k, v in boolean_assignments.items()}
                 f_next = formula
                 # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
                 while True:            
                     f_before = f_next
                     f_next = simplify(substitute(f_before, subs))
                     lra_assignments, over = WMI._parse_lra_formula(f_next)
-                    subs = {k : Bool(v) for k, v in lra_assignments.iteritems()}
+                    subs = {k : Bool(v) for k, v in lra_assignments.items()}
                     atom_assignments.update(lra_assignments)
                     if over or lra_assignments == {}:
                         break
@@ -358,7 +361,7 @@ class WMI:
                     # predicate abstraction on LRA atoms with minimal models
                     lab_formula, pa_vars, labels = WMI.label_formula(f_next, f_next.get_atoms())
                     expressions = []
-                    for k, v in atom_assignments.iteritems():
+                    for k, v in atom_assignments.items():
                         if k.is_theory_relation():
                             if v:
                                 expressions.append(k)
@@ -377,7 +380,7 @@ class WMI:
                             lambda model : WMI._callback(model, converter, ssmodels))
                     for ssmodel in ssmodels:                    
                         secondstep_assignments = {}
-                        for atom, value in WMI._get_assignments(ssmodel).iteritems():
+                        for atom, value in WMI._get_assignments(ssmodel).items():
                             if atom in labels:
                                 atom = labels[atom]
                             secondstep_assignments[atom] = value

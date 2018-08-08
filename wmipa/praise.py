@@ -107,7 +107,7 @@ class PRAiSE:
     
     def _get_definitions(self):
         definitions = []        
-        for var_name, var_type in self.variables.iteritems():
+        for var_name, var_type in self.variables.items():
             if var_type == BOOL:
                 definitions.append(BooleanVar(var_name))
             elif var_type == REAL:
@@ -200,7 +200,7 @@ class PRAiSE:
             
     def _convert_weights(self, weights):
         statements = []
-        for atom, weight in weights.iteritems():
+        for atom, weight in weights.items():
             cond = self._convert_formula(atom)
             then = self._convert_formula(weight[0])
             else_ = self._convert_formula(weight[1])

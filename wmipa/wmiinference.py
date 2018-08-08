@@ -11,12 +11,13 @@ __author__ = 'Paolo Morettin'
 from pysmt.shortcuts import And, Iff, Symbol, serialize
 from pysmt.typing import BOOL, REAL
 
-from logger import Loggable, init_root_logger
-from weights import Weights
-from wmi import WMI
-from wmiexception import WMIRuntimeException
-from utils import contains_labels, get_boolean_variables, \
+from wmipa import Weights
+from wmipa import WMI
+from wmipa.logger import Loggable, init_root_logger
+from wmipa.utils import contains_labels, get_boolean_variables, \
     get_real_variables, is_label, new_query_label
+from wmipa.wmiexception import WMIRuntimeException
+
 
 class WMIInference(Loggable):   
     # default WMI algorithm
@@ -219,11 +220,11 @@ if __name__ == "__main__":
     init_root_logger("cane.log",True)
 
     def compute_print(method, query, evidence):
-        print "query: ", serialize(query)
-        print "evidence: ", serialize(evidence) if evidence else "-"
+        print("query: ", serialize(query))
+        print("evidence: ", serialize(evidence) if evidence else "-")
         prob = method.compute_normalized_probability(query, evidence)
-        print "normalized: ", prob
-        print "--------------------------------------------------"
+        print("normalized: ", prob)
+        print("--------------------------------------------------")
 
     x = Symbol("x", REAL)
     A = Symbol("A")
@@ -234,9 +235,9 @@ if __name__ == "__main__":
                   Ite(A, Times(Real(-2), x), Times(Real(-1),x)))
 
     wmi = WMIInference(support, weights)
-    print "support: ", serialize(support)
-    print "weights: ", serialize(weights)
-    print "=================================================="
+    print("support: ", serialize(support))
+    print("weights: ", serialize(weights))
+    print("==================================================")
 
     suite = [#(A, None),
         (B, None),

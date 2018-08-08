@@ -14,9 +14,9 @@ from os.path import isdir
 from shutil import rmtree
 from fractions import Fraction
 
-from logger import Loggable
-from pysmt2latte import Polynomial, Polytope
-from wmiexception import WMIRuntimeException
+from wmipa.logger import Loggable
+from wmipa.pysmt2latte import Polynomial, Polytope
+from wmipa.wmiexception import WMIRuntimeException
 
 class Integrator(Loggable):
 

@@ -86,7 +86,7 @@ class SRNPRAiSE:
         # initialize t_0 (in WMI, this is passed as evidence)
         #time_equations.append(Equals(t_vars[0], str(t_departure)))
 
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
 
             # t^(k+1) = t^k + x^k
             #teq = Equals(t_vars[k+1], Plus([t_vars[k], x_vars[k]]))
@@ -98,7 +98,7 @@ class SRNPRAiSE:
             trans_k = self._transition(k, src, dst, t_vars, x_vars, aux_vars)
             statements.append(trans_k)            
 
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 poly_var = x_vars[k]
                 coeffs = self.graph[src][dst][p]['coefficients']
                 
@@ -110,7 +110,7 @@ class SRNPRAiSE:
             # bound each t^k to fall into a partition
             union_interval = self.partitions[0], self.partitions[-1]
             union_constraints = [IntoInterval(t_vars[k], union_interval, True)
-                                for k in xrange(len(t_vars))]
+                                for k in range(len(t_vars))]
             statements = statements + union_constraints
 
         add_terminator = lambda s : s + ";"
@@ -123,7 +123,7 @@ class SRNPRAiSE:
         auxiliary_defs = []
         support_constraints = []
         
-        for p in xrange(len(self.partitions)-1):
+        for p in range(len(self.partitions)-1):
             last = (p == len(self.partitions)-2)            
             aux = aux_vars[(p, step)]
             auxiliary_vars.append(aux)
@@ -170,13 +170,13 @@ class SRNPRAiSE:
         x_vars = []
         aux_vars = {}
 
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             x_vars.append(SRNPRAiSE.JOURNEY_NAME.format(k))
             prev = " + ".join(x_vars)
             tvar = "({} + {})".format(t_init, prev)
             t_vars.append(tvar)
 
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 if self.use_aux_vars:
                     avar = SRNPRAiSE.AUX_NAME.format(p, k)
                 else:

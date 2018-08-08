@@ -48,7 +48,7 @@ class SRNParser(Loggable):
             "Number of partition cannot be smaller than 1 minute."
         
         delta = int(SRNParser.MAX_TIME / n_partitions)
-        self.partitions = [(i*delta) for i in xrange(n_partitions)]
+        self.partitions = [(i*delta) for i in range(n_partitions)]
         self.partitions.append(SRNParser.MAX_TIME)
 
     @staticmethod
@@ -81,7 +81,7 @@ class SRNParser(Loggable):
         msg = "Computing conditional plan: building auxiliary graph G' {}/{}"
         for a, b in graph.edges():            
             self.logger.debug(msg.format(computed, n_edges))
-            for i in xrange(self.n_partitions):
+            for i in range(self.n_partitions):
                 pi, pf = self.partitions[i], self.partitions[i+1]
                 wp = graph.get_edge_data(a,b)[i]['avg']
                 next_t = ((pf - pi) / 2.0) + wp
@@ -109,7 +109,7 @@ class SRNParser(Loggable):
             for dst in nodes:
                 lengths = []
                 shortest = None
-                for j in xrange(self.n_partitions):
+                for j in range(self.n_partitions):
                     aux_dst = (dst, j)
                     try:
                         lngt = SRNParser._length(G, paths[(src, i)][aux_dst])
@@ -134,7 +134,7 @@ class SRNParser(Loggable):
     def _length(graph, path):
         lngt = 0
         
-        for i in xrange(len(path)-1):
+        for i in range(len(path)-1):
             lngt += graph.get_edge_data(path[i], path[i+1])['weight']
 
         return lngt
@@ -220,7 +220,7 @@ class SRNParser(Loggable):
     def _fit_distribution(self, datapoints):
         frequencies, bin_edges = histogram(datapoints, bins = "sturges")
         x = [(bin_edges[i + 1] + bin_edges[i]) / 2.
-             for i in xrange(len(bin_edges) - 1)]
+             for i in range(len(bin_edges) - 1)]
         # fitting data with a quadratic polynomial
         coefficients = polyfit(x, frequencies, 2) 
         edges = [bin_edges[0], bin_edges[-1]]
@@ -320,11 +320,11 @@ class SRNParser(Loggable):
                 values = line.strip().split(",")
                 assert(len(header) == len(values)),\
                     "Line has a different number of fields than the header"                
-                yield {header[i] : values[i] for i in xrange(len(header))                       
+                yield {header[i] : values[i] for i in range(len(header))                       
                        if not select or (header[i] in select)}
 
     def _tp_to_partition(self, tp):        
-        for i in xrange(self.n_partitions):
+        for i in range(self.n_partitions):
             if (self.partitions[i] <= tp) and (tp < self.partitions[i + 1]):
                 return i
         return None

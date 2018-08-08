@@ -11,13 +11,10 @@ Intuitively, two mutually exclusive cases are encoded:
 
 """
 
-from sys import path
-path.insert(0, "../src/")
-
 from pysmt.shortcuts import *
 from pysmt.typing import REAL, BOOL
-from wmi import WMI
-from weights import Weights
+from wmipa import WMI
+from wmipa import Weights
 
 # variables definition
 x = Symbol("x", REAL)
@@ -28,7 +25,7 @@ phi = And(Implies(LE(y, Real(1)), And(LE(Real(0), x), LE(x, Real(2)))),
           Implies(Not(LE(y, Real(1))), And(LE(Real(1), x), LE(x, Real(3)))),
           LE(Real(0), y), LE(y, Real(2)))
 
-print "Formula:", serialize(phi)
+print("Formula:", serialize(phi))
 
 # weight function definition
 w = Ite(LE(y, Real(1)),
@@ -37,15 +34,15 @@ w = Ite(LE(y, Real(1)),
 
 chi = Bool(True)
 
-print "Weight function:", serialize(w)
-print "Support:", serialize(chi)
+print("Weight function:", serialize(w))
+print("Support:", serialize(chi))
 
 weights = Weights(w, chi)
 chi = And(chi, weights.labelling)
 wmi = WMI()
-print
+print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA]:
     result, n_integrations = wmi.compute(And(phi, chi), weights, mode)
-    print "WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations)
+    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
 
         

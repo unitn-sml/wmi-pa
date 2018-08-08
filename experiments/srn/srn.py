@@ -286,7 +286,7 @@ class StrategicRoadNetwork(Loggable):
         path  = StrategicRoadNetwork._get_random_path(graph, n_steps)
         t_min, t_max = partitions[0], partitions[-1]
         t_steps = [randint(0, (t_max - t_min) / 2)]
-        for i in xrange(len(path) - 1):
+        for i in range(len(path) - 1):
             curr_time = t_steps[-1]
             curr_part = StrategicRoadNetwork._tp_to_partition(partitions, curr_time)
             curr_node, next_node = path[i], path[i + 1]
@@ -347,7 +347,7 @@ class StrategicRoadNetwork(Loggable):
         for plot in time_plots.values():
             if len(plot) < max_length:
                 timeouts = [(i+1,) + (StrategicRoadNetwork.TIMEOUT_VAL,)*3
-                            for i in xrange(len(plot),max_length)]
+                            for i in range(len(plot),max_length)]
                 plot.extend(timeouts)
 
         columns = []
@@ -376,14 +376,14 @@ class StrategicRoadNetwork(Loggable):
             nrows = len(columns[0])
             ncols = len(columns)
 
-            print "TABLE",columns
+            print("TABLE",columns) # ??
             with open(output_path + "_times.txt", 'w') as f:
                 header = "\\begin{tabular}{|l|" + "r|"*(ncols-1) + "}"
                 f.write(header + '\n')
                 f.write("\\hline\n")                
-                for j in xrange(nrows):
+                for j in range(nrows):
                     row_elements = []
-                    for i in xrange(len(columns)):
+                    for i in range(len(columns)):
                         try:
                             row_elements.append(columns[i][j])
                         except IndexError:
@@ -444,9 +444,9 @@ class StrategicRoadNetwork(Loggable):
                 header = "\\begin{tabular}{|l|" + "r|"*(ncols-1) + "}"
                 f.write(header + '\n')
                 f.write("\\hline\n")                
-                for j in xrange(nrows):
+                for j in range(nrows):
                     row_elements = []
-                    for i in xrange(len(columns)):
+                    for i in range(len(columns)):
                         try:
                             row_elements.append(columns[i][j])
                         except IndexError:
@@ -471,7 +471,7 @@ class StrategicRoadNetwork(Loggable):
 
     @staticmethod
     def _tp_to_partition(partitions, tp):
-        for i in xrange(len(partitions) - 1):
+        for i in range(len(partitions) - 1):
             if (partitions[i] <= tp) and (tp < partitions[i + 1]):
                 return i
         assert(False), "tp does not fall into any of the computed partitions."

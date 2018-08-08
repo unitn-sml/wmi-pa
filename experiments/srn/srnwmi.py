@@ -39,8 +39,8 @@ def AtMostOne(formulas):
 
     """
     conjuncts = []
-    for x in xrange(len(formulas)-1):
-        for y in xrange(x+1, len(formulas)):
+    for x in range(len(formulas)-1):
+        for y in range(x+1, len(formulas)):
             conjuncts.append(Not(And(formulas[x], formulas[y])))
     return And(conjuncts)
 
@@ -91,7 +91,7 @@ class SRNWMI:
         time_equations = []
         cond_weights = []
         
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             
             # t^(k+1) = t^k + x^k
             teq = Equals(t_vars[k+1], Plus(t_vars[k], x_vars[k]))
@@ -103,7 +103,7 @@ class SRNWMI:
             transitions.append(trans_k)
             
             # add weight functions
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 poly_var = x_vars[k]
                 coeffs = self.graph[src][dst][p]['coefficients']
                 
@@ -117,7 +117,7 @@ class SRNWMI:
             # bound each t^k to fall into a partition
             union_interval = self.partitions[0], self.partitions[-1]
             union_constraints = [IntoInterval(t_vars[k], union_interval, True)
-                                for k in xrange(len(t_vars))]
+                                for k in range(len(t_vars))]
             self.formula = And(self.formula, And(union_constraints))
 
             
@@ -138,7 +138,7 @@ class SRNWMI:
         auxiliary_defs = []
         support_constraints = []
         
-        for p in xrange(len(self.partitions)-1):
+        for p in range(len(self.partitions)-1):
             
             aux = aux_vars[(p, step)]
             auxiliary_vars.append(aux)
@@ -173,8 +173,8 @@ class SRNWMI:
 
     def _init_aux_vars(self):
         aux_vars = {}
-        for p in xrange(len(self.partitions)-1):
-            for k in xrange(self.n_steps):
+        for p in range(len(self.partitions)-1):
+            for k in range(self.n_steps):
                 aux_vars[(p, k)] = Symbol(SRNWMI.AUX_NAME.format(p, k))
                 
         return aux_vars
@@ -182,7 +182,7 @@ class SRNWMI:
     def _init_time_x_vars(self):
         t_vars = []
         x_vars = []
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             x_vars.append(
                 Symbol(SRNWMI.JOURNEY_NAME.format(k), REAL))
             t_vars.append(Symbol(SRNWMI.TIME_NAME.format(k), REAL))

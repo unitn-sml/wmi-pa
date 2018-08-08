@@ -11,7 +11,7 @@ from sympy import expand #, is_Add, is_Mul, is_Pow, is_Symbol, is_Number
 from pysmt.shortcuts import Plus, Times, Pow, Symbol, Real, serialize
 from pysmt.typing import REAL
 
-from wmiexception import WMIParsingError
+from wmipa.wmiexception import WMIParsingError
 
 
 def sympy2pysmt(expression):

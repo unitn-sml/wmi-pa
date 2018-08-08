@@ -72,12 +72,12 @@ class PlanPRAiSE:
         
         subformulas = []
         
-        for k in xrange(self.n_steps+1):
+        for k in range(self.n_steps+1):
             # exactly one location at each step
             subformulas.append(ExactlyOne(loc_vars[k]))
             
         relevant_edges = set()
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             # each x^k should be nonnegative
             nonneg_x_k = LE(Real(0), x_vars[k])
             subformulas.append(nonneg_x_k)            
@@ -89,12 +89,12 @@ class PlanPRAiSE:
                     subformulas.append(Or(aux_vars[k]))           
             
             #step_xor = set()            
-            for l in xrange(len(self.locations)):
+            for l in range(len(self.locations)):
                 src = self.locations[l]
                 cond = loc_vars[k][l]
                 subsubformulas = []
 
-                for p in xrange(len(self.partitions)-1):
+                for p in range(len(self.partitions)-1):
                     nxt = self.conditional_plan[(src, p, final_location)]
                     if nxt in self.locations:
                         nxt_expr = loc_vars[k+1][self.locations.index(nxt)]
@@ -112,7 +112,7 @@ class PlanPRAiSE:
                 if len(subsubformulas) > 0:
                     subformulas.append(Implies(cond, And(subsubformulas)))
 
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 last = (p == len(self.partitions)-2)
                 partition = (self.partitions[p], self.partitions[p+1])
 
@@ -138,7 +138,7 @@ class PlanPRAiSE:
             # bound each t^k to fall into a partition
             union_interval = self.partitions[0], self.partitions[-1]
             union_constraints = [IntoInterval(t_vars[k], union_interval, True)
-                                for k in xrange(len(t_vars))]
+                                for k in range(len(t_vars))]
             subformulas.append(And(union_constraints))
 
         cond_weights = self._compute_weights(subgraph, relevant_edges, aux_vars,
@@ -152,13 +152,13 @@ class PlanPRAiSE:
 
     def _compute_weights(self, subgraph, edges, aux_vars, loc_vars, x_vars):
         conditionals = []
-        for i in xrange(self.n_steps):
+        for i in range(self.n_steps):
             for src, dst in edges:
                 l1 = self.locations.index(src)
                 l2 = self.locations.index(dst)                
                 cond = And([loc_vars[i][l1], loc_vars[i+1][l2]])
                 subconditionals = []
-                for p in xrange(len(self.partitions)-1):
+                for p in range(len(self.partitions)-1):
                     subcond = aux_vars[i][p]
                     poly_var = x_vars[i]
                     coeffs = subgraph[src][dst][p]['coefficients']
@@ -177,21 +177,21 @@ class PlanPRAiSE:
         loc_vars = []
         aux_vars = []
         
-        for k in xrange(self.n_steps+1):
+        for k in range(self.n_steps+1):
             loc_k = []
-            for l in xrange(len(self.locations)):
+            for l in range(len(self.locations)):
                 var = PlanPRAiSE.LOC_NAME.format(k, l)
                 loc_k.append(var)
                 
             loc_vars.append(loc_k)
         
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             x_vars.append(PlanPRAiSE.JOURNEY_NAME.format(k))
             prev = " + ".join(x_vars)
             tvar = "({} + {})".format(t_init, prev)
             t_vars.append(tvar)
             aux_k = []
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 
                 if self.use_aux_vars:
                     avar = PlanPRAiSE.AUX_NAME.format(p, k)
@@ -224,68 +224,3 @@ class PlanPRAiSE:
 
             monomials.append(monomial)
         return Plus(monomials)
-
-        
-if __name__ == "__main__":
-    from networkx import nx
- 
-    G = nx.DiGraph()
-
-    edges = [(1,2), (1,3), (2,3), (3,1), (3,4), (4,2)]
-
-    for src,dst in edges:
-        for partition in [0,1]:
-            G.add_edge(src, dst)
-            G[src][dst][partition] = {}
-            G[src][dst][partition]['avg'] = (src + dst) / 2.0
-            G[src][dst][partition]['range'] = [src, dst]
-            G[src][dst][partition]['coefficients'] = range(3)
-
-    n_steps = 2
-    partitions = [0, 2, 4]
-    init_location = 1
-    final_location = 3
-
-    t_departure = 0.0
-
-    conditional_plan = {(1, 0, 1) : 1,
-                        (1, 1, 1) : 1,
-                        (1, 0, 2) : 2,
-                        (1, 1, 2) : 2,
-                        (1, 0, 3) : 3,
-                        (1, 1, 3) : 3,
-                        (1, 0, 4) : 3,
-                        (1, 1, 4) : 3,
-                        
-                        (2, 0, 1) : 3,
-                        (2, 1, 1) : 3,
-                        (2, 0, 2) : 3,
-                        (2, 1, 2) : 3,
-                        (2, 0, 3) : 3,
-                        (2, 1, 3) : 3,
-                        (2, 0, 4) : 3,
-                        (2, 1, 4) : 3,
-
-                        (3, 0, 1) : 1,
-                        (3, 1, 1) : 1,
-                        (3, 0, 2) : 1,
-                        (3, 1, 2) : 1,
-                        (3, 0, 3) : 1,
-                        (3, 1, 3) : 1,
-                        (3, 0, 4) : 1,
-                        (3, 1, 4) : 1,
-
-                        (4, 0, 1) : 2,
-                        (4, 1, 1) : 2,
-                        (4, 0, 2) : 2,
-                        (4, 1, 2) : 2,
-                        (4, 0, 3) : 2,
-                        (4, 1, 3) : 2,
-                        (4, 0, 4) : 2,
-                        (4, 1, 4) : 2}        
-    
-    planpraise = PlanPRAiSE(partitions, conditional_plan)
-    planpraise.compile_knowledge(G, n_steps, init_location,
-                          final_location, t_departure)
-
-    print planpraise.model

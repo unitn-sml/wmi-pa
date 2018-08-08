@@ -10,13 +10,12 @@ __author__ = 'Paolo Morettin'
 from os.path import dirname, abspath
 from subprocess import Popen, PIPE
 from time import sleep
-import xaddnestedlang as nl
 from pysmt.typing import REAL, BOOL
 
-from wmiexception import WMIRuntimeException, WMIParsingError,\
+from wmipa.pysmt2latte import is_pow
+from wmipa.wmiexception import WMIRuntimeException, WMIParsingError,\
     WMITimeoutException
-from pysmt2latte import is_pow
-
+import wmipa.xaddnestedlang as nl
 
 class XADDInference:
 
@@ -169,11 +168,11 @@ if __name__ == "__main__":
     from pysmt.typing import REAL
 
     def compute_print(method, query, evidence):
-        print "query: ", serialize(query)
-        print "evidence: ", serialize(evidence) if evidence else "-"
+        print("query: ", serialize(query))
+        print("evidence: ", serialize(evidence) if evidence else "-")
         prob = method.compute_normalized_probability(query, evidence)
-        print "normalized: ", prob
-        print "--------------------------------------------------"
+        print("normalized: ", prob)
+        print("--------------------------------------------------")
 
     x = Symbol("x", REAL)
     A = Symbol("A")
@@ -183,9 +182,9 @@ if __name__ == "__main__":
                   Ite(A, Times(Real(-2), x), Times(Real(-1),x)))
 
     xadd = XADDInference(support, weights)
-    print "support: ", serialize(support)
-    print "weights: ", serialize(weights)
-    print "=================================================="
+    print("support: ", serialize(support))
+    print("weights: ", serialize(weights))
+    print("==================================================")
 
     suite = [(A, None),
              (And(A, LE(Real(0), x)), None),

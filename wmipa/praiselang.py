@@ -1,18 +1,11 @@
 
-# variable definitions do not exist in XADD NL
+# variable definitions
 
 def RealVar(name):
-    raise NotImplementedError()
+    return "random {} : Real;".format(name)
 
 def BooleanVar(name):
-    raise NotImplementedError()
-
-def Symbol(name):
-    return "({})".format(name)
-
-def formulaIntoEvidence(formula):
-    assert(isinstance(formula, str))
-    return Ite(formula, Real(1), Real(0))
+    return "random {} : Boolean;".format(name)
 
 
 # constant values
@@ -27,7 +20,7 @@ def Ite(cond, then, else_):
     assert(isinstance(cond, str))
     assert(isinstance(then, str))
     assert(isinstance(else_, str))    
-    return "(ite {} {} {})".format(cond, then, else_)
+    return "(if {}\nthen {}\nelse {})".format(cond, then, else_)
 
 
 # generic n-ary operator
@@ -36,14 +29,14 @@ def bOp(a, b, op):
     assert(isinstance(b, str))
     assert(isinstance(op, str))
     op = " {} ".format(op.strip())
-    return "({} {} {})".format(op, a, b)
+    return "({} {} {})".format(a, op, b)
 
 # generic n-ary operator
 def nOp(vals, op):
     assert(all(map(lambda x : isinstance(x, str), vals)))
     assert(isinstance(op, str))    
     op = " {} ".format(op.strip())
-    return "({} {})".format(op, " ".join(vals))
+    return "({})".format(op.join(vals))
 
 # algebraic operators
             
@@ -92,13 +85,13 @@ def GT(a, b):
     return bOp(a, b, ">")
 
 def Equals(a, b):
-    return bOp(a, b, "==")
+    return bOp(a, b, "=")
 
 
 def AtMostOne(args):
     excl = []
-    for i in xrange(len(args) - 1):
-        for j in xrange(i+1, len(args)):
+    for i in range(len(args) - 1):
+        for j in range(i+1, len(args)):
             not_both = Not(And([args[i], args[j]]))
             excl.append(not_both)
     return And(excl)

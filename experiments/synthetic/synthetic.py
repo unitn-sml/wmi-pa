@@ -273,7 +273,7 @@ class Synthetic(Loggable):
 
         n_instances = min(len(time_plots[m]) for m in time_plots)
         table = []
-        for i in xrange(n_instances):
+        for i in range(n_instances):
             instance = tuple(time_plots[m][i] for m in Synthetic.METHOD_ORDER
                              if m in time_plots)
             table.append(instance)

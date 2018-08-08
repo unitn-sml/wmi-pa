@@ -62,12 +62,12 @@ class PlanWMI(Loggable):
         t_vars, x_vars, loc_vars, aux_vars = self._init_vars()
         subformulas = []
 
-        for k in xrange(self.n_steps+1):
+        for k in range(self.n_steps+1):
             # exactly one location at each step    
             subformulas.append(ExactlyOne(loc_vars[k]))
 
         relevant_edges = set()    
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             # t^(k+1) = t^k + x^k
             teq = Equals(t_vars[k+1], Plus(t_vars[k], x_vars[k]))
             subformulas.append(teq)
@@ -81,12 +81,12 @@ class PlanWMI(Loggable):
             elif self.encoding[AUX_CONSTRAINTS] == 'or':
                 subformulas.append(Or(aux_vars[k]))           
 
-            for l in xrange(len(self.locations)):
+            for l in range(len(self.locations)):
                 src = self.locations[l]
                 cond = loc_vars[k][l]
                 subsubformulas = []
                 
-                for p in xrange(len(self.partitions)-1):
+                for p in range(len(self.partitions)-1):
                     nxt = self.conditional_plan[(src, p, final_location)]
                     if nxt in self.locations:
                         nxt_expr = loc_vars[k+1][self.locations.index(nxt)]
@@ -103,7 +103,7 @@ class PlanWMI(Loggable):
                         
                 subformulas.append(Implies(cond, And(subsubformulas)))
                         
-            for p in xrange(len(self.partitions)-1):
+            for p in range(len(self.partitions)-1):
                 last = (p == len(self.partitions)-2)
                 partition = (self.partitions[p], self.partitions[p+1])
                 interval = IntoInterval(t_vars[k], partition, last)
@@ -127,7 +127,7 @@ class PlanWMI(Loggable):
             # bound each t^k to fall into a partition
             union_interval = self.partitions[0], self.partitions[-1]
             union_constraints = [IntoInterval(t_vars[k], union_interval, True)
-                                for k in xrange(len(t_vars))]
+                                for k in range(len(t_vars))]
             self.formula = And(self.formula, And(union_constraints))
 
         self.time_vars = t_vars
@@ -143,15 +143,15 @@ class PlanWMI(Loggable):
         self.logger.debug(msg.format(nreals, nbools))
 
     def _compute_weights(self, subgraph, edges, aux_vars, loc_vars, x_vars):
-        #loc_indexes = xrange(len(self.locations))
+        #loc_indexes = range(len(self.locations))
         conditionals = []
-        for i in xrange(self.n_steps):
+        for i in range(self.n_steps):
             for src, dst in edges:
                 l1 = self.locations.index(src)
                 l2 = self.locations.index(dst)                
                 cond = And(loc_vars[i][l1], loc_vars[i+1][l2])
                 subconditionals = []
-                for p in xrange(len(self.partitions)-1):
+                for p in range(len(self.partitions)-1):
                     subcond = aux_vars[i][p]
                     poly_var = x_vars[i]
                     coeffs = subgraph[src][dst][p]['coefficients']
@@ -175,18 +175,18 @@ class PlanWMI(Loggable):
         loc_vars = []
         aux_vars = []
     
-        for k in xrange(self.n_steps+1):
+        for k in range(self.n_steps+1):
             t_vars.append(Symbol(PlanWMI.TIME_NAME.format(k), REAL))            
             loc_k = []
-            for l in xrange(len(self.locations)):
+            for l in range(len(self.locations)):
                 var = Symbol(PlanWMI.LOC_NAME.format(k, l))
                 loc_k.append(var)
             loc_vars.append(loc_k)
         
-        for k in xrange(self.n_steps):
+        for k in range(self.n_steps):
             x_vars.append(Symbol(PlanWMI.JOURNEY_NAME.format(k), REAL))
             aux_k = []
-            for p in xrange(len(self.partitions)-1):            
+            for p in range(len(self.partitions)-1):            
                 aux_k.append(Symbol(PlanWMI.AUX_NAME.format(p, k)))
                 
             aux_vars.append(aux_k)                

@@ -4,7 +4,7 @@ from itertools import product
 from pysmt.shortcuts import And, Iff, Symbol, get_env
 from pysmt.typing import BOOL
 
-from utils import new_cond_label, is_cond_label
+from wmipa.utils import new_cond_label, is_cond_label
 
 class Weights:
 
@@ -26,8 +26,8 @@ class Weights:
             self.cache = None
 
     def weight_from_assignment(self, assignment):        
-        label_assignment = [None for _ in xrange(self.n_conditions)]
-        for atom, value in assignment.iteritems():            
+        label_assignment = [None for _ in range(self.n_conditions)]
+        for atom, value in assignment.items():            
             assert(isinstance(value,bool)), "Assignment value should be Boolean"
             if (atom.is_symbol() and atom.get_type() == BOOL and
                      is_cond_label(atom)):

@@ -22,7 +22,6 @@ class Loggable:
         self.logger = get_sublogger(name)
 
 
-DEF_PATH = "log_wmi.log"
 ROOT_NAME = "root"
 
 def init_root_logger(path=None, verbose=False):
@@ -32,16 +31,15 @@ def init_root_logger(path=None, verbose=False):
     logger.setLevel(logging.DEBUG)
 
     sh = logging.StreamHandler(stdout)
-    sh.setLevel(logging.DEBUG if verbose else logging.INFO)
+    sh.setLevel(logging.DEBUG if verbose or path is None else logging.INFO)
     sh.setFormatter(formatter)
-
-    path = path or DEF_PATH
-    fh = logging.FileHandler(path, "w+")    
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(formatter)
-
     logger.addHandler(sh)
-    logger.addHandler(fh)
+
+    if not path is None:
+        fh = logging.FileHandler(path, "w+")    
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(formatter)
+        logger.addHandler(fh)
 
 def get_sublogger(name):
     return logging.getLogger("{}.{}".format(ROOT_NAME, name))

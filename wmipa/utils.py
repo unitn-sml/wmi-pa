@@ -1,4 +1,6 @@
 
+from functools import reduce
+
 from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, REAL
 

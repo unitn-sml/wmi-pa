@@ -14,9 +14,9 @@ from fractions import Fraction
 import networkx as nx
 from pysmt.operators import POW
 from pysmt.shortcuts import Plus, Real, Times
-from sympy2pysmt import get_canonical_form
-from utils import lcmm
-from wmiexception import WMIParsingError, WMIRuntimeException
+from wmipa.sympy2pysmt import get_canonical_form
+from wmipa.utils import lcmm
+from wmipa.wmiexception import WMIParsingError, WMIRuntimeException
 
 # utility unbound methods
 def is_pow(expression):
@@ -103,7 +103,7 @@ class Polynomial:
             # build a dependency graph of the substitutions and apply them in
             # topological order
             Gsub = nx.DiGraph()
-            for x, alias_expr in aliases.iteritems():
+            for x, alias_expr in aliases.items():
                 for y in alias_expr.get_free_variables():
                     Gsub.add_edge(x, y)           
             sorted_substitutions = [node for node in nx.topological_sort(Gsub)
@@ -153,7 +153,7 @@ class Monomial:
             raise WMIParsingError(Monomial.PARSING_ERROR_MSG, expression)
 
     def __str__(self):
-        powers = ["{}^{}".format(k, e) for k, e in self.exponents.iteritems()]
+        powers = ["{}^{}".format(k, e) for k, e in self.exponents.items()]
         return "(" + str(self.coefficient) + " " + " ".join(powers) + ")"
 
     def degree(self):
@@ -170,7 +170,7 @@ class Monomial:
         assert(isinstance(monomial, Monomial)),\
             "Argument should be an instance of Monomial"
         self.coefficient *= monomial.coefficient
-        for name, exp in monomial.exponents.iteritems():
+        for name, exp in monomial.exponents.items():
             self._update_exponent(name,exp)
 
     def negate(self):
@@ -273,9 +273,9 @@ class Bound:
         self.coefficients = {}
         for monomial in poly.monomials:
             assert(len(monomial.exponents) == 1
-                   and monomial.exponents.values()[0] == 1),\
+                   and list(monomial.exponents.values())[0] == 1),\
                 "Not a monomial of degree 1"
-            name = monomial.exponents.keys()[0]
+            name = list(monomial.exponents.keys())[0]
             assert(name not in self.coefficients),\
                 "Polynomial not in canonical form"
             self.coefficients[name] = int(monomial.coefficient * lcd)
@@ -317,7 +317,7 @@ class Polytope(list):
 
         self.variables = set()
         for bound in self.polytope:
-            for name in bound.coefficients.iterkeys():
+            for name in bound.coefficients.keys():
                 self.variables.add(name)
 
 
