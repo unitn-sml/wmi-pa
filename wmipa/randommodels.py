@@ -2,9 +2,16 @@
 
 from random import choice, randint, random, sample, seed, shuffle
 
+from numpy.random import seed as numseed
+
 from pysmt.shortcuts import Symbol, Plus, Times, Pow, Ite, Real, And, Or, Not, \
     LE, LT
 from pysmt.typing import *
+
+from sympy import div
+from sympy.polys.polyerrors import ComputationFailed
+
+from wmipa.sympy2pysmt import pysmt2sympy, sympy2pysmt
 
 class ModelGenerator:
 
@@ -21,6 +28,9 @@ class ModelGenerator:
     MAX_MONOMIALS = 3
     # maximum number of children of a formula's internal node
     MAX_BREADTH = 4
+    # maximum number of squared rational functions used to sample
+    # non-negative polynomials
+    MAX_SRF = 4
 
     def __init__(self, n_reals, n_bools, seedn=None):
         assert(n_reals + n_bools > 0)
@@ -36,7 +46,7 @@ class ModelGenerator:
         if seedn != None:
             self.seedn = seedn
             seed(seedn)
-
+            numseed(seedn)
 
     def generate_support_cond(self, real_only=True):
         subformulas = []
@@ -134,32 +144,62 @@ class ModelGenerator:
             
         return And(subformulas)    
 
-    def generate_weights_tree(self, depth):
+    def generate_weights_tree(self, depth, nonnegative=False):
         if depth <= 0:
-            return self._random_polynomial()
+            return self._random_polynomial(nonnegative)
         else:
             op = choice([Ite, Plus, Times])
-            left = self.generate_weights_tree(depth - 1)
-            right = self.generate_weights_tree(depth - 1)
+            left = self.generate_weights_tree(depth - 1, nonnegative)
+            right = self.generate_weights_tree(depth - 1, nonnegative)
             if op == Ite:
                 cond = self._random_formula(depth)
                 return op(cond, left, right)
             else:
                 return op(left, right)
 
-    def generate_weights_ijcai17(self, pos_only=True):
+    def generate_weights_ijcai17(self, pos_only=True, nonnegative=False):
         subformulas = []
         for a in self.bools:
-            pos = self._random_polynomial()
-            neg = Real(1) if pos_only else self._random_polynomial()
+            pos = self._random_polynomial(nonnegative)
+            neg = Real(1) if pos_only else self._random_polynomial(nonnegative)
             subformulas.append(Ite(a, pos, neg))
         return Times(subformulas)
         
-    def _random_polynomial(self):
-        monomials = []
-        for i in range(randint(1, self.MAX_MONOMIALS)):
-            monomials.append(self._random_monomial())
-        return Plus(monomials)
+    def _random_polynomial(self, nonnegative=False):
+        if nonnegative:
+            # the sum of squared rational functions is a non-negative polynomial
+            sq_sum = []
+            for _ in range(randint(1, self.MAX_SRF)):
+                poly = self._random_polynomial()
+                sq_sum.append(Times(poly,poly))
+                """
+                srf = None
+                while srf is None:
+                    p = pysmt2sympy(self._random_polynomial())
+                    q = pysmt2sympy(self._random_polynomial())
+                    try:
+                        #srf = sum(div(p,q))
+                        srf = sum(div(p,1))
+                    except ZeroDivisionError:
+                        continue
+                    except ComputationFailed:
+                        continue
+
+                    print("P:",p)
+                    print("Q:",q)
+                    print("SRF:", srf)
+
+                sq_sum.append(sympy2pysmt(srf**2))
+                """
+                
+            return Plus(sq_sum)
+
+        else:
+            monomials = []
+            for i in range(randint(1, self.MAX_MONOMIALS)):
+                monomials.append(self._random_monomial())
+            return Plus(monomials)
+
 
     def _random_monomial(self, minsize=None, maxsize=None):
         minsize = minsize if minsize else 1
@@ -169,8 +209,9 @@ class ModelGenerator:
         coeff = self._random_coefficient()
         pows = [coeff]
         for rvar in rvars:
-            exponent = Real(randint(0, self.MAX_EXPONENT))
-            pows.append(Pow(rvar, exponent))
+            exponent = randint(0, self.MAX_EXPONENT)
+            pows.append(Pow(rvar, Real(exponent)))
+
         return Times(pows)
 
     def _random_boolean_formula(self, depth):
