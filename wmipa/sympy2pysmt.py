@@ -13,6 +13,9 @@ from pysmt.typing import REAL
 
 from wmipa.wmiexception import WMIParsingError
 
+def pysmt2sympy(formula):
+    return serialize(formula)
+
 
 def sympy2pysmt(expression):
     """Converts a sympy formula representing a polynomial into a  pysmt formula.
@@ -50,5 +53,5 @@ def get_canonical_form(expression):
     WMIParsingError -- If it fails to parse back the formula after converting it
 
     """
-    canonical = sympy2pysmt(expand(serialize(expression)))
+    canonical = sympy2pysmt(expand(pysmt2sympy(expression)))
     return canonical

@@ -13,7 +13,7 @@ __author__ = 'Paolo Morettin'
 from fractions import Fraction
 import networkx as nx
 from pysmt.operators import POW
-from pysmt.shortcuts import Plus, Real, Times
+from pysmt.shortcuts import Plus, Real, Times, serialize
 from wmipa.sympy2pysmt import get_canonical_form
 from wmipa.utils import lcmm
 from wmipa.wmiexception import WMIParsingError, WMIRuntimeException
@@ -49,7 +49,7 @@ class Polynomial:
         canonical = Polynomial._preprocess_formula(expression, aliases)
         self.monomials = []
         self.variables = set()
-        if canonical.is_plus():            
+        if canonical.is_plus():
             for term in canonical.args():
                 self._add_monomial(Monomial(term))
         else:
@@ -185,8 +185,7 @@ class Monomial:
         elif is_pow(expression):
             var, exp = expression.args()
             if not var.is_symbol() or not exp.is_real_constant():
-                msg =  "Not a monomial."
-                raise WMIParsingError(msg, None)
+                raise WMIParsingError(Monomial.PARSING_ERROR_MSG, None)
                 
             self._update_exponent(var.symbol_name(), exp.constant_value())
 
