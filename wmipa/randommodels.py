@@ -144,11 +144,15 @@ class ModelGenerator:
             
         return And(subformulas)    
 
-    def generate_weights_tree(self, depth, nonnegative=False):
+    def generate_weights_tree(self, depth, nonnegative=False, splits_only=False):
         if depth <= 0:
             return self._random_polynomial(nonnegative)
         else:
-            op = choice([Ite, Plus, Times])
+            if splits_only:
+                op = Ite
+            else:
+                op = choice([Ite, Plus, Times])
+
             left = self.generate_weights_tree(depth - 1, nonnegative)
             right = self.generate_weights_tree(depth - 1, nonnegative)
             if op == Ite:
