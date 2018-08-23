@@ -1,7 +1,7 @@
 
 from itertools import product
 
-from pysmt.shortcuts import And, Iff, Symbol, get_env
+from pysmt.shortcuts import And, Iff, Symbol, get_env, serialize
 from pysmt.typing import BOOL
 
 from wmipa.utils import new_cond_label, is_cond_label
@@ -102,8 +102,10 @@ class Weights:
 
             subs = Weights._find_conditions(then, subs)
             subs = Weights._find_conditions(_else, subs)
+            print(len(subs))
 
-        for child in node.args():
-            subs = Weights._find_conditions(child, subs)
+        else:
+            for child in node.args():
+                subs = Weights._find_conditions(child, subs)
 
         return subs
