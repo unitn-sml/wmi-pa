@@ -4,9 +4,9 @@ from random import choice, randint, random, sample, seed, shuffle
 
 from numpy.random import seed as numseed
 
-from pysmt.shortcuts import Symbol, Plus, Times, Pow, Ite, Real, And, Or, Not, \
-    LE, LT
-from pysmt.typing import *
+from pysmt.shortcuts import BOOL, REAL, Symbol, Plus, Times, Pow, Ite, Real, \
+    And, Or, Not, LE, LT
+
 
 from sympy import div
 from sympy.polys.polyerrors import ComputationFailed
@@ -19,7 +19,7 @@ class ModelGenerator:
     TEMPL_BOOLS = "A_{}"
 
     # maximum (absolute) value a variable can take
-    DOMAIN_BOUNDS = 100
+    DOMAIN_BOUNDS = [-100, 100]
     # maximum multiplicative constant
     MAX_COEFFICIENT = 10
     # maximum exponent
@@ -32,16 +32,22 @@ class ModelGenerator:
     # non-negative polynomials
     MAX_SRF = 4
 
-    def __init__(self, n_reals, n_bools, seedn=None):
+    def __init__(self, n_reals, n_bools, seedn,
+                 templ_bools=TEMPL_BOOLS,
+                 templ_reals=TEMPL_REALS,
+                 initial_bounds=DOMAIN_BOUNDS):
         assert(n_reals + n_bools > 0)
+        
         # initialize the real/boolean variables
         self.reals = []
         for i in range(n_reals):
-            self.reals.append(Symbol(self.TEMPL_REALS.format(i), REAL))
+            self.reals.append(Symbol(templ_reals.format(i), REAL))
         self.bools = []
         for i in range(n_bools):
-            self.bools.append(Symbol(self.TEMPL_BOOLS.format(i)))
+            self.bools.append(Symbol(templ_bools.format(i), BOOL))
 
+        self.domain_bounds = dict()
+        self.initial_bounds = initial_bounds
         # set the seed number, if specified
         if seedn != None:
             self.seedn = seedn
@@ -52,7 +58,7 @@ class ModelGenerator:
         subformulas = []
         # generate the domains of the real variables
         for rvar in self.reals:
-            subformulas.append(ModelGenerator._random_domain(rvar))
+            subformulas.append(self._random_domain(rvar))
 
         if not real_only:
             subformulas.append(self._random_boolean_formula(depth))
@@ -119,7 +125,7 @@ class ModelGenerator:
         else:
             # generate the domains of the real variables
             for rvar in self.reals:
-                subformulas.append(ModelGenerator._random_domain(rvar))
+                subformulas.append(self._random_domain(rvar))
 
         # generate the support
         subformulas.append(self._random_formula(depth))
@@ -128,7 +134,7 @@ class ModelGenerator:
     def generate_support_ijcai17(self, n_conjuncts, max_disjunct_size, atr=0.5):
         subformulas = []
         for rvar in self.reals:
-            subformulas.append(ModelGenerator._random_domain(rvar))
+            subformulas.append(self._random_domain(rvar))
 
         for _ in range(n_conjuncts):
             size = randint(1, max_disjunct_size + 1)
@@ -168,6 +174,13 @@ class ModelGenerator:
             neg = Real(1) if pos_only else self._random_polynomial(nonnegative)
             subformulas.append(Ite(a, pos, neg))
         return Times(subformulas)
+
+    def _random_domain(self, var):
+        lower, upper = sorted([randint(*self.initial_bounds),
+                               randint(*self.initial_bounds)])
+        self.domain_bounds[var] = [lower, upper]
+        return And(LE(Real(lower), var), LE(var, Real(upper)))
+    
         
     def _random_polynomial(self, nonnegative=False):
         if nonnegative:
@@ -268,11 +281,7 @@ class ModelGenerator:
         maxc = ModelGenerator.MAX_COEFFICIENT
         return Real(randint(-maxc, maxc))
                         
-    @staticmethod
-    def _random_domain(var):
-        lower = -randint(0, ModelGenerator.DOMAIN_BOUNDS)
-        upper = randint(0, ModelGenerator.DOMAIN_BOUNDS)
-        return And(LE(Real(lower), var), LE(var, Real(upper)))
+
 
 
 if __name__ == '__main__':
