@@ -104,7 +104,7 @@ class WMI:
         self.logger.debug("A: {}, domA: {}".format(A, domA))
         if domA != None:
             if len(A - domA) > 0:
-                self.logger.error(dom_msg)
+                self.logger.error(dom_msg + "A - domA = {}".format(A - domA))
                 raise WMIRuntimeException(dom_msg)
             else:
                 factor = 2**len(domA - A)
