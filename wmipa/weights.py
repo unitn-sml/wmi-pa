@@ -31,7 +31,7 @@ class Weights:
             assert(isinstance(value,bool)), "Assignment value should be Boolean"
             if (atom.is_symbol() and atom.get_type() == BOOL and
                      is_cond_label(atom)):
-                index = int(atom.symbol_name().partition("_")[-1])
+                index = int(atom.symbol_name().split("_")[-1])
                 label_assignment[index] = value
             
         assert(not None in label_assignment),\
@@ -78,7 +78,7 @@ class Weights:
     def _evaluate_weight(node, assignment):
         if node.is_ite():
             cond, then, _else = node.args()
-            index_cond = int(cond.symbol_name().partition("_")[-1])
+            index_cond = int(cond.symbol_name().split("_")[-1])
             if assignment[index_cond]:
                 return Weights._evaluate_weight(then, assignment)
             else:
