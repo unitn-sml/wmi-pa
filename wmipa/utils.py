@@ -5,9 +5,9 @@ from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, REAL
 
 
-COND_PREFIX = "cond"
-QUERY_PREFIX = "query"
-WMI_PREFIX = "wmi"
+COND_PREFIX = "__cond_"
+QUERY_PREFIX = "__query_"
+WMI_PREFIX = "__wmi_"
 
 PREFIXES = [COND_PREFIX, QUERY_PREFIX, WMI_PREFIX]
 
