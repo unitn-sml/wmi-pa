@@ -13,6 +13,7 @@ from os import makedirs, chdir, getcwd
 from os.path import isdir
 from shutil import rmtree
 from fractions import Fraction
+from tempfile import TemporaryDirectory
 
 from wmipa.logger import Loggable
 from wmipa.pysmt2latte import Polynomial, Polytope
@@ -41,38 +42,33 @@ class Integrator(Loggable):
             
 
     def integrate_raw(self, coefficients, rng, index=0):
-        # create a temporary folder containing the input and output files
-        # possibly removing an older one
-        folder = Integrator.FOLDER_TEMPLATE.format(index)
-        if isdir(folder):
-            rmtree(folder)
-            
-        makedirs(folder)        
+        folder = TemporaryDirectory(dir=".")
         polynomial_file = Integrator.POLYNOMIAL_TEMPLATE
         polytope_file = Integrator.POLYTOPE_TEMPLATE
         output_file = Integrator.OUTPUT_TEMPLATE        
         # change the CWD and create the temporary files
         original_cwd = getcwd()
-        chdir(folder)
+        chdir(folder.name)
+
 
         frac_coeffs = map(Fraction, coefficients)
-
         with open(polynomial_file, 'w') as f:
             f.write("[[{},[2]],[{},[1]],[{},[0]]]".format(*frac_coeffs))
 
         b1 = Fraction(rng[0]).denominator
         b2 = Fraction(rng[1]).denominator
         bound = [-Fraction(rng[0]).numerator, b1, Fraction(rng[1]).numerator, b2]
+
         with open(polytope_file, 'w') as f:
             f.write("2 2\n{} {}\n{} -{}".format(*bound))       
             
         # integrate and dump the result on file
         self._call_latte(polynomial_file, polytope_file, output_file)
         # read back the result and return to the original CWD
-        result = self._read_output_file(output_file)            
+        result = self._read_output_file(output_file)
+        
         chdir(original_cwd)
-        # remove the temporary folder and files
-        rmtree(folder)        
+
         return result
         
 
@@ -89,40 +85,39 @@ class Integrator(Loggable):
         assert(isinstance(integrand, Polynomial)
                and isinstance(polytope, Polytope)),\
                "Arguments should be of type Polynomial, Polytope."
-        # create a temporary folder containing the input and output files
-        # possibly removing an older one
-        folder = Integrator.FOLDER_TEMPLATE.format(index)
-        if isdir(folder):
-            rmtree(folder)
-            
-        makedirs(folder)        
+        folder = TemporaryDirectory(dir=".")
         polynomial_file = Integrator.POLYNOMIAL_TEMPLATE
         polytope_file = Integrator.POLYTOPE_TEMPLATE
         output_file = Integrator.OUTPUT_TEMPLATE        
         # change the CWD and create the temporary files
         original_cwd = getcwd()
-        chdir(folder)
+        chdir(folder.name)
+
         # variable ordering is relevant in LattE files 
         variables = list(integrand.variables.union(polytope.variables))
         variables.sort()
+
         self._write_polynomial_file(integrand, variables, polynomial_file)
         self._write_polytope_file(polytope, variables, polytope_file)
         # integrate and dump the result on file
+        
         self._call_latte(polynomial_file, polytope_file, output_file)
         # read back the result and return to the original CWD
-        result = self._read_output_file(output_file)            
+        result = self._read_output_file(output_file)
+
         chdir(original_cwd)
-        # remove the temporary folder and files
-        rmtree(folder)        
         return result
 
     def _read_output_file(self, path):
+        res = None
         with open(path, 'r') as f:
             for line in f:
                 # result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
-                    return float(line.partition(": ")[-1].strip())
-        return None                                
+                    res = float(line.partition(": ")[-1].strip())
+                    break
+
+        return res
         
     def _write_polynomial_file(self, integrand, variables, path):
         monomials_repr = []
@@ -137,7 +132,8 @@ class Integrator(Loggable):
             monomial_repr += ",".join(exponents) + "]]"
             monomials_repr.append(monomial_repr)
         latte_repr = "[" + ",".join(monomials_repr) + "]"
-        with open(path,'w') as f:
+
+        with open(path, 'w') as f:
             f.write(latte_repr)
 
     def _write_polytope_file(self, polytope, variables, path):
@@ -153,18 +149,24 @@ class Integrator(Loggable):
                     latte_repr += "0 "
             latte_repr += "\n"
 
-        with open(path,'w') as f:
-            f.write(latte_repr)       
+        with open(path, 'w') as f:
+            f.write(latte_repr)
 
     def _call_latte(self, polynomial_file, polytope_file, output_file):
-        with open(output_file,'w') as f:
-            return_value = call(["integrate",
-                                 "--valuation=integrate", self.algorithm,
-                                 "--monomials=" + polynomial_file,
-                                 polytope_file], stdout=f, stderr=f)
-            if return_value != 0:
-                msg = "LattE returned with status {}"
-                # LattE returns an exit status != 0 if the polytope is empty.
-                # In the general case this may happen, raising an exception
-                # is not a good idea.
-                #raise WMIRuntimeException(msg.format(return_value))
+        cmd = ["integrate",
+               "--valuation=integrate", self.algorithm,
+               "--monomials=" + polynomial_file,
+               polytope_file]
+
+        with open(output_file, 'w') as f:
+            return_value = call(cmd, stdout=f, stderr=f)
+
+        """
+        if return_value != 0:
+            msg = "LattE returned with status {}"
+            print(msg.format(return_value))
+            # LattE returns an exit status != 0 if the polytope is empty.
+            # In the general case this may happen, raising an exception
+            # is not a good idea.
+            #raise WMIRuntimeException(msg.format(return_value))
+        """
