@@ -12,6 +12,7 @@ from subprocess import Popen, PIPE
 from time import sleep
 from fractions import Fraction
 from pysmt.typing import REAL, BOOL
+import sys
 import wmipa.praiselang as pl
 from wmipa.wmiexception import WMIRuntimeException, WMIParsingError,\
     WMITimeoutException
@@ -83,7 +84,10 @@ class PRAiSEInference:
         if task.poll() != None:
             out, err = task.communicate()
 
-            if err != '':
+            err = err.decode(sys.stdout.encoding)
+            out = out.decode(sys.stdout.encoding)
+
+            if len(err) > 0:
                 msg = "PRAiSE error: {}"
                 raise WMIRuntimeException(msg.format(err))
 
@@ -109,6 +113,7 @@ class PRAiSEInference:
     def _parse_result(praise_out):
         for line in praise_out.split("\n"):
             line = line.strip()
+            print("LINE:", line)
             if line.startswith("Result"):
                 result_str = line.partition(": ")[-1].strip()
                 try :
@@ -131,7 +136,7 @@ class PRAiSEInference:
             # an entry to the variables dictionary with the corresponding type
             var_name = formula.symbol_name()
             var_type = formula.get_type()
-            if not variables.has_key(var_name):
+            if var_name not in variables:
                 variables[var_name] = var_type
             return var_name
         
