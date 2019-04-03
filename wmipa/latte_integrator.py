@@ -8,6 +8,7 @@ from shutil import rmtree
 from multiprocessing import Pool
 from pysmt.typing import REAL
 from pysmt.shortcuts import LT, LE
+from tempfile import TemporaryDirectory
 
 from wmipa.integrator import Integrator
 from wmipa.polytope import Polynomial, Polytope
@@ -120,37 +121,31 @@ class Latte_Integrator(Integrator):
         """
         # Create a temporary folder containing the input and output files
         # possibly removing an older one
-        folder = Latte_Integrator.FOLDER_TEMPLATE.format(index)
-        if isdir(folder):
-            rmtree(folder)
-        makedirs(folder)        
-        polynomial_file = Latte_Integrator.POLYNOMIAL_TEMPLATE
-        polytope_file = Latte_Integrator.POLYTOPE_TEMPLATE
-        output_file = Latte_Integrator.OUTPUT_TEMPLATE
-        
-        # Change the CWD
-        original_cwd = getcwd()
-        chdir(folder)
-        
-        # Variable ordering is relevant in LattE files 
-        variables = list(integrand.variables.union(polytope.variables))
-        variables.sort()
-        
-        # Write integrand and polytope to file
-        self._write_polynomial_file(integrand, variables, polynomial_file)
-        self._write_polytope_file(polytope, variables, polytope_file)
-        
-        # Integrate and dump the result on file
-        self._call_latte(polynomial_file, polytope_file, output_file)
-        
-        # Read back the result and return to the original CWD
-        result = self._read_output_file(output_file)            
-        chdir(original_cwd)
-        
-        # Remove the temporary folder and files
-        rmtree(folder)
-        
-        return result
+        with TemporaryDirectory(dir=".") as folder:
+            polynomial_file = Latte_Integrator.POLYNOMIAL_TEMPLATE
+            polytope_file = Latte_Integrator.POLYTOPE_TEMPLATE
+            output_file = Latte_Integrator.OUTPUT_TEMPLATE
+            
+            # Change the CWD
+            original_cwd = getcwd()
+            chdir(folder)
+            
+            # Variable ordering is relevant in LattE files 
+            variables = list(integrand.variables.union(polytope.variables))
+            variables.sort()
+            
+            # Write integrand and polytope to file
+            self._write_polynomial_file(integrand, variables, polynomial_file)
+            self._write_polytope_file(polytope, variables, polytope_file)
+            
+            # Integrate and dump the result on file
+            self._call_latte(polynomial_file, polytope_file, output_file)
+            
+            # Read back the result and return to the original CWD
+            result = self._read_output_file(output_file)            
+            chdir(original_cwd)
+            
+            return result
         
     def _convert_to_latte(self, atom_assignments, weight, aliases):
         """Transforms an assignment into a LattE problem, defined by:
@@ -203,12 +198,15 @@ class Latte_Integrator(Integrator):
             real: The result of the computation written in the file.
         
         """
+        res = 0.0
+        
         with open(path, 'r') as f:
             for line in f:
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
-                    return float(line.partition(": ")[-1].strip())
-        return 0.0                              
+                    res = float(line.partition(": ")[-1].strip())
+                    break
+        return res
         
     def _write_polynomial_file(self, integrand, variables, path):
         """Writes the polynomial into a file from where LattE will read.
@@ -234,7 +232,7 @@ class Latte_Integrator(Integrator):
         latte_repr = "[" + ",".join(monomials_repr) + "]"
         
         # Write the string on the file
-        with open(path,'w') as f:
+        with open(path, 'w') as f:
             f.write(latte_repr)
 
     def _write_polytope_file(self, polytope, variables, path):
@@ -261,7 +259,7 @@ class Latte_Integrator(Integrator):
 
         # Write the string on the file
         with open(path,'w') as f:
-            f.write(latte_repr)       
+            f.write(latte_repr)
 
     def _call_latte(self, polynomial_file, polytope_file, output_file):
         """Calls LattE executable to calculate the integrand of the problem
@@ -273,13 +271,18 @@ class Latte_Integrator(Integrator):
             output_file (str): The file where to write the result of the computation.
         
         """
-        with open(output_file,'w') as f:
-            return_value = call(["integrate",
-                                 "--valuation=integrate", self.algorithm,
-                                 "--monomials=" + polynomial_file,
-                                 polytope_file], stdout=f, stderr=f)
+        cmd = ["integrate",
+               "--valuation=integrate", self.algorithm,
+               "--monomials=" + polynomial_file,
+               polytope_file]
+        
+        with open(output_file, 'w') as f:
+            return_value = call(cmd, stdout=f, stderr=f)
+            
+            """
             if return_value != 0:
                 msg = "LattE returned with status {}"
                 # LattE returns an exit status != 0 if the polytope is empty.
                 # In the general case this may happen, raising an exception
                 # is not a good idea.
+            """
