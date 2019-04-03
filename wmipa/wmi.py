@@ -1,12 +1,13 @@
 """This module implements the Weighted Model Integration calculation.
+
 The calculation leverages:
-- a Satisfiability Modulo Theories solver supporting All-SMT (e.g. MathSAT)
-- a software computing exact volume of polynomials (e.g. LattE Integrale)
+    - a Satisfiability Modulo Theories solver supporting All-SMT (e.g. MathSAT)
+    - a software computing exact volume of polynomials (e.g. LattE Integrale)
 
 Currently, three algorithms are supported:
-"BC" -- The baseline Block-Clause method.
-"AllSMT" -- Improves BC by leveraging the AllSAT feature of the SMT Solver.
-"PA" -- WMI with Predicate Abstraction, may reduce drastically the number of
+    "BC" -- The baseline Block-Clause method.
+    "AllSMT" -- Improves BC by leveraging the AllSAT feature of the SMT Solver.
+    "PA" -- WMI with Predicate Abstraction, may reduce drastically the number of
         integrals computed.
 
 """
@@ -14,223 +15,235 @@ Currently, three algorithms are supported:
 __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
-from math import fsum
-from functools import partial
-from multiprocessing import Pool
+import warnings
+warnings.filterwarnings("ignore", message="the imp module is deprecated in favour of importlib;")
+warnings.filterwarnings("ignore", message="can't resolve package from __spec__ or __package__,")
 
 import mathsat
-from pysmt.shortcuts import *
+from pysmt.shortcuts import Real, Bool, And, Iff, Not, Solver, simplify, substitute, serialize
 from pysmt.typing import BOOL, REAL
-from pysmt.fnode import FNode
+from math import fsum
 
-from wmipa import Integrator
+from wmipa.latte_integrator import Latte_Integrator
 from wmipa import Weights
-
-from wmipa.logger import  get_sublogger
-from wmipa.pysmt2latte import Polytope, Polynomial
-from wmipa.utils import is_label, new_wmi_label, \
-    get_boolean_variables, get_real_variables
-from wmipa.wmiexception import WMIParsingError, WMIRuntimeException
-
-
-
-# apparently Pool.map requires an unbound top-level method, here it is
-def integrate_worker(obj, integrand_polytope_index):
-    integrand, polytope, index = integrand_polytope_index
-    volume =  obj.integrator.integrate(integrand, polytope, index)
-    if volume == None :
-        return 0.0
-    else:
-        return volume
-
+from wmipa import logger
+from wmipa.utils import get_boolean_variables, get_real_variables
+from wmipa.wmiexception import WMIRuntimeException, WMIParsingException
+from wmipa.wmivariables import WMIVariables
 
 class WMI:
+    """The class that has the purpose to calculate the Weighted Module Integration of
+        a given support, weight function and query.
+    
+    Attributes:
+        variables (WMIVariables): The list of variables created and used by WMI.
+        weights (Weights): The representation of the weight function.
+        chi (FNode): The pysmt formula that contains the support of the formula
+        integrator (Integrator): The integrator to use.
+    
+    """
 
     # WMI methods
     MODE_BC = "BC"
     MODE_ALLSMT = "AllSMT"
-    MODE_PA = "PA"    
+    MODE_PA = "PA"
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA]
 
-    # default number of threads used
-    DEF_THREADS = 7
-
-    # the following two methods were overwritten to allow the serialization
-    # of the class instances (logger contains unserializable data structures).
-    # serialization is necessary for multiprocessing.
-    
-    def __getstate__(self):
-        d = dict(self.__dict__)
-        del d['logger']
-        return d
-    def __setstate__(self, d):
-        self.__dict__.update(d) 
-    
-    def __init__(self, n_threads=None):
+    def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
 
-        Keyword arguments:
-        n_threads -- number of threads (optional)
-
+        Args:
+            chi (FNode): The support of the problem.
+            weight (FNode, optional): The weight of the problem (default: 1).
+            **options:
+                - n_threads: The number of threads to use when computing WMI.
+        
         """
-        self.logger = get_sublogger(__name__)
-        self.integrator = Integrator()
-        self.n_threads = WMI.DEF_THREADS if n_threads == None else n_threads
-
-    def compute(self, formula, weights, mode, domA=None, domX=None):
-        """Computes WMI(formula, weights, X, A). Returns the result and the
-        number of integrations performed.
-
-        Keyword arguments:
-        formula -- pysmt formula
-        weights -- Weights instance encoding the FIUC weight function
-        mode -- string in WMI.MODES
-        domA -- set of pysmt vars encoding the Boolean integration domain (optional)
-        domX -- set of pysmt vars encoding the real integration domain (optional)
-
-        """
+        self.variables = WMIVariables()
+        self.weights = Weights(weight, self.variables)
+        self.chi = And(chi, self.weights.labelling)
+        
+        n_threads = options.get("n_threads")
+        self.integrator = Latte_Integrator(n_threads = n_threads)
+        
+    def computeMI_batch(self, phis, **options):
+        """Calculates the MI on a batch of queries.
+        
+        Args:
+            phis (list(FNode)): The list of all the queries on which to calculate the MI.
+            **options:
+                - domA: set of pysmt vars encoding the Boolean integration domain (optional)
+                - domX: set of pysmt vars encoding the real integration domain (optional)
+                - mode: The mode to use when calculating MI.
+                
+        Returns:
+            list(real): The list containing the result of each computation.
+            list(int): The list containing the number of integrations for each computation that have been computed.
             
-        self.logger.debug("Computing WMI with mode: {}".format(mode))
-        A = {x for x in get_boolean_variables(formula) if not is_label(x)}
-        x = get_real_variables(formula)
-        dom_msg = "The domain of integration of the numerical variables" +\
-                  " should be x. The domain of integration of the Boolean" +\
-                  " variables should be a superset of A."
+        """
+        # save the old weight
+        old_weights = self.weights
+        old_variables = self.variables
+        
+        # calculate wmi with constant weight
+        new_variables = WMIVariables()
+        new_weights = Weights(Real(1), new_variables)
+        self.weights = new_weights
+        self.variables = new_variables
+        
+        volumes, integrations = self.computeWMI_batch(phis, **options)
+        
+        # restore old weight
+        self.weights = old_weights
+        self.variables = old_variables
+        return volumes, integrations
+              
+    def computeWMI_batch(self, phis, **options):
+        """Calculates the WMI on a batch of queries.
+        
+        Args:
+            phis (list(FNode)): The list of all the queries on which to calculate the WMI.
+            **options:
+                - domA: set of pysmt vars encoding the Boolean integration domain (optional)
+                - domX: set of pysmt vars encoding the real integration domain (optional)
+                - mode: The mode to use when calculating WMI.
+                
+        Returns:
+            list(real): The list containing the result of each computation.
+            list(int): The list containing the number of integrations for each computation that have been computed.
+            
+        """
+        volumes = []
+        integrations = []
+        
+        for phi in phis:
+            volume, n_integrations = self.computeWMI(phi, **options)
+            volumes.append(volume)
+            integrations.append(n_integrations)
+            
+        return volumes, integrations
+        
+    def computeMI(self, phi, **options):
+        """Calculates the MI on a single query.
+        
+        Args:
+            phi (FNode): The query on which to calculate the MI.
+            **options:
+                - domA: set of pysmt vars encoding the Boolean integration domain (optional)
+                - domX: set of pysmt vars encoding the real integration domain (optional)
+                - mode: The mode to use when calculating MI.
+                
+        Returns:
+            real: The result of the computation.
+            int: The number of integrations that have been computed.
+            
+        """
+        # save old weight
+        old_weights = self.weights
+        old_variables = self.variables
+        
+        # calculate wmi with constant weight
+        new_variables = WMIVariables()
+        new_weights = Weights(Real(1), new_variables)
+        self.weights = new_weights
+        self.variables = new_variables
+        
+        volume, n_integrations = self.computeWMI(phi, **options)
+        
+        # restore old weight
+        self.weights = old_weights
+        self.variables = old_variables
+        return volume, n_integrations
 
+    def computeWMI(self, phi, **options):
+        """Calculates the WMI on a single query.
+        
+        Args:
+            phi (FNode): The query on which to calculate the WMI.
+            **options:
+                - domA: set of pysmt vars encoding the Boolean integration domain (optional)
+                - domX: set of pysmt vars encoding the real integration domain (optional)
+                - mode: The mode to use when calculating WMI.
+                
+        Returns:
+            real: The result of the computation.
+            int: The number of integrations that have been computed.
+            
+        """
+        domA = options.get("domA")
+        domX = options.get("domX")
+        mode = options.get("mode")
+        if mode == None:
+            mode = WMI.MODE_PA
+            
+        if mode not in WMI.MODES:
+            err = "{}, use one: {}".format(mode, ", ".join(WMI.MODES))
+            logger.error(err)
+            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
+        
+        # Add the phi to the support
+        formula = And(phi, self.chi)
+        
+        logger.debug("Computing WMI with mode: {}".format(mode))
+        A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
+        x = get_real_variables(formula)
+        
         # Currently, domX has to be the set of real variables in the
         # formula, whereas domA can be a superset of the boolean
         # variables A. The resulting volume is multiplied by 2^|domA - A|.
         factor = 1
-        self.logger.debug("A: {}, domA: {}".format(A, domA))
+        logger.debug("A: {}, domA: {}".format(A, domA))
         if domA != None:
             if len(A - domA) > 0:
-                self.logger.error(dom_msg + "A - domA = {}".format(A - domA))
-                raise WMIRuntimeException(dom_msg)
+                logger.error("Domain of integration mismatch: A - domA = {}".format(A - domA))
+                raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, A-domA)
             else:
                 factor = 2**len(domA - A)
 
-
-        self.logger.debug("factor: {}".format(factor))
-        if domX != None and not set(domX) == x:
-            self.logger.error(dom_msg)
-            raise WMIRuntimeException(dom_msg) 
-            
+        logger.debug("factor: {}".format(factor))
+        if domX != None and domX != x:
+            logger.error("Domain of integration mismatch")
+            raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, x-domX)
 
         compute_with_mode = {WMI.MODE_BC : self._compute_WMI_BC,
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA}
-
-        try:
-            volume, n_integrations = compute_with_mode[mode](formula, weights)
-        except KeyError:
-            msg = "Invalid mode, use one: " + ", ".join(WMI.MODES)
-            self.logger.error(msg)
-            raise WMIRuntimeException(msg)
-
+                             
+        volume, n_integrations = compute_with_mode[mode](formula, self.weights)
+            
         volume = volume * factor
-        self.logger.debug("Volume: {}, n_integrations: {}".format(
-            volume, n_integrations))
-
+        logger.debug("Volume: {}, n_integrations: {}".format(volume, n_integrations))
+            
         return volume, n_integrations
-
-    def enumerate_TTAs(self, formula, weights, domA=None, domX=None):
-        """Enumerates the total truth assignments for 
-        WMI(formula, weights, X, A).
-
-        Keyword arguments:
-        formula -- pysmt formula
-        weights -- Weights instance encoding the FIUC weight function
-        domA -- set of pysmt vars encoding the Boolean integration domain (optional)
-        domX -- set of pysmt vars encoding the real integration domain (optional)
-
-        """
-        if isinstance(weights, FNode):
-            weights = Weights(weights)
-            
-        A = {x for x in get_boolean_variables(formula) if not is_label(x)}
-        x = get_real_variables(formula)
-        dom_msg = "The domain of integration of the numerical variables" +\
-                  " should be x. The domain of integration of the Boolean" +\
-                  " variables should be a superset of A."
-
-        if domA != None:
-            if len(A - domA) > 0:
-                self.logger.error(dom_msg)
-                raise WMIRuntimeException(dom_msg)
-
-        if domX != None and not set(domX) == x:
-            self.logger.error(dom_msg)
-            raise WMIRuntimeException(dom_msg) 
-            
-        formula = And(formula, weights.labelling)
-
-        return len(self._compute_TTAs(formula, weights)[0])
 
     @staticmethod
     def check_consistency(formula):
-        """Returns True iff the formula has at least a total truth assignment
-        which is both theory-consistent and it propositionally satisfies it.
+        """Checks if the formula has at least a total truth assignment
+            which is both theory-consistent and it propositionally satisfies it.
 
-        Keyword arguments:
-        formula -- a pysmt formula
+        Args:
+            formula (FNode): The pysmt formula to examine.
+        
+        Returns:
+            bool: True if the formula satisfies the requirements, False otherwise.
 
         """
         for _ in WMI._model_iterator_base(formula):
             return True
         
-        return False                
+        return False
 
-    @staticmethod
-    def _convert_to_latte(atom_assignments, weights):
-        """Transforms an assignment into a LattE problem, defined by:
-        - a polynomial integrand
-        - a convex polytope.
-
-        """
-        bounds = []
-        aliases = {}
-        for atom, value in atom_assignments.items():            
-            assert(isinstance(value,bool)), "Assignment value should be Boolean"
-            # skip atoms without variables
-            if len(atom.get_free_variables()) == 0:
-                continue
-            
-            if value is True and atom.is_equals():
-                # if the positive literal is an equality, add it to the aliases
-                alias, expression = WMI._parse_alias(atom)
-                aliases[alias] = expression                    
-            elif value is False:
-                # if the negative literal is an inequality, change its direction
-                if atom.is_le():
-                    left, right = atom.args()
-                    atom = LT(right, left)
-                elif atom.is_lt():
-                    left, right = atom.args()
-                    atom = LE(right, left)
-                    
-            # add a bound if the atom is an inequality
-            if atom.is_le() or atom.is_lt():                    
-                bounds.append(atom)
-
-        current_weight = weights.weight_from_assignment(atom_assignments)
-        integrand = Polynomial(current_weight, aliases)
-        polytope = Polytope(bounds, aliases)
-        return integrand, polytope
-    
-    @staticmethod
-    def _parse_alias(equality):
-        assert(equality.is_equals()), "Not an equality"
-        left, right = equality.args()
-        if left.is_symbol() and (left.get_type() == REAL):
-            alias, expr = left, right
-        elif right.is_symbol() and (right.get_type() == REAL):
-            alias, expr = right, left
-        else:
-            raise WMIParsingError("Malformed alias expression", equality)
-        return left, right
-        
     @staticmethod
     def _model_iterator_base(formula):
+        """Finds all the total truth assignments that satisfy the given formula.
+        
+        Args:
+            formula (FNode): The pysmt formula to examine.
+            
+        Yields:
+            model: The model representing the next total truth assignment that satisfies the formula.
+        
+        """
         solver = Solver(name="msat")
         solver.add_assertion(formula)
         while solver.solve():
@@ -238,39 +251,81 @@ class WMI:
             yield model
             atom_assignments = {a : model.get_value(a)
                                    for a in formula.get_atoms()}
-            # constrain the solver to find a different assignment
+                                   
+            # Constrain the solver to find a different assignment
             solver.add_assertion(
                 Not(And([Iff(var,val)
                          for var,val in atom_assignments.items()])))
 
     @staticmethod
     def _callback(model, converter, result):
+        """Callback method usefull when performing AllSAT on a formula.
+        
+        This method takes the model, converts it into a more suitable form and finally
+            adds it into the given results list. 
+        
+        Args:
+            model (list): The model created by the solver.
+            converter: The class that converts the model.
+            result (list): The list where to append the converted model.
+        
+        Returns:
+            int: 1 (This method requires to return an integer)
+            
+        """
         py_model = [converter.back(v) for v in model]
         result.append(py_model)
         return 1
 
-    def _compute_TTAs(self, formula, weights):
+    def _compute_TTAs(self, formula):
+        """Computes the total truth assignments of the given formula.
+        
+        This method first labels the formula and then uses the funtionality of mathsat called AllSAT to
+            retrieve all the total truth assignments.
+        
+        Args:
+            formula (FNode): The pysmt formula to examine.
+        
+        Returns:
+            list: The list of all the total truth assignments.
+            dict: The dictionary containing all the correspondence between the labels and their true value.
+            
+        """
         labels = {}
         expressions = []
         allsat_variables = set()
-        index = 0
-        # label LRA atoms with fresh boolean variables
-
-        labelled_formula, pa_vars, labels = WMI.label_formula(formula,
-                                                              formula.get_atoms())
+        
+        # Label LRA atoms with fresh boolean variables
+        labelled_formula, pa_vars, labels = self.label_formula(formula, formula.get_atoms())
+        
+        # Perform AllSMT on the labelled formula
         solver = Solver(name="msat")
         converter = solver.converter
         solver.add_assertion(labelled_formula)
         models = []
-        # perform AllSMT on the labelled formula
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
         return models, labels
 
     def _compute_WMI_AllSMT(self, formula, weights):
-        models, labels = self._compute_TTAs(formula, weights)
-        latte_problems = []
+        """Computes WMI using the AllSMT algorithm.
+        
+        This method retrieves all the total truth assignments of the given formula,
+            it then calculates the weight for the assignments and finally asks the
+            integrator to compute the integral of the problem.
+            
+        Args:
+            formula (FNode): The pysmt formula on which to compute the WMI.
+            weights (FNode): The pysmt formula representing the weight function.
+            
+        Returns:
+            real: The final volume of the integral computed by summing up all the integrals' results.
+            int: The number of problems that have been computed.
+        
+        """
+        models, labels = self._compute_TTAs(formula)
+        problems = []
         for index, model in enumerate(models):
             # retrieve truth assignments for the original atoms of the formula
             atom_assignments = {}
@@ -278,56 +333,145 @@ class WMI:
                 if atom in labels:
                     atom = labels[atom]
                 atom_assignments[atom] = value
+            problem = self._create_problem(atom_assignments, weights)
+            current_weight = weights.weight_from_assignment(atom_assignments)
+            problems.append(problem)
 
-            integrand, polytope = WMI._convert_to_latte(atom_assignments,
-                                                        weights)
-            latte_problems.append((integrand, polytope, index))
-
-        formula_volume = self._parallel_volume_computation(latte_problems)
-        return formula_volume, len(latte_problems)
+        volume = fsum(self.integrator.integrate_batch(problems))
+        return volume, len(problems)
+    
+    def _create_problem(self, atom_assignments, weights):
+        """Create a tuple containing the problem to integrate.
+        
+        It first finds all the aliases in the atom_assignments and then it takes the actual weight (based on the assignment).
+        Finally it creates the problem tuple with all the info in it.
+        
+        Args:
+            atom_assignments (dict): The list of assignments and relative value (True, False)
+            weights (Weight): The weight of the problem.
+            
+        Returns:
+            tuple: The problem on which to calculate the integral formed by {atom assignment, actual weight, list of aliases}.
+        
+        """
+        aliases = {}
+        for atom, value in atom_assignments.items():
+            if value is True and atom.is_equals():
+                alias, expr = self._parse_alias(atom)
+                
+                # check that there are no multiple assignments of the same alias
+                if not alias in aliases:
+                    aliases[alias] = expr
+                else:
+                    msg = "Multiple assignments to the same alias"
+                    raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
+        
+        current_weight = weights.weight_from_assignment(atom_assignments)
+        return (atom_assignments, current_weight, aliases)
+        
+    def _parse_alias(self, equality):
+        """Takes an equality and parses it.
+        
+        Args:
+            equality (FNode): The equality to parse.
+        
+        Returns:
+            alias (FNode): The name of the alias.
+            expr (FNode): The value of the alias.
+            
+        Raises:
+            WMIParsingException: If the equality is not of the type (Symbol = real_formula) or viceversa.
+            
+        """
+        assert(equality.is_equals()), "Not an equality"
+        left, right = equality.args()
+        if left.is_symbol() and (left.get_type() == REAL):
+            alias, expr = left, right
+        elif right.is_symbol() and (right.get_type() == REAL):
+            alias, expr = right, left
+        else:
+            raise WMIParsingException (WMIParsingException.MALFORMED_ALIAS_EXPRESSION, equality)
+        return alias, expr
     
     def _compute_WMI_BC(self, formula, weights):
-        latte_problems = []
+        """Computes WMI using the Block Clause algorithm.
+        
+        This method retrieves all the total truth assignments of the given formula one by one
+            thanks to the Block Clause algorithm. This particular algorithm finds a model that
+            satisfy the formula, it then add the negation of this model to the formula itself
+            in order to constrain the solver to fine another model that satisfies it.
+            
+        Args:
+            formula (FNode): The pysmt formula on which to compute the WMI.
+            weights (FNode): The pysmt formula representing the weight function.
+            
+        Returns:
+            real: The final volume of the integral computed by summing up all the integrals' results.
+            int: The number of problems that have been computed.
+        
+        """
+        problems = []
         for index, model in enumerate(WMI._model_iterator_base(formula)):
             atom_assignments = {a : model.get_value(a).constant_value()
                                    for a in formula.get_atoms()}
-            integrand, polytope = WMI._convert_to_latte(atom_assignments,
-                                                               weights)
-            latte_problems.append((integrand, polytope, index))
+            problem = self._create_problem(atom_assignments, weights)
+            problems.append(problem)
 
-
-        formula_volume = self._parallel_volume_computation(latte_problems)
-        return formula_volume, len(latte_problems)
+        volume = fsum(self.integrator.integrate_batch(problems))
+        return volume, len(problems)
+        
+    def _compute_WMI_PA_no_boolean(self, lab_formula, pa_vars, labels, other_assignments={}):
+        """Finds all the assignments that satisfy the given formula using AllSAT.
+            
+        Args:
+            lab_formula (FNode): The labelled pysmt formula to examine.
+            pa_vars (): 
+            labels (dict): The dictionary containing the correlation between each label and their
+                true value.
+            
+        Yields:
+            dict: One of the assignments that satisfies the formula.
+        
+        """
+        solver = Solver(name="msat",
+                    solver_options={"dpll.allsat_minimize_model" : "true"})
+        converter = solver.converter
+        solver.add_assertion(lab_formula)
+        lra_assignments = []
+        mathsat.msat_all_sat(
+            solver.msat_env(),
+            [converter.convert(v) for v in pa_vars],
+            lambda model : WMI._callback(model, converter, lra_assignments))
+        for mu_lra in lra_assignments:                    
+            assignments = {}
+            for atom, value in WMI._get_assignments(mu_lra).items():
+                if atom in labels:
+                    atom = labels[atom]
+                assignments[atom] = value
+            assignments.update(other_assignments)
+            yield assignments
 
     def _compute_WMI_PA(self, formula, weights):
-        latte_problems = []
-        index = 0
+        """Computes WMI using the Predicate Abstraction (PA) algorithm.
+        
+        Args:
+            formula (FNode): The formula on whick to compute WMI.
+            weights (Weight): The corresponding weight.
+            
+        Returns:
+            real: The final volume of the integral computed by summing up all the integrals' results.
+            int: The number of problems that have been computed.
+        
+        """
+        problems = []
         boolean_variables = get_boolean_variables(formula)
         if len(boolean_variables) == 0:
-            # enumerate partial TA over theory atoms
-            lab_formula, pa_vars, labels = WMI.label_formula(formula, formula.get_atoms())
-            # predicate abstraction on LRA atoms with minimal models
-            solver = Solver(name="msat",
-                        solver_options={"dpll.allsat_minimize_model" : "true"})
-            converter = solver.converter
-            solver.add_assertion(lab_formula)
-            lra_assignments = []
-            mathsat.msat_all_sat(
-                solver.msat_env(),
-                [converter.convert(v) for v in pa_vars],
-                lambda model : WMI._callback(model, converter, lra_assignments))
-            for mu_lra in lra_assignments:                    
-                assignments = {}
-                for atom, value in WMI._get_assignments(mu_lra).items():
-                    if atom in labels:
-                        atom = labels[atom]
-                    assignments[atom] = value
-
-                integrand, polytope =  WMI._convert_to_latte(
-                        assignments, weights)
-                latte_problems.append((integrand, polytope, index))
-                index += 1                    
-
+            # Enumerate partial TA over theory atoms
+            lab_formula, pa_vars, labels = self.label_formula(formula, formula.get_atoms())
+            # Predicate abstraction on LRA atoms with minimal models
+            for assignments in self._compute_WMI_PA_no_boolean(lab_formula, pa_vars, labels):
+                problem = self._create_problem(assignments, weights)
+                problems.append(problem)
         else:
             solver = Solver(name="msat")
             converter = solver.converter
@@ -339,7 +483,7 @@ class WMI:
                 [converter.convert(v) for v in boolean_variables],
                 lambda model : WMI._callback(model, converter, boolean_models))
 
-            self.logger.debug("n_boolean_models: {}".format(len(boolean_models)))
+            logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each boolean assignment mu^A of F        
             for model in boolean_models:
                 atom_assignments = {}
@@ -356,10 +500,9 @@ class WMI:
                     atom_assignments.update(lra_assignments)
                     if over or lra_assignments == {}:
                         break
-                
                 if not over:
                     # predicate abstraction on LRA atoms with minimal models
-                    lab_formula, pa_vars, labels = WMI.label_formula(f_next, f_next.get_atoms())
+                    lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
                     expressions = []
                     for k, v in atom_assignments.items():
                         if k.is_theory_relation():
@@ -368,46 +511,39 @@ class WMI:
                             else:
                                 expressions.append(Not(k))
                                                 
-                    ssformula = And([lab_formula] + expressions)
-                    secondstep_solver = Solver(name="msat",
-                            solver_options={"dpll.allsat_minimize_model" : "true"})
-                    converter = secondstep_solver.converter
-                    secondstep_solver.add_assertion(ssformula)
-                    ssmodels = []
-                    mathsat.msat_all_sat(
-                            secondstep_solver.msat_env(),
-                            [converter.convert(v) for v in pa_vars],
-                            lambda model : WMI._callback(model, converter, ssmodels))
-                    for ssmodel in ssmodels:                    
-                        secondstep_assignments = {}
-                        for atom, value in WMI._get_assignments(ssmodel).items():
-                            if atom in labels:
-                                atom = labels[atom]
-                            secondstep_assignments[atom] = value
-                        secondstep_assignments.update(atom_assignments)
-                        integrand, polytope =  WMI._convert_to_latte(
-                            secondstep_assignments, weights)
-                        latte_problems.append((integrand, polytope, index))
-                        index += 1                    
+                    lab_formula = And([lab_formula] + expressions)
+                    for assignments in self._compute_WMI_PA_no_boolean(lab_formula, pa_vars, labels, atom_assignments):
+                        problem = self._create_problem(assignments, weights)
+                        problems.append(problem)
                 else:
                     # integrate over mu^A & mu^LRA
-                    integrand, polytope =  WMI._convert_to_latte(atom_assignments,
-                                                          weights)
-                    latte_problems.append((integrand, polytope, index))
-                    index += 1
+                    problem = self._create_problem(atom_assignments, weights)
+                    problems.append(problem)
 
-        formula_volume = self._parallel_volume_computation(latte_problems)
-        return formula_volume, len(latte_problems)
+        temp = self.integrator.integrate_batch(problems)
+        volume = fsum(temp)
+        return volume, len(problems)
 
-    @staticmethod
-    def label_formula(formula, atoms_to_label):
+    def label_formula(self, formula, atoms_to_label):
+        """Labels every atom in the input with a new fresh WMI variable.
+        
+        Args:
+            formula (FNode): The formula containing the atoms.
+            atoms_to_label (list): The list of atoms to assign a new label.
+            
+        Returns:
+            labelled_formula (FNode): The formula with the labels in it and their respective atoms.
+            pa_vars (set): The list of all the atoms_to_label (as labels).
+            labels (dict): The list of the labels and corrispondent atom assigned to it.
+        
+        """
         expressions = []
         labels = {}
         pa_vars = set()
         j = 0
         for a in atoms_to_label:
             if a.is_theory_relation():
-                label_a = new_wmi_label(j)
+                label_a = self.variables.new_wmi_label(j)
                 j += 1
                 expressions.append(Iff(label_a, a))
                 labels[label_a] = a
@@ -419,17 +555,17 @@ class WMI:
 
         return labelled_formula, pa_vars, labels
 
-
-    def _parallel_volume_computation(self, latte_problems):
-        pool = Pool(self.n_threads)
-        integrate_alias = partial(integrate_worker, self)
-        volume = fsum(pool.map(integrate_alias, latte_problems))
-        pool.close()
-        pool.join()
-        return volume
-
     @staticmethod
     def _get_assignments(literals):
+        """Retrieve the assignments (formula: truth value) from a list of literals (positive or negative).
+        
+        Args:
+            literals (list): The list of the literals.
+            
+        Returns:
+            assignments (dict): The list of atoms and corresponding truth value.
+        
+        """
         assignments = {}
         for literal in literals:
             if literal.is_not():
@@ -446,10 +582,31 @@ class WMI:
 
     @staticmethod
     def _parse_lra_formula(formula):
+        """Wrapper for _plra_rec.
+        
+        Args:
+            formula (FNode): The formula to parse.
+        
+        Returns:
+            dict: the list of FNode in the formula with the corresponding truth value.
+            bool: boolean that indicates if there are no more truth assignment to extract.
+            
+        """
         return WMI._plra_rec(formula, True)
 
     @staticmethod
     def _plra_rec(formula, pos_polarity):
+        """This method extract all sub formulas in the formula and returns them as a dictionary.
+        
+        Args:
+            formula (FNode): The formula to parse.
+            pos_polarity (bool): The polarity of the formula.
+        
+        Returns:
+            dict: the list of FNode in the formula with the corresponding truth value.
+            bool: boolean that indicates if there are no more truth assignment to extract.
+            
+        """
         if formula.is_bool_constant():
             return {}, True            
         elif formula.is_theory_relation():

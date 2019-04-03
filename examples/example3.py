@@ -14,7 +14,6 @@ Intuitively, two mutually exclusive cases are encoded:
 from pysmt.shortcuts import *
 from pysmt.typing import REAL, BOOL
 from wmipa import WMI
-from wmipa import Weights
 
 # variables definition
 x = Symbol("x", REAL)
@@ -37,12 +36,10 @@ chi = Bool(True)
 print("Weight function:", serialize(w))
 print("Support:", serialize(chi))
 
-weights = Weights(w, chi)
-chi = And(chi, weights.labelling)
-wmi = WMI()
+wmi = WMI(chi, w)
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA]:
-    result, n_integrations = wmi.compute(And(phi, chi), weights, mode)
+    result, n_integrations = wmi.computeWMI(phi, mode=mode)
     print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
 
         

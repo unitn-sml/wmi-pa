@@ -1,87 +1,126 @@
+"""This module implements some usefull methods used throughout the code.
+
+Credits: least common multiple code by J.F. Sebastian
+    (http://stackoverflow.com/a/147539)
+
+"""
 
 from functools import reduce
 
-from pysmt.shortcuts import Symbol
 from pysmt.typing import BOOL, REAL
+from pysmt.operators import POW
 
-
-COND_PREFIX = "__cond_"
-QUERY_PREFIX = "__query_"
-WMI_PREFIX = "__wmi_"
-
-PREFIXES = [COND_PREFIX, QUERY_PREFIX, WMI_PREFIX]
-
-def new_cond_label(index):
-    """Returns a condition label."""
-    return _new_label(COND_PREFIX, index)
-
-def new_query_label(index):
-    """Returns a query label."""    
-    return _new_label(QUERY_PREFIX, index)
-
-def new_wmi_label(index):
-    """Returns a generic WMI label."""
-    return _new_label(WMI_PREFIX, index)
-
-def is_cond_label(variable):
-    """Returns True if the variable is a condition label, False otherwise."""    
-    return variable.symbol_name().startswith(COND_PREFIX)
-
-def is_query_label(variable):
-    """Returns True if the variable is a query label, False otherwise."""    
-    return variable.symbol_name().startswith(QUERY_PREFIX)
-
-def is_wmi_label(variable):
-    """Returns True if the variable is a WMI label, False otherwise."""
-    return variable.symbol_name().startswith(WMI_PREFIX)
-
-def is_label(variable):
-    for prefix in PREFIXES:
-        if variable.symbol_name().startswith(prefix):
-            return True
-    return False
-
-def contains_labels(formula):
-    """Returns True if the formula contains variables with reserved names,
-    False otherwise.
-
-    """    
-    for var in get_boolean_variables(formula):
-        if is_label(var):
-            return True
-    return False
 
 def get_boolean_variables(formula):
-    """Returns the list of Boolean variables in the formula."""
+    """Finds all the boolean variables in the formula.
+    
+    Args:
+        formula (FNode): The pysmt formula to examine.
+        
+    Returns:
+        set(FNode): The set of all the boolean variables in the formula.
+    
+    """
     return _get_variables(formula, BOOL)
 
 def get_real_variables(formula):
-    """Returns the list of real variables in the formula."""    
+    """Finds all the real variables in the formula.
+    
+    Args:
+        formula (FNode): The pysmt formula to examine.
+        
+    Returns:
+        set(FNode): The set of all the real variables in the formula.
+    
+    """
     return _get_variables(formula, REAL)
 
 def get_lra_atoms(formula):
-    """Returns the list of LRA atoms in the formula."""    
-    return {a for a in formula.get_atoms() if a.is_theory_relation()}
+    """Finds all the LRA atoms in the formula.
     
+    Args:
+        formula (FNode): The pysmt formula to examine.
+        
+    Returns:
+        set(FNode): The set of all the LRA atoms in the formula.
+    
+    """  
+    return {a for a in formula.get_atoms() if a.is_theory_relation()}
 
 def _get_variables(formula, type_):
+    """Finds all the variables in the formula of the specific pysmt type.
+    
+    Args:
+        formula (FNode): The pysmt formula to examine.
+        type_: The pysmt type to find (e.g: REAL, BOOL).
+        
+    Returns:
+        set(FNode): The set of all the variables in the formula of the specific type.
+        
+    """
     return {a for a in formula.get_free_variables() if a.get_type() == type_}
+    
+def is_pow(node):
+    """Test whether the node is the Pow operator
+        (this should be implemented in pysmt but is currently missing).
+    
+    Args:
+        node (FNode): The node to examine.
+        
+    Returns:
+        bool: True if the node is a Pow operator, False otherwise.
 
-def _new_label(prefix, index):
-    label_name = "{}_{}".format(prefix, index)
-    return Symbol(label_name)
+    """
+    return node.node_type() == POW 
 
 def _gcd(a, b):
-    """Return greatest common divisor using Euclid's Algorithm."""
+    """Computes the greatest common divisor of two numbers using Euclid's Algorithm.
+    
+    Example:
+        >>> _gcd(30, 18)
+        6
+    
+    Args:
+        a (int): The first parameter.
+        b (int): The second parameter.
+        
+    Returns:
+        int: The greatest common divisor of a and b.
+        
+    """
     while b:      
         a, b = b, a % b
     return a
 
 def _lcm(a, b):
-    """Return lowest common multiple."""
+    """Compute the lowest common multiple of two numbers.
+    
+    Example:
+        >>> _lcm(12, 20)
+        60
+        
+    Args:
+        a (int): The first parameter.
+        b (int): The second parameter.
+        
+    Returns:
+        int: The lowest common multiple of a and b.
+        
+    """
     return a * b // _gcd(a, b)
 
 def lcmm(args):
-    """Return lcm of args."""   
+    """Computes the lowest common multiple of a list of numbers.
+    
+    Example:
+        >>> lcmm([5, 15, 12])
+        60
+        
+    Args:
+        args (list(int)): The list of numbers on which to compute the lowest common multiple.
+        
+    Returns:
+        int: The lowest common multiple of all the numbers in the list.
+        
+    """
     return reduce(_lcm, args)
-

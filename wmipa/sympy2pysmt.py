@@ -1,5 +1,4 @@
-"""This module leverages sympy to transform a pysmt polynomial in canonical
-form.
+"""This module leverages sympy to transform a pysmt polynomial in canonical form.
 
 """
 
@@ -7,25 +6,45 @@ __version__ = '0.99'
 __author__ = 'Paolo Morettin'
 
 
-from sympy import expand #, is_Add, is_Mul, is_Pow, is_Symbol, is_Number
+from sympy import expand, sympify, SympifyError
 from pysmt.shortcuts import Plus, Times, Pow, Symbol, Real, serialize
 from pysmt.typing import REAL
 
-from wmipa.wmiexception import WMIParsingError
+from wmipa.wmiexception import WMIParsingException
 
-def pysmt2sympy(formula):
-    return serialize(formula)
-
+def pysmt2sympy(expression):
+    """Converts a pysmt formula representing a polynomial into a string.
+        The string can then be read and modified by sympy.
+    
+    Args:
+        formula (FNode): The pysmt formula to convert.
+    
+    Returns:
+        str: The string representing the formula.
+        
+    Raises:
+        WMIParsingException: If the method fails to parse the formula.
+        
+    """
+    serialize_formula = serialize(expression)
+    try:
+        sympy_formula = sympify(serialize_formula)
+    except SympifyError:
+        raise WMIParsingException(WMIParsingException.CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY, expression)
+    return sympy_formula
 
 def sympy2pysmt(expression):
-    """Converts a sympy formula representing a polynomial into a  pysmt formula.
+    """Converts a sympy formula representing a polynomial into a pysmt formula.
     
-    Keyword arguments:
-    expression -- sympy formula.
+    Args:
+        expression: The sympy formula to convert.
+        
+    Returns:
+        FNode: The pysmt formula.
 
     Raises:
-    WMIParsingError -- If it fails to parse the formula.
-
+        WMIParsingException: If the method fails to parse the formula.
+        
     """
     if expression.is_Add:
         return Plus(map(sympy2pysmt, expression.args))
@@ -39,19 +58,22 @@ def sympy2pysmt(expression):
     elif expression.is_Number:
         return Real(float(expression))
     else:
-        msg = "Couldn't parse the sympy formula: " + str(expression)
-        raise WMIParsingError(msg, None)
+        raise WMIParsingException(WMIParsingException.CANNOT_CONVERT_SYMPY_FORMULA_TO_PYSMT, expression)
 
 def get_canonical_form(expression):
-    """Given a pysmt formula representing a polynomial, rewrites it in canonical
-    form.
+    """Given a pysmt formula representing a polynomial, rewrites it in canonical form.
 
-    Keyword arguments:
-    expression - pysmt formula
-
+    Args:
+        expression (FNode): The pysmt formula to rewrite.
+        
+    Returns:
+        (FNode): The pysmt formula in canonical form.
+        
     Raises:
-    WMIParsingError -- If it fails to parse back the formula after converting it
-
+        WMIParsingException: If the method fails to parse the formula.
+        
     """
-    canonical = sympy2pysmt(expand(pysmt2sympy(expression)))
+    sympy_formula = pysmt2sympy(expression)
+    sympy_expand = expand(sympy_formula)
+    canonical = sympy2pysmt(sympy_expand)
     return canonical
