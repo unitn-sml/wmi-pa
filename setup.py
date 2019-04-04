@@ -3,6 +3,7 @@ import shutil
 import sys
 
 from setuptools import setup, find_packages, Command
+from setuptools.command.install import install
 from os import path
 
 NAME = 'wmipa'
@@ -31,6 +32,12 @@ with open(path.join(here, "README.md")) as ref:
     long_description = ref.read()
 
 
+class PostInstallCommand(install):
+    def run(self):
+        install.run(self)
+        os.system("pysmt-install --msat") # additionally install mathsat
+
+    
 class UploadCommand(Command):
     """Support setup.py upload."""
 
