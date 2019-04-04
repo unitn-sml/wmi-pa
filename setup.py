@@ -35,7 +35,7 @@ with open(path.join(here, "README.md")) as ref:
 class PostInstallCommand(install):
     def run(self):
         install.run(self)
-        os.system("pysmt-install --msat") # additionally install mathsat
+        os.system("pysmt-install --msat --confirm-agreement") # additionally install mathsat
 
     
 class UploadCommand(Command):
@@ -99,5 +99,6 @@ setup(
     tests_require=["pytest"],
     cmdclass={
         'upload': UploadCommand,
+        'install': PostInstallCommand,
     },
 )
