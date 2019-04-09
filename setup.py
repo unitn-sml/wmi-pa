@@ -84,9 +84,9 @@ setup(
     url=URL,
     author=AUTHOR,
     author_email=EMAIL,
-    #license='MIT',
+    license='MIT',
     classifiers=[
-        #'License :: OSI Approved :: MIT License',
+        'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
     ],
