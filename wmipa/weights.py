@@ -1,7 +1,7 @@
 
 from itertools import product
 
-from pysmt.shortcuts import And, Iff, Symbol, get_env
+from pysmt.shortcuts import And, Iff, Symbol, get_env, serialize
 from pysmt.typing import BOOL, REAL
 
 from wmipa.utils import is_pow
@@ -13,7 +13,7 @@ class Weights:
         
     Attributes:
         weights (FNode): The pysmt formula that represents the weight function.
-        labels (set(str)): The set of all the condition labels created when labelling the weight function.
+        labels (set(FNode)): The set of all the condition labels created when labelling the weight function.
         labelling (FNode): The pysmt formula representing all the correlations between the labels and the actual conditions
             (e.g: cond_3 <-> (x < 5)).
         n_conditions (int): The number of all the conditions inside the weight function.
@@ -206,3 +206,13 @@ class Weights:
             raise WMIParsingException(WMIParsingException.INVALID_WEIGHT_FUNCTION, node)
             
         return subs
+        
+    def __str__(self):
+        ret = "Weight object {\n"
+        ret += "\tlabelled weight: "+serialize(self.weights)+"\n"
+        ret += "\tlabels: "+", ".join([serialize(s) for s in self.labels])+"\n"
+        ret += "\tlabelling: "+serialize(self.labelling)+"\n"
+        ret += "\tnumber of conditions: "+str(self.n_conditions)+"\n"
+        ret += "}"
+        
+        return ret
