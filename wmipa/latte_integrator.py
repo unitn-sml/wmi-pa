@@ -102,7 +102,7 @@ class Latte_Integrator(Integrator):
             
         """
         integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-        return _integrate_latte(integrand, polytope)
+        return self._integrate_latte(integrand, polytope)
         
     def _integrate_latte(self, integrand, polytope, index=0):
         """Generates the input files and calls LattE's "integrate" executable
