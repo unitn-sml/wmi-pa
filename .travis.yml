@@ -3,5 +3,7 @@ python:
 - '3.6'
 install:
 - pip install .
+- pysmt-install --msat --confirm-agreement
+- PATH=$(pwd)"/test/":$PATH
 script:
 - pytest
