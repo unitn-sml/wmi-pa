@@ -334,7 +334,6 @@ class WMI:
                     atom = labels[atom]
                 atom_assignments[atom] = value
             problem = self._create_problem(atom_assignments, weights)
-            current_weight = weights.weight_from_assignment(atom_assignments)
             problems.append(problem)
 
         volume = fsum(self.integrator.integrate_batch(problems))
