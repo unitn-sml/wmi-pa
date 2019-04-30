@@ -201,14 +201,16 @@ class Latte_Integrator(Integrator):
         res = None
         
         with open(path, 'r') as f:
-            for line in f:
-                print(line)
+            lines = f.readlines()
+            for line in lines:
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
-                    res = float(line.partition(": ")[-1].strip())
-                    break
+                    return float(line.partition(": ")[-1].strip())
 
+            # empty polytope
             res = 0.0
+            print("\n".join(lines))
+
         return res
         
     def _write_polynomial_file(self, integrand, variables, path):
