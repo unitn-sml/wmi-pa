@@ -202,7 +202,6 @@ class Latte_Integrator(Integrator):
         
         with open(path, 'r') as f:
             for line in f:
-                print(line)
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
                     res = float(line.partition(": ")[-1].strip())
