@@ -198,14 +198,17 @@ class Latte_Integrator(Integrator):
             real: The result of the computation written in the file.
         
         """
-        res = 0.0
+        res = None
         
         with open(path, 'r') as f:
             for line in f:
+                print(line)
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
                     res = float(line.partition(": ")[-1].strip())
                     break
+
+            res = 0.0
         return res
         
     def _write_polynomial_file(self, integrand, variables, path):
