@@ -4,11 +4,12 @@ python:
 install:
 - pip install .
 - pysmt-install --msat --confirm-agreement
-- PATH=$(pwd)"/test/":$PATH
 - cd test/
 - tar -zxf latte-integrale-1.7.3b.tar.gz
 - cd latte-integrale-1.7.3b
 - ./configure
 - make
+- PATH=$(pwd)"/dest/bin/":$PATH
+- cd ../../
 script:
 - pytest
