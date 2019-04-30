@@ -206,8 +206,9 @@ class Latte_Integrator(Integrator):
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
                     res = float(line.partition(": ")[-1].strip())
+                    print("RESULT:", res)
                     break
-
+            print("###### It should not be here ######")
             res = 0.0
         return res
         
