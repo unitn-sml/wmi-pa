@@ -1,4 +1,6 @@
 # wmi-pa
+[![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
+
 Python 3 implementation of the method presented in:
 
   [Efficient WMI via SMT-Based Predicate Abstraction](https://www.ijcai.org/proceedings/2017/100)  
