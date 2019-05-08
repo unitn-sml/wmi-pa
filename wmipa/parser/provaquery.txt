@@ -1,4 +1,0 @@
-
-constraint x + y <= 1;
-
-

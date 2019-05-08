@@ -1,1 +1,0 @@
-from .minizincParser import MinizincParser
