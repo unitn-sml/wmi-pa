@@ -209,7 +209,6 @@ class Latte_Integrator(Integrator):
 
             # empty polytope
             res = 0.0
-            print("\n".join(lines))
 
         return res
         
