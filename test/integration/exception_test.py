@@ -1,7 +1,6 @@
 from pysmt.shortcuts import *
 from pysmt.typing import REAL, BOOL, INT
 from wmipa import WMI
-from wmipa import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 import pytest
 

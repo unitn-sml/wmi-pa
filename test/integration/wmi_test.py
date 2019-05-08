@@ -1,7 +1,6 @@
 from pysmt.shortcuts import *
 from pysmt.typing import REAL, BOOL
 from wmipa import WMI
-from wmipa import Weights
 
 a = Symbol("A", BOOL)
 b = Symbol("B", BOOL)

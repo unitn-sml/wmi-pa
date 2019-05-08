@@ -25,7 +25,7 @@ from pysmt.typing import BOOL, REAL
 from math import fsum
 
 from wmipa.latte_integrator import Latte_Integrator
-from wmipa import Weights
+from wmipa.weights import Weights
 from wmipa import logger
 from wmipa.utils import get_boolean_variables, get_real_variables
 from wmipa.wmiexception import WMIRuntimeException, WMIParsingException

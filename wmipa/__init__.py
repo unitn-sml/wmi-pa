@@ -19,6 +19,5 @@ if IMPORT_ERR_MSG:
     raise ImportError(IMPORT_ERR_MSG)
 else:
     from .logger import logger
-    from .weights import Weights
     from .wmi import WMI    
 

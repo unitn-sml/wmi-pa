@@ -1,4 +1,4 @@
-from wmipa import Weights
+from wmipa.weights import Weights
 from pysmt.shortcuts import *
 from pysmt.typing import BOOL, REAL
 import pytest
