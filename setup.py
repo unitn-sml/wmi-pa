@@ -16,7 +16,7 @@ VERSION = "0.1.2"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'pysmt', 'numpy', 'typing', 'sympy', 'networkx', 'antlr4-python3-runtime'
+    'pysmt', 'numpy', 'typing', 'sympy', 'networkx'
 ]
 
 # What packages are optional?
@@ -52,7 +52,7 @@ setup(
         'Programming Language :: Python :: 3',
     ],
     python_requires=REQUIRES_PYTHON,
-    packages=find_packages(exclude=('test', 'examples', 'tutorial')),
+    packages=find_packages(exclude=('test', 'examples')),
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
