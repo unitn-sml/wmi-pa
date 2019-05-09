@@ -16,7 +16,7 @@ VERSION = "0.1.2"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'pysmt', 'numpy', 'typing', 'sympy', 'networkx'
+    'pysmt', 'numpy', 'sympy', 'networkx'
 ]
 
 # What packages are optional?
