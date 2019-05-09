@@ -15,10 +15,6 @@ Currently, three algorithms are supported:
 __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
-import warnings
-warnings.filterwarnings("ignore", message="the imp module is deprecated in favour of importlib;")
-warnings.filterwarnings("ignore", message="can't resolve package from __spec__ or __package__,")
-
 import mathsat
 from pysmt.shortcuts import Real, Bool, And, Iff, Not, Solver, simplify, substitute, serialize
 from pysmt.typing import BOOL, REAL
