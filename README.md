@@ -7,17 +7,19 @@ Python 3 implementation of the method presented in:
   Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
   in Proceedings of IJCAI 2017
 
-## Required software:
-- [sympy](http://www.sympy.org/en/index.html)
-- [NetworkX](https://networkx.github.io/)
-- [Matplotlib](https://matplotlib.org/)
-- [Latte Integrale](https://www.math.ucdavis.edu/~latte/)
-- [pysmt and MathSAT5](https://github.com/pysmt/pysmt)
+## Installation
 
-LattE's binary folder must be present in the PATH environment variable.
+    pip install wmipa
 
-
+The algorithm additionally requires:
+- [LattE integrale](https://www.math.ucdavis.edu/~latte/) LattE's binary folder must be present in the PATH environment variable.
+- [MathSAT5](http://mathsat.fbk.eu/) Run:
+    pysmt-install --msat
 
 ## Examples
 We provide some examples that show how to write a model and evaluate weighted model integrals on it.
 To run the code in *examples/*, type: python exampleX.py
+
+## pywmi
+
+We suggest to check out [pywmi](https://github.com/weighted-model-integration/pywmi/), a general framework for Weighted Model Integration that supports WMI-PA and other solving techniques.
