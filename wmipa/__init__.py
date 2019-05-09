@@ -18,6 +18,6 @@ if IMPORT_ERR_MSG is None and which('integrate') is None:
 if IMPORT_ERR_MSG:
     raise ImportError(IMPORT_ERR_MSG)
 else:
-    from .logger import logger
-    from .wmi import WMI    
+    from .log import logger
+    from .wmi import WMI
 
