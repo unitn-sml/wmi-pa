@@ -65,6 +65,8 @@ class Latte_Integrator(Integrator):
         n_threads = options.get('n_threads')
         self.n_threads = n_threads or Latte_Integrator.DEF_N_THREADS
         
+        self.hashTable = HashTable()
+        
     def integrate_batch(self, problems):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
         
@@ -72,11 +74,11 @@ class Latte_Integrator(Integrator):
             problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
         
         """
-        # Convert the problems into (integrand, polytope, index)
+        # Convert the problems into (integrand, polytope)
         for index in range(len(problems)):
             atom_assignments, weight, aliases = problems[index]
             integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-            problems[index] = (integrand, polytope, index)
+            problems[index] = (integrand, polytope)
         
         # Handle multithreading
         pool = Pool(self.n_threads)
@@ -88,8 +90,8 @@ class Latte_Integrator(Integrator):
         
     def integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
-        integrand, polytope, index = problem
-        return self._integrate_latte(integrand, polytope, index)
+        integrand, polytope = problem
+        return self._integrate_latte(integrand, polytope)
             
     def integrate(self, atom_assignments, weight, aliases):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
@@ -104,7 +106,7 @@ class Latte_Integrator(Integrator):
         integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
         return self._integrate_latte(integrand, polytope)
         
-    def _integrate_latte(self, integrand, polytope, index=0):
+    def _integrate_latte(self, integrand, polytope):
         """Generates the input files and calls LattE's "integrate" executable
             to calculate the integral. Then, reads back the result and returns it
             as a float.
@@ -112,8 +114,6 @@ class Latte_Integrator(Integrator):
         Args:
             integrand (Polynomial): The integrand of the integration.
             polytope (Polytope): The polytope of the integration.
-            index (int): The number of the problem (default: 0).
-                Required for multithreading.
                 
         Returns:
             real: The integration result.    
@@ -290,3 +290,18 @@ class Latte_Integrator(Integrator):
                 # In the general case this may happen, raising an exception
                 # is not a good idea.
             """
+            
+class HashTable:
+    
+    def __init__(self):
+        self.hashTable = {}
+        
+    def get(self, key):
+        try:
+            value = self.hashTable[key]
+            return value
+        except KeyError:
+            return None
+            
+    def set(self, key, value):
+        self.hashTable[key] = value
