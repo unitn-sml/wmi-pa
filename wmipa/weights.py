@@ -86,17 +86,17 @@ class Weights:
         
             # first check into the cache if the weight associated to the particular assignment was already calculated
             if label_assignment in self.cache:
-                return self.cache[label_assignment]
+                return self.cache[label_assignment], label_assignment
                 
             # else evaluate it and insert it into the cache
             else:
                 flat_w = self._evaluate_weight(self.weights, label_assignment)
                 self.cache[label_assignment] = flat_w
-                return flat_w
+                return flat_w, label_assignment
                 
         # if there is no cache just evaluate the weight
         else:
-            return self._evaluate_weight(self.weights, label_assignment)
+            return self._evaluate_weight(self.weights, label_assignment), label_assignment
 
     def label_conditions(self, weight_func):
         """Finds and labels all the conditions inside the weight function with fresh boolean atoms.

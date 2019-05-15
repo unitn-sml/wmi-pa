@@ -107,13 +107,13 @@ def test_weight_from_assignment():
     weight = Weights(formula, variables)
     var = list(variables.variables.keys())
     assignment = {var[0]:True, var[1]:True}
-    result = weight.weight_from_assignment(assignment)
+    result, _ = weight.weight_from_assignment(assignment)
     assert result == v1
     
     assignment = {var[0]:False, var[1]:True}
-    result = weight.weight_from_assignment(assignment)
+    result, _ = weight.weight_from_assignment(assignment)
     assert result == Times(v2, v1)
     
     assignment = {var[0]:False, var[1]:False}
-    result = weight.weight_from_assignment(assignment)
+    result, _ = weight.weight_from_assignment(assignment)
     assert result == Times(v2, v3)

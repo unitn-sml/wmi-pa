@@ -169,13 +169,16 @@ class WMI:
         domA = options.get("domA")
         domX = options.get("domX")
         mode = options.get("mode")
-        if mode == None:
+        cache = options.get("cache")
+        if mode is None:
             mode = WMI.MODE_PA
-            
         if mode not in WMI.MODES:
             err = "{}, use one: {}".format(mode, ", ".join(WMI.MODES))
             logger.error(err)
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
+        if cache is None:
+            cache = True
+        self.cache = cache
         
         # Add the phi to the support
         formula = And(phi, self.chi)
@@ -205,10 +208,10 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA}
                              
-        volume, n_integrations = compute_with_mode[mode](formula, self.weights)
+        volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
             
         volume = volume * factor
-        logger.debug("Volume: {}, n_integrations: {}".format(volume, n_integrations))
+        logger.debug("Volume: {}, n_integrations: {}, n_cached: {}".format(volume, n_integrations, n_cached))
             
         return volume, n_integrations
 
@@ -332,8 +335,9 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        volume = fsum(self.integrator.integrate_batch(problems))
-        return volume, len(problems)
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        volume = fsum(results)
+        return volume, len(problems)-cached, cached
     
     def _create_problem(self, atom_assignments, weights):
         """Create a tuple containing the problem to integrate.
@@ -361,8 +365,8 @@ class WMI:
                     msg = "Multiple assignments to the same alias"
                     raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
         
-        current_weight = weights.weight_from_assignment(atom_assignments)
-        return (atom_assignments, current_weight, aliases)
+        current_weight, cond_assignments = weights.weight_from_assignment(atom_assignments)
+        return (atom_assignments, current_weight, aliases, cond_assignments)
         
     def _parse_alias(self, equality):
         """Takes an equality and parses it.
@@ -412,8 +416,9 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        volume = fsum(self.integrator.integrate_batch(problems))
-        return volume, len(problems)
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        volume = fsum(results)
+        return volume, len(problems)-cached, cached
         
     def _compute_WMI_PA_no_boolean(self, lab_formula, pa_vars, labels, other_assignments={}):
         """Finds all the assignments that satisfy the given formula using AllSAT.
@@ -515,9 +520,9 @@ class WMI:
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
 
-        temp = self.integrator.integrate_batch(problems)
-        volume = fsum(temp)
-        return volume, len(problems)
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        volume = fsum(results)
+        return volume, len(problems)-cached, cached
 
     def label_formula(self, formula, atoms_to_label):
         """Labels every atom in the input with a new fresh WMI variable.

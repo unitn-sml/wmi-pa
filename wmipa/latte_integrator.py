@@ -5,7 +5,7 @@ from subprocess import call
 from os import makedirs, chdir, getcwd
 from os.path import isdir
 from shutil import rmtree
-from multiprocessing import Pool
+from multiprocessing import Pool, Manager
 from pysmt.typing import REAL
 from pysmt.shortcuts import LT, LE
 from tempfile import TemporaryDirectory
@@ -67,7 +67,7 @@ class Latte_Integrator(Integrator):
         
         self.hashTable = HashTable()
         
-    def integrate_batch(self, problems):
+    def integrate_batch(self, problems, cache):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
         
         Args:
@@ -76,24 +76,26 @@ class Latte_Integrator(Integrator):
         """
         # Convert the problems into (integrand, polytope)
         for index in range(len(problems)):
-            atom_assignments, weight, aliases = problems[index]
+            atom_assignments, weight, aliases, cond_assignments = problems[index]
             integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-            problems[index] = (integrand, polytope)
+            problems[index] = (integrand, polytope, cond_assignments, cache)
         
         # Handle multithreading
         pool = Pool(self.n_threads)
         results = pool.map(self.integrate_wrapper, problems)
+        values = [r[0] for r in results]
+        cached = len([r[1] for r in results if r[1] > 0])
         pool.close()
         pool.join()
         
-        return results
+        return values, cached
         
     def integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
-        integrand, polytope = problem
-        return self._integrate_latte(integrand, polytope)
+        integrand, polytope, cond_assignments, cache = problem
+        return self._integrate_latte(integrand, polytope, cond_assignments, cache)
             
-    def integrate(self, atom_assignments, weight, aliases):
+    def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
         
         Args:
@@ -104,9 +106,9 @@ class Latte_Integrator(Integrator):
             
         """
         integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-        return self._integrate_latte(integrand, polytope)
+        return self._integrate_latte(integrand, polytope, cond_assignments, cache)
         
-    def _integrate_latte(self, integrand, polytope):
+    def _integrate_latte(self, integrand, polytope, cond_assignments, cache):
         """Generates the input files and calls LattE's "integrate" executable
             to calculate the integral. Then, reads back the result and returns it
             as a float.
@@ -136,7 +138,14 @@ class Latte_Integrator(Integrator):
             
             # Write integrand and polytope to file
             self._write_polynomial_file(integrand, variables, polynomial_file)
-            self._write_polytope_file(polytope, variables, polytope_file)
+            polytope_key = self._write_polytope_file(polytope, variables, polytope_file)
+            key = tuple([polytope_key, cond_assignments])
+            
+            if cache:
+                value = self.hashTable.get(key)
+                if value is not None:
+                    chdir(original_cwd)
+                    return value, 1
             
             # Integrate and dump the result on file
             self._call_latte(polynomial_file, polytope_file, output_file)
@@ -145,7 +154,10 @@ class Latte_Integrator(Integrator):
             result = self._read_output_file(output_file)            
             chdir(original_cwd)
             
-            return result
+            if cache:
+                self.hashTable.set(key, result)
+            
+            return result, 0
         
     def _convert_to_latte(self, atom_assignments, weight, aliases):
         """Transforms an assignment into a LattE problem, defined by:
@@ -251,19 +263,27 @@ class Latte_Integrator(Integrator):
         # Create the string representation of the polytope (LattE format)
         n_ineq = str(len(polytope.bounds))
         n_vars = str(len(variables) + 1)
+        bounds_key = []
         latte_repr = "{} {}\n".format(n_ineq, n_vars)
         for index, bound in enumerate(polytope.bounds):
+            bound_key = [bound.constant]
             latte_repr += str(bound.constant) + " "
             for var in variables:
                 if var in bound.coefficients:
                     latte_repr += str(-bound.coefficients[var]) + " "
+                    bound_key.append(-bound.coefficients[var])
                 else:
                     latte_repr += "0 "
+                    bound_key.append(0)
             latte_repr += "\n"
-
+            bounds_key.append(tuple(bound_key))
+            
         # Write the string on the file
         with open(path,'w') as f:
             f.write(latte_repr)
+            
+        bounds_key = sorted(bounds_key)
+        return tuple(bounds_key)
 
     def _call_latte(self, polynomial_file, polytope_file, output_file):
         """Calls LattE executable to calculate the integrand of the problem
@@ -290,18 +310,21 @@ class Latte_Integrator(Integrator):
                 # In the general case this may happen, raising an exception
                 # is not a good idea.
             """
-            
-class HashTable:
     
+    
+        
+class HashTable():
+
     def __init__(self):
-        self.hashTable = {}
+        manager = Manager()
+        self.table = manager.dict()
         
     def get(self, key):
         try:
-            value = self.hashTable[key]
+            value = self.table[key]
             return value
         except KeyError:
             return None
-            
+        
     def set(self, key, value):
-        self.hashTable[key] = value
+        self.table[key] = value
