@@ -25,7 +25,7 @@ if __name__ == '__main__':
     
     # check if dir exists
     if not path.exists(input_dir):
-        print("Folder {} does not exists")
+        print("Folder {} does not exists".format(input_dir))
         sys.exit(1)
         
     files = [path.join(input_dir, f) for f in os.listdir(input_dir) if path.isfile(path.join(input_dir, f))]
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         print("There are no weights in the folder {}".format(input_dir))
         sys.exit(1)
         
-    output_file = path.join(input_dir, "result.json")
+    output_file = path.join(input_dir, "result_{}.json".format(mode))
     if path.exists(output_file):
         print("result.json file already exists in the folder")
         sys.exit(1)
