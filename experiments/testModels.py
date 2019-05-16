@@ -12,11 +12,13 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input_dir', help='Name of the directory with .support and .weight files')
-    parser.add_argument('mode', help='Mode to use {}, default: PA'.format(WMI.MODES))
+    parser.add_argument('output', help='Output file name on where to save all results')
+    parser.add_argument('-m', '--mode', default="PA", help='Mode to use {}, default: PA'.format(WMI.MODES))
     
     args = parser.parse_args()
 
     input_dir = args.input_dir
+    output = args.output
     mode = args.mode
     
     if mode not in WMI.MODES:
@@ -42,7 +44,7 @@ if __name__ == '__main__':
         print("There are no weights in the folder {}".format(input_dir))
         sys.exit(1)
         
-    output_file = path.join(input_dir, "result_{}.json".format(mode))
+    output_file = "{}_{}.json".format(output, mode)
     if path.exists(output_file):
         print("result.json file already exists in the folder")
         sys.exit(1)
