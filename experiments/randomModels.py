@@ -186,7 +186,7 @@ if __name__ == '__main__':
         return ivalue
     
     parser = argparse.ArgumentParser(description='Generates random support and models.')
-    parser.add_argument('output_dir', help='Name of the directory where all models will be created')
+    parser.add_argument('output', help='Name of the directory where all models will be created')
     parser.add_argument('-r', '--reals', default=3, type=positive, help='Maximum number of real variables (default: 3)')
     parser.add_argument('-b', '--booleans', default=3, type=positive_0, help='Maximum number of bool variables (default: 3)')
     parser.add_argument('-d', '--depth', default=3, type=positive, help='Depth of the formula tree (default: 3)')
@@ -200,13 +200,22 @@ if __name__ == '__main__':
     depth = args.depth
     n_models = args.models
     seedn = args.seed
-    if seedn is None:
-        seedn = randint(0, 10000000)
-    output_dir = '{}_r{}_b{}_d{}_s{}'.format(args.output_dir, n_reals, n_bools, depth, seedn)
+    output = args.output
     
     # check if dir exists
+    if (not path.exists(output)):
+        print("Folder '{}' does not exists")
+        sys.exit(1)
+    
+    if seedn is None:
+        seedn = int(time.time())
+    
+    output_dir = 'models_r{}_b{}_d{}_m{}_s{}'.format(n_reals, n_bools, depth, n_models, seedn)
+    output_dir = path.join(output, output_dir)
+    
+    # check if this model is already created
     if (path.exists(output_dir)):
-        print("Folder {} already exists, remove it and retry")
+        print("A dataset of models with this parameters already exists in the output folder. Remove it and retry")
         sys.exit(1)
     
     # create dir
@@ -217,15 +226,16 @@ if __name__ == '__main__':
     seed(seedn)
     numseed(seedn)
     
-    print("Creating models")
+    print("Starting creating models")
     time_start = time.time()
     for i in range(n_models):
         gen = ModelGenerator(n_reals, n_bools)
         support = gen.generate_support_tree(depth)        
         weight = gen.generate_weights_tree(depth)
-
-        support_filename = path.join(output_dir, "r{}_b{}_{}.support".format(n_reals, n_bools, i+1))
-        weight_filename = path.join (output_dir, "r{}_b{}_{}.weight".format(n_reals, n_bools, i+1))
+        
+        number = "0" * (len(str(n_models+1)) - len(str(i+1))) + str(i+1)
+        support_filename = path.join(output_dir, "r{}_b{}_d{}_s{}_{}.support".format(n_reals, n_bools, depth, seedn, number))
+        weight_filename = path.join (output_dir, "r{}_b{}_d{}_s{}_{}.weight".format(n_reals, n_bools, depth, seedn, number))
         
         write_smtlib(support, support_filename)
         write_smtlib(weight, weight_filename)
