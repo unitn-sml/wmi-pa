@@ -1,15 +1,7 @@
-from random import choice, randint, random, sample, seed, shuffle, uniform
-
-from numpy.random import seed as numseed
+from random import choice, randint, random, sample, seed, uniform
 
 from pysmt.shortcuts import BOOL, REAL, Symbol, Plus, Times, Pow, Ite, Real, \
-    And, Or, Not, LT, serialize, Bool, is_sat
-
-
-from sympy import div
-from sympy.polys.polyerrors import ComputationFailed
-
-from wmipa.sympy2pysmt import pysmt2sympy, sympy2pysmt
+    And, Or, Not, LT, Bool, is_sat
 
 class ModelGenerator:
 
@@ -48,7 +40,6 @@ class ModelGenerator:
         if seedn != None:
             self.seedn = seedn
             seed(seedn)
-            numseed(seedn)
 
     def generate_support_tree(self, depth):
         domain = []
@@ -170,6 +161,7 @@ if __name__ == '__main__':
     import sys
     import os
     import time
+    import json
     from os import path
     from pysmt.shortcuts import write_smtlib
     
@@ -186,25 +178,25 @@ if __name__ == '__main__':
         return ivalue
     
     parser = argparse.ArgumentParser(description='Generates random support and models.')
-    parser.add_argument('output', help='Name of the directory where all models will be created')
+    parser.add_argument('-o', '--output', default=os.getcwd(), help='Folder where all models will be created (default: cwd)')
     parser.add_argument('-r', '--reals', default=3, type=positive, help='Maximum number of real variables (default: 3)')
     parser.add_argument('-b', '--booleans', default=3, type=positive_0, help='Maximum number of bool variables (default: 3)')
     parser.add_argument('-d', '--depth', default=3, type=positive, help='Depth of the formula tree (default: 3)')
     parser.add_argument('-m', '--models', default=20, type=positive, help='Number of model files (default: 20)')
-    parser.add_argument('-s', '--seed', type=positive_0, help='Random seed')
+    parser.add_argument('-s', '--seed', type=positive_0, help='Random seed (optional)')
     
     args = parser.parse_args()
 
+    output = args.output
     n_reals = args.reals
     n_bools = args.booleans
     depth = args.depth
     n_models = args.models
     seedn = args.seed
-    output = args.output
     
     # check if dir exists
     if (not path.exists(output)):
-        print("Folder '{}' does not exists")
+        print("Folder '{}' does not exists".format(output))
         sys.exit(1)
     
     if seedn is None:
@@ -222,14 +214,23 @@ if __name__ == '__main__':
     os.mkdir(output_dir)
     print("Created folder '{}'".format(output_dir))
     
-    # set seed
-    seed(seedn)
-    numseed(seedn)
+    # init generator
+    templ_bools = ModelGenerator.TEMPL_BOOLS
+    templ_reals = ModelGenerator.TEMPL_REALS
+    gen = ModelGenerator(n_reals, n_bools, seedn=seedn, templ_bools=templ_bools, templ_reals=templ_reals)
+    
+    info = {
+        "real_variables": [templ_reals.format(i) for i in range(n_reals)],
+        "bool_variables": [templ_bools.format(i) for i in range(n_bools)],
+        "depth": depth
+    }
+    with open (path.join(output_dir, "info.json"), 'w') as f:
+        json.dump(info, f, indent=4)
+    print("Created info.json")
     
     print("Starting creating models")
     time_start = time.time()
     for i in range(n_models):
-        gen = ModelGenerator(n_reals, n_bools)
         support = gen.generate_support_tree(depth)        
         weight = gen.generate_weights_tree(depth)
         
