@@ -137,7 +137,7 @@ if __name__ == '__main__':
                     plt.xlabel(params[index_to_evaluate])
                     plt.ylabel(y)
                     for mode in plot_axis:
-                        plt.plot(plot_axis[mode]["x"], plot_axis[mode][y], label=mode)
+                        plt.plot(plot_axis[mode]["x"], plot_axis[mode][y], label=mode, marker='o')
                     plt.legend()
                     params_values = [(str(params[i]) if i != index_to_evaluate else str(x_values[0])+"-"+str(x_values[len(x_values)-1])) for i in range(len(params))]
                     params_list = [(fixed_params_name[i][0]+str(fixed_params[i])) for i in range(len(fixed_params))] + [params[index_to_evaluate][0]+"{}-{}".format(x_values[0], x_values[len(x_values)-1])]

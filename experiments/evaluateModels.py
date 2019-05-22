@@ -100,12 +100,7 @@ if __name__ == '__main__':
                 wmi = WMI(support, weight)
                 
                 time_init = time.time()
-                try:
-                    value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=("cache" in mode))
-                except Exception as ex:
-                    print("Caught WMI exception on '{}' and '{}' with mode '{}'".format(s, w, mode))
-                    print(ex)
-                    sys.exit(1)
+                value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=("cache" in mode))
                 time_total = time.time() - time_init
                 
                 res = {
