@@ -177,7 +177,7 @@ class WMI:
             logger.error(err)
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
         if cache is None:
-            cache = True
+            cache = 0
         self.cache = cache
         
         # Add the phi to the support

@@ -9,6 +9,7 @@ from multiprocessing import Pool, Manager
 from pysmt.typing import REAL
 from pysmt.shortcuts import LT, LE
 from tempfile import TemporaryDirectory
+from scipy.optimize import linprog
 
 from wmipa.integrator import Integrator
 from wmipa.polytope import Polynomial, Polytope
@@ -74,21 +75,66 @@ class Latte_Integrator(Integrator):
             problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
         
         """
-        # Convert the problems into (integrand, polytope)
-        for index in range(len(problems)):
-            atom_assignments, weight, aliases, cond_assignments = problems[index]
-            integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-            problems[index] = (integrand, polytope, cond_assignments, cache)
-        
-        # Handle multithreading
-        pool = Pool(self.n_threads)
-        results = pool.map(self.integrate_wrapper, problems)
-        values = [r[0] for r in results]
-        cached = len([r[1] for r in results if r[1] > 0])
-        pool.close()
-        pool.join()
-        
-        return values, cached
+        if cache <= 0:
+            # Convert the problems into (integrand, polytope)
+            for index in range(len(problems)):
+                atom_assignments, weight, aliases, cond_assignments = problems[index]
+                integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
+                problems[index] = (integrand, polytope, cond_assignments, cache==0)
+            
+            # Handle multithreading
+            pool = Pool(self.n_threads)
+            results = pool.map(self.integrate_wrapper, problems)
+            values = [r[0] for r in results]
+            cached = len([r[1] for r in results if r[1] > 0])
+            pool.close()
+            pool.join()
+            
+            return values, cached
+        elif cache == 1 or cache == 2 or cache == 3:
+            # Convert the problems into (integrand, polytope)
+            unique_problems = {}
+            cached_before = 0
+            for index in range(len(problems)):
+                # get problem
+                atom_assignments, weight, aliases, cond_assignments = problems[index]
+                
+                # convert to latte
+                integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
+                
+                # get hash key
+                variables = list(integrand.variables.union(polytope.variables))
+                if cache == 2:
+                    polytope = self._remove_redundancy(polytope)
+                if cache == 3:
+                    key = self.hashTable.key_2(polytope, integrand)
+                else:
+                    key = self.hashTable.key(polytope, cond_assignments, variables)
+                
+                # add to unique
+                if key not in unique_problems:
+                    unique_problems[key] = {
+                        "integrand":integrand,
+                        "polytope":polytope,
+                        "key":key,
+                        "count":0
+                    }
+                else:
+                    cached_before += 1
+                unique_problems[key]["count"] += 1
+            unique_problems = list(unique_problems.values())
+            
+            # Handle multithreading
+            pool = Pool(self.n_threads)
+            results = pool.map(self._integrate_latte_2, unique_problems)
+            values = [r[0] for r in results]
+            cached = len([r[1] for r in results if r[1] > 0])
+            pool.close()
+            pool.join()
+            
+            return values, cached+cached_before
+        else:
+            raise Exception("Not implemented yet")
         
     def integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
@@ -158,6 +204,57 @@ class Latte_Integrator(Integrator):
                 self.hashTable.set(key, result)
             
             return result, 0
+            
+    def _integrate_latte_2(self, problem):
+        """
+        {
+            "integrand":integrand,
+            "polytope":polytope,
+            "key":key,
+            "count":0
+        }
+        """
+        
+        key = problem["key"]
+        count = problem["count"]
+        
+        value = self.hashTable.get(key)
+        if value is not None:
+            return value*count, 1
+        
+        integrand = problem["integrand"]
+        polytope = problem["polytope"]
+        
+        # Create a temporary folder containing the input and output files
+        # possibly removing an older one
+        with TemporaryDirectory(dir=".") as folder:
+            
+            polynomial_file = Latte_Integrator.POLYNOMIAL_TEMPLATE
+            polytope_file = Latte_Integrator.POLYTOPE_TEMPLATE
+            output_file = Latte_Integrator.OUTPUT_TEMPLATE
+            
+            # Change the CWD
+            original_cwd = getcwd()
+            chdir(folder)
+            
+            # Variable ordering is relevant in LattE files 
+            variables = list(integrand.variables.union(polytope.variables))
+            variables.sort()
+            
+            # Write integrand and polytope to file
+            self._write_polynomial_file(integrand, variables, polynomial_file)
+            self._write_polytope_file_2(polytope, variables, polytope_file)
+            
+            # Integrate and dump the result on file
+            self._call_latte(polynomial_file, polytope_file, output_file)
+            
+            # Read back the result and return to the original CWD
+            result = self._read_output_file(output_file)            
+            chdir(original_cwd)
+            
+            self.hashTable.set(key, result)
+            
+            return result*count, 0
         
     def _convert_to_latte(self, atom_assignments, weight, aliases):
         """Transforms an assignment into a LattE problem, defined by:
@@ -284,6 +381,31 @@ class Latte_Integrator(Integrator):
             
         bounds_key = sorted(bounds_key)
         return tuple(bounds_key)
+        
+    def _write_polytope_file_2(self, polytope, variables, path):
+        """Writes the polytope into a file from where LattE will read.
+        
+        Args:
+            polytope (Polytope): The polytope of the integration.
+            variables (list): The sorted list of all the variables involved in the integration.
+            path (str): The path of the file to write.
+        """
+        # Create the string representation of the polytope (LattE format)
+        n_ineq = str(len(polytope.bounds))
+        n_vars = str(len(variables) + 1)
+        latte_repr = "{} {}\n".format(n_ineq, n_vars)
+        for index, bound in enumerate(polytope.bounds):
+            latte_repr += str(bound.constant) + " "
+            for var in variables:
+                if var in bound.coefficients:
+                    latte_repr += str(-bound.coefficients[var]) + " "
+                else:
+                    latte_repr += "0 "
+            latte_repr += "\n"
+            
+        # Write the string on the file
+        with open(path,'w') as f:
+            f.write(latte_repr)
 
     def _call_latte(self, polynomial_file, polytope_file, output_file):
         """Calls LattE executable to calculate the integrand of the problem
@@ -311,8 +433,127 @@ class Latte_Integrator(Integrator):
                 # is not a good idea.
             """
     
+    def _remove_redundancy(self, polytope):
+        polytope, internal_point = self._preprocess(polytope)
+        non_redundant_index = []
+        to_analyze = list(range(0, len(polytope.bounds)))
+        while (len(to_analyze) > 0):
+            index = to_analyze[0]
+            non_redundant, essential_index = self._clarkson(polytope, internal_point, non_redundant_index, index)
+            if non_redundant:
+                non_redundant_index.append(essential_index)
+            to_analyze.remove(essential_index)
+        non_redundant_bounds = [polytope.bounds[i] for i in non_redundant_index]
+        polytope.bounds = non_redundant_bounds
+        return polytope
     
+    def _preprocess(self, polytope):
+        """
+            maximize x_0
+            subject to:
+                Ax + 1x0 <= b
+                x_0 <= 1
+                
+            x_0 is a new variable
+            Ax <= b is the polytope
+        """
+        variables = list(polytope.variables)
+        to_minimize = [0]*len(variables) + [-1]
+        A = []
+        b = []
+        for bound in polytope.bounds:
+            a = [0]*len(variables) + [1]
+            for var_name in bound.coefficients:
+                var_index = variables.index(var_name)
+                a[var_index] = bound.coefficients[var_name]
+            A.append(a)
+            b.append(bound.constant)
+        ranges = [(None, None) for _ in range(len(to_minimize))]
         
+        res = linprog(to_minimize, A_ub=A, b_ub=b, bounds=ranges)
+        x_0 = res.fun*-1;  # *-1 because its a maximize problem
+        point = res.x[:-1] # remove x_0
+        
+        if x_0 > 0:
+            # polytope dimension = len(variables)
+            return polytope, point
+        elif x_0 < 0:
+            # polytope empty
+            return polytope, []
+        else:
+            # polytope neither full-dimensional nor empty
+            # TODO
+            raise("Not implemented yet");
+        
+    def _clarkson(self, polytope, internal_point, non_redundant_index, index_to_check):
+        """
+            maximize A_k*x
+            subject to:
+                A_i*x <= b_i        for all i in I - k
+                A_k*x <= b_k +1
+            
+            non redundant if optimal solution > b_k
+        """
+        variables = list(polytope.variables)
+        to_minimize = []
+        A = []
+        b = []
+        b_k = None
+        
+        for i, bound in enumerate(polytope.bounds):
+            if i == index_to_check or i in non_redundant_index:
+                a = [0]*len(variables)
+                for var_name in bound.coefficients:
+                    var_index = variables.index(var_name)
+                    a[var_index] = bound.coefficients[var_name]
+                A.append(a)
+                b_i = bound.constant
+                if i == index_to_check:
+                    b_k = b_i
+                    b_i += 1
+                    to_minimize = [-1*v for v in a]
+                b.append(b_i)
+        ranges = [(None, None) for _ in range(len(variables))]
+        res = linprog(to_minimize, A_ub=A, b_ub=b, bounds=ranges)
+        optimal_value = res.fun*-1 # *-1 because its a maximize problem
+        
+        non_redundant = optimal_value > b_k
+        if non_redundant:
+            optimal_solution = res.x
+            return True, self._ray_shoot(polytope, internal_point, optimal_solution)
+        else:
+            return False, index_to_check
+            
+    def _ray_shoot(self, polytope, start_point, end_point):
+        # start point is inside the polytope so every bound is respected
+        # calculate middle point
+        assert len(start_point) == len(end_point)
+        middle_point = [((end_point[i]+start_point[i])*0.5) for i in range(len(start_point))]
+        
+        # check bounds
+        intersected = None
+        variables = list(polytope.variables)
+        for index, bound in enumerate(polytope.bounds):
+            coefficients = [0] * len(variables)
+            for var_name in bound.coefficients:
+                var_index = variables.index(var_name)
+                coefficients[var_index] = bound.coefficients[var_name]
+            polynomial = [middle_point[i]*coefficients[i] for i in range(len(middle_point))]
+            truth_value = sum(polynomial) <= bound.constant
+            if not truth_value:
+                if intersected is None:
+                    intersected = index
+                else:
+                    intersected = -1
+                    break
+                
+        if intersected is None:
+            return self._ray_shoot(polytope, middle_point, end_point)
+        elif intersected < 0:
+            return self._ray_shoot(polytope, start_point, middle_point)
+        else:
+            return intersected
+    
 class HashTable():
 
     def __init__(self):
@@ -328,3 +569,66 @@ class HashTable():
         
     def set(self, key, value):
         self.table[key] = value
+        
+    def key(self, polytope, cond_assignment, variables):
+        bounds_key = []
+        for index, bound in enumerate(polytope.bounds):
+            bound_key = []
+            for var in variables:
+                if var in bound.coefficients:
+                    bound_key.append(bound.coefficients[var])
+                else:
+                    bound_key.append(0)
+            bound_key.append(bound.constant)
+            bounds_key.append(tuple(bound_key))
+            
+        bounds_key = tuple(sorted(bounds_key))
+        
+        key = tuple([bounds_key, cond_assignment])
+        return key
+        
+    def key_2(self, polytope, integrand):
+        variables = list(integrand.variables.union(polytope.variables))
+        
+        # polytope key
+        polytope_key = []
+        for index, bound in enumerate(polytope.bounds):
+            bound_key = []
+            for var in variables:
+                if var in bound.coefficients:
+                    bound_key.append(bound.coefficients[var])
+                else:
+                    bound_key.append(0)
+            bound_key.append(bound.constant)
+            polytope_key.append(tuple(bound_key))
+            
+        polytope_key = tuple(sorted(polytope_key))
+        
+        # integrand key
+        integrand_key = []
+        
+        """def sort_monomial(mon):
+            coeff = mon.coefficient
+            exp = []
+            for var in variables:
+                if var in mon.exponents:
+                    exp.append(str(mon.exponents[var]))
+                else:
+                    exp.append(str(0))
+            return tuple([coeff]+[exp])"""
+        
+        monomials = integrand.monomials
+        
+        for mon in monomials:
+            mon_key = [float(mon.coefficient)]
+            for var in variables:
+                if var in mon.exponents:
+                    mon_key.append(float(mon.exponents[var]))
+                else:
+                    mon_key.append(0)
+            integrand_key.append(tuple(mon_key))
+            
+        integrand_key = tuple(sorted(integrand_key))
+        
+        key = tuple([polytope_key, integrand_key])
+        return key
