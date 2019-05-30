@@ -105,11 +105,11 @@ class Latte_Integrator(Integrator):
 
                 # get hash key
                 variables = list(integrand.variables.union(polytope.variables))
-                if cache == 2 or cache == 3:
+                if cache == 3:
                     polytope = self._remove_redundancy(polytope)
                     if polytope is None:
                         continue
-                if cache == 3:
+                if cache == 2 or cache == 3:
                     key = self.hashTable.key_2(polytope, integrand)
                 else:
                     key = self.hashTable.key(polytope, cond_assignments, variables)
