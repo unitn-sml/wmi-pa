@@ -3,7 +3,7 @@ from wmipa import WMI
 def run (cmd):
     output = subprocess.run(cmd, stderr=subprocess.PIPE)
     if output.returncode == 1:
-        print("Error with command {}:\n".format(" ".join(cmd)))
+        print("\n\nError with command {}:\n".format(" ".join(cmd)))
         err = output.stderr.decode("utf-8")
         for line in err.split('\n'):
             print(line)
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     import subprocess
     from os import path
     
-    default_modes = ["{}_cache".format(m) for m in WMI.MODES] + WMI.MODES
+    default_modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES
     
     parser = argparse.ArgumentParser(description='Plot WMI results')
     parser.add_argument('output', help='Name of new folder where all files will be put')

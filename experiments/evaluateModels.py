@@ -11,7 +11,7 @@ if __name__ == '__main__':
     from os import path
     from pysmt.shortcuts import read_smtlib
     
-    modes = ["{}_cache".format(m) for m in WMI.MODES] + WMI.MODES
+    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES
     
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .support and .weight files')
@@ -94,13 +94,15 @@ if __name__ == '__main__':
             support_filename = path.splitext(s)[0]
             weight_filename = path.splitext(w)[0]
             if not equals or support_filename == weight_filename:
-                
                 weight = read_smtlib(w)
                 
                 wmi = WMI(support, weight)
                 
                 time_init = time.time()
-                value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=("cache" in mode))
+                cache = -1
+                if "cache" in mode:
+                    cache = int(mode.split("_")[2])
+                value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=cache)
                 time_total = time.time() - time_init
                 
                 res = {
