@@ -11,7 +11,6 @@ from multiprocessing import Pool, Manager
 from pysmt.typing import REAL
 from pysmt.shortcuts import LT, LE
 from tempfile import TemporaryDirectory, NamedTemporaryFile
-from scipy.optimize import linprog
 
 from wmipa.integrator import Integrator
 from wmipa.polytope import Polynomial, Polytope
