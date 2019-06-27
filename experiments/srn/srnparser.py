@@ -88,7 +88,7 @@ class SRNParser():
                 next_t = ((pf - pi) / 2.0) + wp
                 j = self._tp_to_partition(next_t)
                 if j != None:
-                    G.add_edge((a, i), (b, j), {'weight' : wp})
+                    G.add_edge((a, i), (b, j), weight = wp)
 
             computed += 1
             
@@ -97,14 +97,14 @@ class SRNParser():
         print(msg.format(len(G.nodes()), len(G.edges())))
             
         print("Computing conditional plan: all-pairs Dijkstra")
-        paths = nx.all_pairs_dijkstra_path(G, cutoff=None)
+        paths = dict(nx.all_pairs_dijkstra_path(G, cutoff=None))
         plan = {}
 
         msg = "Computing conditional plan: computing mapping from paths {}/{}"
         n_entries = self.n_partitions * (n_nodes**2)
         computed = 0
 
-        nodes = {n for n,_ in paths}        
+        nodes = {n for n,_ in paths}
         for src, i in paths:
             print(msg.format(computed, n_entries))
             for dst in nodes:

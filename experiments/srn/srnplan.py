@@ -12,12 +12,15 @@ from random import choice, randint, seed
 import networkx as nx
 import matplotlib.pyplot as plt
 import pickle
+from pysmt.shortcuts import *
+from multiprocessing import Process, Queue
+import psutil
 
 from sys import path
 path.insert(0, "../../src/")
 
 from wmipa import WMI
-from wmiinference import WMIInference
+from wmipa.wmiexception import WMIRuntimeException
 from srn import StrategicRoadNetwork
 from planwmi import PlanWMI
 from srnparser import SRNParser
@@ -43,7 +46,7 @@ class SRNPlan(StrategicRoadNetwork):
         graph, partitions, plan = SRNPlan._read_raw_dataset(path, n_partitions)
         seed(seedn)
         msg = "Generating experiment\tsteps = {},\nseed = {}, iterations = {}"
-        self.logger.info(msg.format(step_list, seedn, iterations))
+        print(msg.format(step_list, seedn, iterations))
         
         srn_wmi = PlanWMI(partitions, plan)
         problem_instances = []
@@ -59,7 +62,7 @@ class SRNPlan(StrategicRoadNetwork):
                 try:
                     srn_wmi.compile_knowledge(subgraph, n_steps, l_dep, l_arr)
                     wmi = WMI(srn_wmi.formula, srn_wmi.weights)
-                    if wmi.chech_consistency(wmi.chi):
+                    if wmi.check_consistency(wmi.chi):
                         instance = (subgraph, l_dep, l_arr, t_dep, t_arr)
                         instances_step.append(instance)
                 except WMIRuntimeException:
@@ -74,7 +77,7 @@ class SRNPlan(StrategicRoadNetwork):
         output_file.close()
 
 
-    def simulate(self, input_path, method, output_path, encoding):
+    def simulate(self, input_path, method, cache, output_path, encoding):
         """Executes the Strategic Road Network experiment with a conditional
         plan.
 
@@ -92,6 +95,10 @@ class SRNPlan(StrategicRoadNetwork):
         if not encoding in ENCODINGS:
             msg = "Encoding not in {}".format(ENCODINGS)
             raise WMIRuntimeException(msg)
+            
+        if not cache in self.CACHE:
+            msg = "Cache not in {}".format(self.CACHE)
+            raise WMIRuntimeException(msg)
         
         input_file = open(input_path, 'rb')
         partitions, plan, problem_instances = pickle.load(input_file)
@@ -103,66 +110,78 @@ class SRNPlan(StrategicRoadNetwork):
 
         srn_wmi = PlanWMI(partitions, plan, encoding=encoding)
 
-        output_file = open(output_path, 'w')
+        output_file = open(output_path, 'wb')
 
         # first line is method name
-        output_file.write(method + StrategicRoadNetwork.SEPARATOR)
+        print("CACHE", cache)
+        pickle.dump(method+"_"+str(cache), output_file)
+        pickle.dump(StrategicRoadNetwork.SEPARATOR, output_file)
 
         for n_steps, instances_step in problem_instances:
             results_step = []
             for instance in instances_step:
                 subgraph, l_dep, l_arr, t_dep, t_arr = instance
-                if method in self.WMI_METHODS:
-                    srn_wmi.compile_knowledge(subgraph, n_steps, l_dep, l_arr)
-                    wmi = WMIInference(srn_wmi.formula, srn_wmi.weights,
-                                       check_consistency=True)
-                    wmi_query = srn_wmi.arriving_before(t_arr)
-                    wmi_evidence = srn_wmi.departing_at(t_dep)
-                    try:
-                        cti = time()
-                        res = wmi.perform_query(wmi_query, wmi_evidence,
-                                                mode=mode[method])
-                        cte = (time() - cti)
-
-                    except WMIRuntimeException as e:
-                        self.logger.error(self.MSG_EXCEPTION.format(e))
-                        exit()
-
-                elif method == self.METHOD_PRAISE:
-                    srn_praise.compile_knowledge(subgraph, n_steps, l_dep,
-                                                 l_arr, t_dep)
-                    praise_query = [srn_praise.arriving_before(t_arr)]
-                    praise.model = srn_praise.model
-                    praise.dump_model(StrategicRoadNetwork.PRAiSE_MODEL_PATH)
-                    try :
-                        cti = time()
-                        res = (praise.perform_query(" and ".join(praise_query)),
-                               None)
-                        cte = (time() - cti)
-                    except WMITimeoutException as e:
-                        self.logger.warning(e)
-                        res = None
+                srn_wmi.compile_knowledge(subgraph, n_steps, l_dep, l_arr)
+                
+                wmi_query = srn_wmi.arriving_before(t_arr)
+                wmi_evidence = srn_wmi.departing_at(t_dep)
+                
+                wmi = WMI(And(srn_wmi.formula, wmi_evidence), srn_wmi.weights)
+                
+                try:
+                    cti = time()
+                    q = Queue()
+                    timed_proc = Process(target=StrategicRoadNetwork._get_inference, args=(wmi,
+                                               mode[method],
+                                               cache, 
+                                               wmi_query,
+                                               q))
+                    timed_proc.start()
+                    timed_proc.join(StrategicRoadNetwork.TIMEOUT_VAL)
+                    if timed_proc.is_alive():
+                        res = (None, None)
                         cte = None
+                        
+                        # kill the process and its children
+                        pid = timed_proc.pid
+                        proc = psutil.Process(pid)
+                        for subproc in proc.children(recursive=True):
+                            try:
+                                subproc.kill()
+                            except psutil.NoSuchProcess:
+                                continue
+                        try:
+                            proc.kill()
+                        except psutil.NoSuchProcess:
+                            pass
+                    else:
+                        res = q.get()
+                        cte = (time() - cti)
+                        
+                except WMIRuntimeException as e:
+                    print(self.MSG_EXCEPTION.format(e))
+                    exit()
 
-                    except Exception as e:
-                        self.logger.error(self.MSG_EXCEPTION.format(e))
-                        exit()
-
-                self.logger.info(self.MSG_RESULT.format(res, cte))
+                print(self.MSG_RESULT.format(res, cte))
                 results_step.append((res, cte))
 
-            res_str = pickle.dumps((n_steps, results_step))
-            output_file.write(res_str + SRNPlan.SEPARATOR)
+            pickle.dump((n_steps, results_step), output_file)
+            pickle.dump(StrategicRoadNetwork.SEPARATOR, output_file)
+            
+            # if more than half is None
+            n_res = len([0 for i in results_step if i[1] is not None])
+            if n_res < len(instances_step)/2:
+                break
         
         output_file.close()
 
     @staticmethod
     def _read_raw_dataset(path, n_partitions):
         pp_path = SRNPlan.PREPROCESSED_TEMPL.format(path, n_partitions)
+        parser = SRNParser(n_partitions)
         if isfile(pp_path):
             graph, partitions = SRNPlan._read_preprocessed_dataset(pp_path)
         else:
-            parser = SRNParser(n_partitions)
             preprocessed_data = parser.read_raw_dataset(path, pp_path)
             entries, partitions = preprocessed_data
             graph = SRNPlan._build_graph(entries)
@@ -181,7 +200,7 @@ class SRNPlan(StrategicRoadNetwork):
 
         reachables_n_steps = []
         while reachables_n_steps == []:
-            src = choice(graph.nodes())
+            src = choice(list(graph.nodes()))
             frontier = lambda n_steps : n_steps + 5
             reachables = nx.single_source_shortest_path_length(graph,
                         source=src, cutoff=frontier(n_steps))
@@ -189,9 +208,16 @@ class SRNPlan(StrategicRoadNetwork):
                                   if reachables[n] == n_steps]
             
         dst = choice(reachables_n_steps)
-        subgraph = graph.subgraph(reachables)
-        path = nx.shortest_path(subgraph, src, dst)
+        
+        subgraph = nx.DiGraph()
+        subgraph.add_nodes_from((n, graph.nodes[n]) for n in reachables)
+        subgraph.add_edges_from((n, nbr, d)
+            for n, nbrs in graph.adj.items() if n in reachables
+            for nbr, d in nbrs.items() if nbr in reachables)
+        subgraph.graph.update(graph.graph)
 
+        path = nx.shortest_path(subgraph, src, dst)
+        
         t_min, t_max = partitions[0], partitions[-1]
         t_steps = [randint(0, (t_max - t_min) / 2)]
         for i in range(len(path) - 1):
@@ -206,7 +232,6 @@ class SRNPlan(StrategicRoadNetwork):
 
 if __name__ == "__main__":
     import argparse
-    from logger import init_root_logger
     
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="action")
@@ -257,6 +282,10 @@ if __name__ == "__main__":
     sim_parser.add_argument("-m", "--method", choices=SRNPlan.METHODS,
                             required=True,
                             help="Method in {}".format(SRNPlan.METHODS))
+                            
+    sim_parser.add_argument("-c", "--cache", type=int, choices=SRNPlan.CACHE,
+                            required=True,
+                            help="Cache in {}".format(SRNPlan.CACHE))
 
     sim_parser.add_argument("-e", "--encoding", choices=ENCODINGS,
                             required=True,
@@ -290,7 +319,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.action == "generate":
-        init_root_logger(path=args.log, verbose=args.verbose)
         srn = SRNPlan()
         step_list = range(args.min_length, args.max_length + 1)
         srn.generate(args.input, args.n_partitions, step_list, args.seed,
@@ -299,14 +327,12 @@ if __name__ == "__main__":
     elif args.action == "simulate":
         if args.log == None:
             args.log = SRNPlan.DEF_LOGNAME(args.output)        
-        init_root_logger(path=args.log, verbose=args.verbose)            
         srn = SRNPlan()
-        srn.simulate(args.input, args.method, args.output, args.encoding)
+        srn.simulate(args.input, args.method, args.cache, args.output, args.encoding)
         
     elif args.action == "plot":
-        init_root_logger(path=args.log, verbose=args.verbose)            
         srn = SRNPlan()        
-        srn.plot_results(args.inputs, args.output)
+        srn.plot_results(args.inputs, args.output, plot_integrals=True)
         
     else:
         assert(False), "Unrecognized action"

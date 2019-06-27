@@ -12,13 +12,12 @@ from pysmt.typing import REAL, BOOL
 from sys import path
 path.insert(0, "../../src/")
 
-from wmiexception import WMIRuntimeException
-from logger import Loggable
+from wmipa.wmiexception import WMIRuntimeException
 from srnwmi import ExactlyOne, IntoInterval
 from srnencodings import *
 
 
-class PlanWMI(Loggable):
+class PlanWMI():
 
     # variable names
     AUX_NAME = "aux_{}_{}"
@@ -35,7 +34,6 @@ class PlanWMI(Loggable):
         conditional_plan -- mapping: (curr_loc, curr_interval, destination) -> next_loc
 
         """
-        self.init_sublogger(__name__)
         self.conditional_plan = conditional_plan
         self.partitions = partitions
         self.formula = None
@@ -57,7 +55,7 @@ class PlanWMI(Loggable):
             raise WMIRuntimeException("Path length should be > 0")
 
         self.n_steps = n_steps
-        self.locations = subgraph.nodes()
+        self.locations = list(subgraph.nodes())
 
         t_vars, x_vars, loc_vars, aux_vars = self._init_vars()
         subformulas = []
@@ -140,7 +138,7 @@ class PlanWMI(Loggable):
                       if v.get_type() == REAL])
         nbools = len([v for v in self.formula.get_atoms()
                       if v.get_type() == BOOL])
-        self.logger.debug(msg.format(nreals, nbools))
+        print(msg.format(nreals, nbools))
 
     def _compute_weights(self, subgraph, edges, aux_vars, loc_vars, x_vars):
         #loc_indexes = range(len(self.locations))
