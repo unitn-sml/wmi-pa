@@ -16,13 +16,10 @@ import pickle
 from sys import path
 path.insert(0, "../../src/")
 
-from wmi import WMI
+from wmipa import WMI
 from wmiinference import WMIInference
-from praise import PRAiSE
-from wmiexception import WMIRuntimeException, WMITimeoutException
 from srn import StrategicRoadNetwork
 from planwmi import PlanWMI
-from planpraise import PlanPRAiSE
 from srnparser import SRNParser
 from srnencodings import *
 
@@ -61,16 +58,17 @@ class SRNPlan(StrategicRoadNetwork):
                 l_arr = path[-1]
                 try:
                     srn_wmi.compile_knowledge(subgraph, n_steps, l_dep, l_arr)
-                    _ = WMIInference(srn_wmi.formula, srn_wmi.weights, check_consistency=True)
-                    instance = (subgraph, l_dep, l_arr, t_dep, t_arr)
-                    instances_step.append(instance)
+                    wmi = WMI(srn_wmi.formula, srn_wmi.weights)
+                    if wmi.chech_consistency(wmi.chi):
+                        instance = (subgraph, l_dep, l_arr, t_dep, t_arr)
+                        instances_step.append(instance)
                 except WMIRuntimeException:
                     continue                
 
             problem_instances.append((n_steps,instances_step))
 
 
-        output_file = open(output_path, 'w')
+        output_file = open(output_path, 'wb')
         experiment = (partitions, plan, problem_instances)
         pickle.dump(experiment, output_file)
         output_file.close()
@@ -95,7 +93,7 @@ class SRNPlan(StrategicRoadNetwork):
             msg = "Encoding not in {}".format(ENCODINGS)
             raise WMIRuntimeException(msg)
         
-        input_file = open(input_path, 'r')
+        input_file = open(input_path, 'rb')
         partitions, plan, problem_instances = pickle.load(input_file)
         input_file.close()
 
@@ -103,11 +101,7 @@ class SRNPlan(StrategicRoadNetwork):
                 self.METHOD_WMIALLSMT : WMI.MODE_ALLSMT,
                 self.METHOD_WMIPA : WMI.MODE_PA}        
 
-        if method in self.WMI_METHODS:
-            srn_wmi = PlanWMI(partitions, plan, encoding=encoding)
-        elif method == self.METHOD_PRAISE:
-            praise = PRAiSE()
-            srn_praise = PlanPRAiSE(partitions, plan, encoding=encoding)
+        srn_wmi = PlanWMI(partitions, plan, encoding=encoding)
 
         output_file = open(output_path, 'w')
 

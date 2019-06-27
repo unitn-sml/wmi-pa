@@ -157,6 +157,7 @@ class SRNParser():
         rows = SRNParser._read_raw_csv(path, select = select_query)
         for i, row in enumerate(rows):
             edge = SRNParser._parse_edge(row[SRNParser.EDGE_FIELD])
+            # if starting point != destination
             if edge and (edge[0] != edge[1]):
                 x, y = edge
                 # time periods are 15 minutes long
@@ -198,16 +199,16 @@ class SRNParser():
             
             for line in f:
                 if not partitions:
-                    partitions = map(int, line.strip().split(","))
+                    partitions = list(map(int, line.strip().split(",")))
                     
                 else:
                     fields = line.strip().split(",")
                     src, dst = fields[:2]
                     part = int(fields[2])
                     avg = float(fields[3])
-                    r_min, r_max = map(float, fields[4:6])
+                    r_min, r_max = list(map(float, fields[4:6]))
                     rng = r_min, r_max
-                    coeffs = map(float, fields[6:])
+                    coeffs = list(map(float, fields[6:]))
                     if not (src, dst) in preprocessed_data:
                         preprocessed_data[(src, dst)] = {}
                     if not part in preprocessed_data[(src, dst)]:
@@ -256,7 +257,7 @@ class SRNParser():
             print(SRNParser.ERR_FIT)
             raise WMIParsingError(SRNParser.ERR_FIT)
         
-        coefficients = map(lambda c : c/integral, coefficients)
+        coefficients = list(map(lambda c : c/integral, coefficients))
         
         return rng, coefficients
         
@@ -270,7 +271,7 @@ class SRNParser():
             chdir(folder)
 
 
-            frac_coeffs = map(Fraction, coefficients)
+            frac_coeffs = list(map(Fraction, coefficients))
             with open(polynomial_file, 'w') as f:
                 f.write("[[{},[2]],[{},[1]],[{},[0]]]".format(*frac_coeffs))
 

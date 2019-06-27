@@ -12,6 +12,7 @@ from sys import path
 path.insert(0, "../../src/")
 
 #from wmiexception import WMIRuntimeException
+from wmipa.wmiexception import WMIRuntimeException
 from srnencodings import *
 
 
@@ -82,7 +83,7 @@ class SRNWMI:
 
         """
         if len(path) <= 1:
-            raise WMIRuntimeException("Path length should be > 1")
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, "Path length should be > 1")
         
         self.n_steps = len(path)-1
         t_vars, x_vars = self._init_time_x_vars()
@@ -105,7 +106,7 @@ class SRNWMI:
             # add weight functions
             for p in range(len(self.partitions)-1):
                 poly_var = x_vars[k]
-                coeffs = list(self.graph[src][dst][p]['coefficients'])
+                coeffs = self.graph[src][dst][p]['coefficients']
                 
                 weight_f = SRNWMI._poly_weight(poly_var, coeffs)
                 cond_w = Ite(aux_vars[(p, k)], weight_f, Real(1))

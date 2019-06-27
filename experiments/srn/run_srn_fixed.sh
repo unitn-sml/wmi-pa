@@ -1,3 +1,10 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]
+then
+    echo "No output argument"
+    exit
+fi
 
 if [ ! -e data/MAR15.csv ]
 then
@@ -7,20 +14,28 @@ then
     cd ..
 fi
 
-python3 srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=6 -o AIJ_SRN_s42_i10_1_6.experiment &&
-python3 rn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=7 --max-length=8 -o AIJ_SRN_s42_i10_7_8.experiment &&
+if [ ! -e $1 ]
+then
+    mkdir $1
+else
+    echo "Folder '$1' already exists"
+    exit
+fi
 
-# run WMI-BC
-python3 srn.py simulate -i AIJ_SRN_s42_i10_1_6.experiment -m WMI-BC -e xor -o AIJ_SRN_s42_i10_1_6.results_wmibc &&
-python3 srn.py simulate -i AIJ_SRN_s42_i10_7_8.experiment -m WMI-BC -e xor -o AIJ_SRN_s42_i10_7_8.results_wmibc &&
+python3 srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=8 -o $1/AIJ_SRN_s42_i10_1_8.experiment &&
 
-# run WMI-ALLSMT
-python3 srn.py simulate -i AIJ_SRN_s42_i10_1_6.experiment -m WMI-ALLSMT -e xor -o AIJ_SRN_s42_i10_1_6.results_wmiallsmt &&
-python3 srn.py simulate -i AIJ_SRN_s42_i10_7_8.experiment -m WMI-ALLSMT -e xor -o AIJ_SRN_s42_i10_7_8.results_wmiallsmt &&
-
-# run WMI-PA
-python3 srn.py simulate -i AIJ_SRN_s42_i10_1_6.experiment -m WMI-PA -e xor -o AIJ_SRN_s42_i10_1_6.results_wmipa &&
-python3 srn.py simulate -i AIJ_SRN_s42_i10_7_8.experiment -m WMI-PA -e xor -o AIJ_SRN_s42_i10_7_8.results_wmipa &&
+for mode in WMI-BC WMI-ALLSMT WMI-PA
+do
+    for i in {-1..3}
+    do
+        python3 srn.py simulate -i $1/AIJ_SRN_s42_i10_1_8.experiment -m $mode -e xor -c $i -o $1/AIJ_SRN_s42_i10_1_8_cache_$i.results_$mode
+    done
+done
 
 # plot
-python3 srn.py plot -i AIJ_SRN_s42_i10_{1_6,7_8}.results_{praise,wmibc,wmiallsmt,wmipa} -o AIJ_SRN_plot
+for mode in WMI-BC WMI-ALLSMT WMI-PA
+do
+    python3 srn.py plot -i $1/AIJ_SRN_s42_i10_1_8_cache_{-1,0,1,2,3}.results_$mode -o $1/AIJ_SRN_plot
+done
+
+rm -r tmp*
