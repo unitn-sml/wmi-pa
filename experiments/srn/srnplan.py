@@ -164,13 +164,18 @@ class SRNPlan(StrategicRoadNetwork):
 
                 print(self.MSG_RESULT.format(res, cte))
                 results_step.append((res, cte))
+                
+                # if more than half is None
+                none_res = len([0 for i in results_step if i[1] is None])
+                if none_res > len(instances_step)/2:
+                    break
 
             pickle.dump((n_steps, results_step), output_file)
             pickle.dump(StrategicRoadNetwork.SEPARATOR, output_file)
             
             # if more than half is None
-            n_res = len([0 for i in results_step if i[1] is not None])
-            if n_res < len(instances_step)/2:
+            none_res = len([0 for i in results_step if i[1] is None])
+            if none_res > len(instances_step)/2:
                 break
         
         output_file.close()

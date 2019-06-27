@@ -22,12 +22,12 @@ else
     exit
 fi
 
-for i in {1..2}
+for i in {1..8}
 do
     python3 srnplan.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=$i --max-length=$i -o $1/AIJ_PLAN_s42_i10_$i.experiment
 done
 
-for i in {1..2}
+for i in {1..8}
 do
     for cache in {-1..3}
     do
@@ -36,6 +36,6 @@ do
 done
 
 # plot
-python3 srnplan.py plot -i $1/AIJ_PLAN_s42_i10_{1..2}_cache_{-1..3}.results_wmipa -o $1/AIJ_PLAN_plot
+python3 srnplan.py plot -i $1/AIJ_PLAN_s42_i10_{1..8}_cache_{-1..3}.results_wmipa -o $1/AIJ_PLAN_plot
 
 rm -r tmp*
