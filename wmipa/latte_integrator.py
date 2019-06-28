@@ -437,6 +437,7 @@ class Latte_Integrator(Integrator):
             """
 
     def _remove_redundancy(self, polytope):
+        polytope.bounds = list(set(polytope.bounds))
         polytope, internal_point = self._preprocess(polytope)
         if polytope is None:
             return None
