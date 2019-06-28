@@ -1,11 +1,13 @@
 #!/bin/bash
 
-if [ $# -eq 0 ]
-then
-    echo "No output argument"
-    exit
-fi
+# folders
+out_folder=output_fixed
+prob_folder=problems
+res_folder=results
+figure_folder=figures
 
+
+# extract data if needed
 if [ ! -e data/MAR15.csv ]
 then
     cd data
@@ -14,28 +16,59 @@ then
     cd ..
 fi
 
-if [ ! -e $1 ]
+
+# create output folders
+mkdir $out_folder $out_folder/$prob_folder $out_folder/$res_folder $out_folder/$figure_folder 2> /dev/null
+
+
+# generate problems
+if [ ! -e $out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment ]
 then
-    mkdir $1
+    if ! python3 srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=8 -o $out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment
+    then
+        echo "Generation error on following command:"
+        echo python3 srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=8 -o $out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment
+        echo "Terminated."
+        exit 1
+    fi
 else
-    echo "Folder '$1' already exists"
-    exit
+    echo "$out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment already exists"
+    echo "Skipping generation step (delete file if you want to repeat it again)"
 fi
 
-python3 srn.py generate -i data/MAR15.csv -s 42 --iterations=10 --min-length=1 --max-length=8 -o $1/AIJ_SRN_s42_i10_1_8.experiment &&
 
+# execute problems
 for mode in WMI-BC WMI-ALLSMT WMI-PA
 do
-    for i in {-1..3}
+    for cache in {-1..3}
     do
-        python3 srn.py simulate -i $1/AIJ_SRN_s42_i10_1_8.experiment -m $mode -e xor -c $i -o $1/AIJ_SRN_s42_i10_1_8_cache_$i.results_$mode
+        if [ ! -e $out_folder/$res_folder/AIJ_SRN_s42_i10_1_8_cache_$cache.results_$mode ]
+        then
+            if ! python3 srn.py simulate -i $out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment -m $mode -e xor -c $cache -o $out_folder/$res_folder/AIJ_SRN_s42_i10_1_8_cache_$cache.results_$mode
+            then
+                echo "Simulation error on following command:"
+                echo python3 srn.py simulate -i $out_folder/$prob_folder/AIJ_SRN_s42_i10_1_8.experiment -m $mode -e xor -c $cache -o $out_folder/$res_folder/AIJ_SRN_s42_i10_1_8_cache_$cache.results_$mode
+                echo "Terminated."
+                exit 1
+            fi
+        else
+            echo "Results of $mode with cache $cache already exists: skipped..."
+        fi
     done
 done
 
-# plot
+
+# plot results
 for mode in WMI-BC WMI-ALLSMT WMI-PA
 do
-    python3 srn.py plot -i $1/AIJ_SRN_s42_i10_1_8_cache_{-1,0,1,2,3}.results_$mode -o $1/AIJ_SRN_plot
+    if ! python3 srn.py plot -i $out_folder/$res_folder/AIJ_SRN_s42_i10_1_8_cache_{-1..3}.results_$mode -o $out_folder/$figure_folder/AIJ_SRN_plot
+    then
+        echo "Plotting error on following command:"
+        echo python3 srn.py plot -i $out_folder/$res_folder/AIJ_SRN_s42_i10_1_8_cache_{-1..3}.results_$mode -o $out_folder/$figure_folder/AIJ_SRN_plot
+        echo "Terminated."
+        exit 1
+    fi
 done
 
-rm -r tmp*
+
+echo "DONE!"
