@@ -555,9 +555,16 @@ class Latte_Integrator(Integrator):
     def _ray_shoot(self, polytope, start_point, end_point, index):
         values = self._get_truth_values(polytope, end_point)
         others = values[:index]+values[index+1:]
+        
+        # if at the end point (optimal) there is only one disequalities falsified
+        # then return that particular disequality (index)
         if min(others) == max(others) == True:
             return index
-        return self._ray_shoot_iter(polytope, start_point, end_point)
+        try:
+            return self._ray_shoot_iter(polytope, start_point, end_point)
+        except RecursionError:
+            print("RECURSION")
+            return index
 
     def _ray_shoot_iter(self, polytope, start_point, end_point):
         # start point is inside the polytope so every bound is respected
@@ -568,6 +575,7 @@ class Latte_Integrator(Integrator):
         # check bounds
         intersected = None
         values = self._get_truth_values(polytope, middle_point)
+        
         for i, v in enumerate(values):
             if not v:
                 if intersected is None:

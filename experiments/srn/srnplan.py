@@ -61,7 +61,8 @@ class SRNPlan(StrategicRoadNetwork):
                 l_arr = path[-1]
                 try:
                     srn_wmi.compile_knowledge(subgraph, n_steps, l_dep, l_arr)
-                    wmi = WMI(srn_wmi.formula, srn_wmi.weights)
+                    evidence = srn_wmi.departing_at(t_dep)
+                    wmi = WMI(And(srn_wmi.formula, evidence), srn_wmi.weights)
                     if wmi.check_consistency(wmi.chi):
                         instance = (subgraph, l_dep, l_arr, t_dep, t_arr)
                         instances_step.append(instance)
