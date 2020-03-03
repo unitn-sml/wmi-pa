@@ -20,7 +20,8 @@ phis = [Bool(True), Iff(a, Bool(True)), LE(x, Real(3))]
 # weight function definition
 w = Ite(a, x, Times(Real(2), x))
 
-chi = And(Or(a,b,c),
+
+chi = And(Or(a, b, c),
           GE(x, Real(-5)), LE(x, Real(5)),
           Implies(a, GE(x, Real(0))),
           Implies(b, GE(x, Real(2))),
