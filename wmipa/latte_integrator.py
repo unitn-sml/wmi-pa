@@ -78,7 +78,10 @@ class Latte_Integrator(Integrator):
         for index in range(len(problems)):
             atom_assignments, weight, aliases, cond_assignments = problems[index]
             integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-            problems[index] = (integrand, polytope, cond_assignments, cache)
+            if polytope.is_empty():
+                problems[index] = None
+            else:
+                problems[index] = (integrand, polytope, cond_assignments, cache)
         
         # Handle multithreading
         pool = Pool(self.n_threads)
@@ -92,8 +95,11 @@ class Latte_Integrator(Integrator):
         
     def integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
-        integrand, polytope, cond_assignments, cache = problem
-        return self._integrate_latte(integrand, polytope, cond_assignments, cache)
+        if problem is not None:
+            integrand, polytope, cond_assignments, cache = problem
+            return self._integrate_latte(integrand, polytope, cond_assignments, cache)
+        else:
+            return 0.0, 0
             
     def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache):
         """Integrates a problem of the type {atom_assignments, weight, aliases}

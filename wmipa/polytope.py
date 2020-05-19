@@ -355,7 +355,8 @@ class Bound:
                 self.coefficients[name] = int(monomial.coefficient * lcd)
             self.constant = int(b * lcd)
         else:
-            self.constant = Minus(Real(b), polynomial)
+            pass
+            #self.constant = Minus(Real(b), polynomial)
         
     def __str__(self):
         """The str method.
@@ -402,7 +403,7 @@ class Polytope():
             # In this case, ignore the inequality.
             if b.coefficients != {}:
                 self.bounds.append(b)
-            
+
         self.variables = set()
         for bound in self.bounds:
             for name in bound.coefficients.keys():
@@ -417,3 +418,16 @@ class Polytope():
         """
         bounds = ["["+str(b)+"]" for b in self.bounds]
         return ", ".join(bounds)
+
+
+    def is_empty(self):
+        for i1 in range(len(self.bounds)-1):
+            for i2 in range(i1, len(self.bounds)):
+                if self.bounds[i1].constant == -self.bounds[i2].constant:
+                    coeff1 = self.bounds[i1].coefficients
+                    coeff2 = self.bounds[i2].coefficients
+                    if (coeff1.keys() == coeff2.keys()):
+                        if all(coeff1[v] == -coeff2[v] for v in coeff1.keys()):
+                            return True
+
+        return False
