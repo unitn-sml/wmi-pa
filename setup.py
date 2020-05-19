@@ -12,7 +12,7 @@ URL = 'http://github.com/unitn-sml/wmi-pa'
 EMAIL = 'paolo.morettin@unitn.it'
 AUTHOR = 'Paolo Morettin'
 REQUIRES_PYTHON = '>=3.5.0'
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
