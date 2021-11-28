@@ -19,9 +19,11 @@ def test_no_booleans_constant_weight():
     result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 1
     assert result_allsmt == 1
     assert result_pa == 1
+    assert result_pa_nl == 1
     
 def test_no_booleans_condition_weight():
     chi = And(GE(x, Real(0)),
@@ -34,9 +36,11 @@ def test_no_booleans_condition_weight():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == -0.25
     assert result_allsmt == -0.25
     assert result_pa == -0.25
+    assert result_pa_nl == -0.25
     
 def test_booleans_constant_weight():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -48,9 +52,11 @@ def test_booleans_constant_weight():
     result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 3
     assert result_allsmt == 3
     assert result_pa == 3
+    assert result_pa_nl == 3
     
 def test_boolean_condition_weight():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -64,9 +70,11 @@ def test_boolean_condition_weight():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == -1.125
     assert result_allsmt == -1.125
     assert result_pa == -1.125
+    assert result_pa_nl == -1.125
     
 def test_boolean_and_not_simplify():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -81,9 +89,11 @@ def test_boolean_and_not_simplify():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == -6.125
     assert result_allsmt == -6.125
     assert result_pa == -6.125
+    assert result_pa_nl == -6.125
     
 def test_not_boolean_satisfiable():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -99,9 +109,11 @@ def test_not_boolean_satisfiable():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 0
     assert result_allsmt == 0
     assert result_pa == 0
+    assert result_pa_nl == 0
     
 def test_not_lra_satisfiable():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -116,9 +128,11 @@ def test_not_lra_satisfiable():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 0
     assert result_allsmt == 0
     assert result_pa == 0
+    assert result_pa_nl == 0
 
 def test_moltiplication_in_weight():
     chi = And(Iff(a, GE(x, Real(0))),
@@ -133,9 +147,11 @@ def test_moltiplication_in_weight():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 0
     assert result_allsmt == 0
     assert result_pa == 0
+    assert result_pa_nl == 0
 
 def test_aliases():
     chi = And(GE(x, Real(0)), Equals(y, Plus(x, Real(-2))), LE(y, Real(4)))
@@ -147,9 +163,11 @@ def test_aliases():
     result_bc, _ = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 6
     assert result_allsmt == 6
     assert result_pa == 6
+    assert result_pa_nl == 6
     
 def test_aliases_leads_to_not_sat():
     chi = And(GE(x, Real(0)), LE(x, Real(2)), Equals(y, x), LE(x-y, Real(-2)))
@@ -159,9 +177,11 @@ def test_aliases_leads_to_not_sat():
     result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 0
     assert result_allsmt == 0
     assert result_pa == 0
+    assert result_pa_nl == 0
     
 def test_batch_of_query_constant_weight():
     chi = And(GE(x, Real(0)),
@@ -175,11 +195,14 @@ def test_batch_of_query_constant_weight():
     result_bc, _ = wmi.computeMI_batch([phi1, phi2], mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeMI_batch([phi1, phi2], mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeMI_batch([phi1, phi2], mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeMI_batch([phi1, phi2], mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc[0] == 2
     assert result_bc[1] == 2
     assert result_allsmt[0] == 2
     assert result_allsmt[1] == 2
     assert result_pa[0] == 2
+    assert result_pa[1] == 2
+    assert result_pa_nl[0] == 2
     assert result_pa[1] == 2
     
 def test_batch_of_query():
@@ -196,12 +219,15 @@ def test_batch_of_query():
     result_bc, _ = wmi.computeWMI_batch([phi1, phi2], mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI_batch([phi1, phi2], mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI_batch([phi1, phi2], mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI_batch([phi1, phi2], mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc[0] == 0.5
     assert result_bc[1] == 1.5
     assert result_allsmt[0] == 0.5
     assert result_allsmt[1] == 1.5
     assert result_pa[0] == 0.5
     assert result_pa[1] == 1.5
+    assert result_pa_nl[0] == 0.5
+    assert result_pa_nl[1] == 1.5
     
 def test_setting_domA():
     chi = And(GE(x, Real(0)),
@@ -212,9 +238,11 @@ def test_setting_domA():
     result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC, domA=set([a, b]))
     result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT, domA=set([a, b]))
     result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA, domA=set([a, b]))
+    result_pa_nl, _ = wmi.computeMI(phi, mode=WMI.MODE_PA_NO_LABEL, domA=set([a, b]))
     assert result_bc == 2*2
     assert result_allsmt == 2*2
     assert result_pa == 2*2
+    assert result_pa_nl == 2*2
     
 def test_double_assignment_same_variable_no_theory_consistent():
     chi = And(GE(x, Real(0)), Equals(y, Plus(x, Real(-2))), Equals(y, Plus(x, Real(5))), LE(y, Real(4)))
@@ -224,9 +252,11 @@ def test_double_assignment_same_variable_no_theory_consistent():
     result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 0
     assert result_allsmt == 0
     assert result_pa == 0
+    assert result_pa_nl == 0
 
 def test_reserved_variables_name():
     a = Symbol("wmi_1_a", BOOL)
@@ -246,6 +276,8 @@ def test_reserved_variables_name():
     result_bc, abc = wmi.computeWMI(phi, mode=WMI.MODE_BC)
     result_allsmt, _ = wmi.computeWMI(phi, mode=WMI.MODE_ALLSMT)
     result_pa, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA)
+    result_pa_nl, _ = wmi.computeWMI(phi, mode=WMI.MODE_PA_NO_LABEL)
     assert result_bc == 7
     assert result_allsmt == 7
     assert result_pa == 7
+    assert result_pa_nl == 7
