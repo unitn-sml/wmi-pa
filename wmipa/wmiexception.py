@@ -153,9 +153,12 @@ class WMIRuntimeException(WMIException):
     """
     INVALID_MODE = 1
     
+    OTHER_ERROR = 2
+    
     messages = {
         DOMAIN_OF_INTEGRATION_MISMATCH: "Domain of integration mismatch",
-        INVALID_MODE: "Invalid mode"
+        INVALID_MODE: "Invalid mode",
+        OTHER_ERROR: "RuntimeException"
     }
     
     def __init__(self, code, value=None):

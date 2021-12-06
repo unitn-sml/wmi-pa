@@ -370,6 +370,14 @@ class Bound:
             return polynomial+" < "+str(self.constant)
         else:
             return "0 < "+str(self.constant)
+            
+    def __eq__(self, other):
+        if isinstance(other, Bound):
+            return self.constant == other.constant and self.coefficients == other.coefficients
+        return False
+    
+    def __hash__(self):
+        return hash(self.constant)
 
 class Polytope():
     """Intermediate representation of a polytope.

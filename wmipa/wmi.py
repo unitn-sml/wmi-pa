@@ -16,14 +16,15 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 import mathsat
-from pysmt.shortcuts import Real, Bool, And, Iff, Not, Solver, simplify, substitute, serialize
+from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize
 from pysmt.typing import BOOL, REAL
+from sympy import sympify, solve
 from math import fsum
 
 from wmipa.latte_integrator import Latte_Integrator
 from wmipa.weights import Weights
 from wmipa import logger
-from wmipa.utils import get_boolean_variables, get_real_variables
+from wmipa.utils import get_boolean_variables, get_real_variables, get_lra_atoms
 from wmipa.wmiexception import WMIRuntimeException, WMIParsingException
 from wmipa.wmivariables import WMIVariables
 
@@ -43,7 +44,7 @@ class WMI:
     MODE_BC = "BC"
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
-    MODE_PA_NO_LABEL = "PA_NL"
+    MODE_PA_NO_LABEL = "PANL"
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL]
 
     def __init__(self, chi, weight=Real(1), **options):
@@ -171,6 +172,7 @@ class WMI:
         domX = options.get("domX")
         mode = options.get("mode")
         cache = options.get("cache")
+        ete = options.get("ete")
         if mode is None:
             mode = WMI.MODE_PA
         if mode not in WMI.MODES:
@@ -178,7 +180,7 @@ class WMI:
             logger.error(err)
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
         if cache is None:
-            cache = False
+            cache = 0
         self.cache = cache
         
         # Add the phi to the support
@@ -204,6 +206,9 @@ class WMI:
         if domX != None and domX != x:
             logger.error("Domain of integration mismatch")
             raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, x-domX)
+            
+        if (ete):
+            formula = self._eager_theory_encoding(formula)
 
         compute_with_mode = {WMI.MODE_BC : self._compute_WMI_BC,
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
@@ -216,6 +221,73 @@ class WMI:
         logger.debug("Volume: {}, n_integrations: {}, n_cached: {}".format(volume, n_integrations, n_cached))
             
         return volume, n_integrations
+        
+    def _eager_theory_encoding(self, chi):
+        implications = []
+        for var in get_real_variables(chi):
+            imp_lt = {}
+            imp_gt = {}
+            for literal in set(get_lra_atoms(chi)):
+                if get_real_variables(literal) == set([var]):
+                    # convert the inequality to 'var op const'
+                    s = solve(sympify(serialize(literal)))
+                    arg = 0
+                    if "inf" in str(s.args[0]) or "oo" in str(s.args[0]):
+                        arg = 1
+                    dis = s.args[arg]
+                    if dis.args[0].is_Number:
+                        # n < var, n <= var
+                        const = float(dis.args[0])
+                        eq = 1 if literal.is_lt() else 0
+                        d = imp_gt
+                    else:
+                        # var < n, var <= n
+                        const = float(dis.args[1])
+                        eq = 0 if literal.is_lt() else 1
+                        d = imp_lt
+                    key = (const, eq)
+                    if key not in d:
+                        d[key] = []
+                    d[key].append(literal)
+            imp_lt = sorted(list(imp_lt.items()))
+            imp_gt = sorted(list(imp_gt.items()), reverse=True)
+            
+            def compare(key, other_key, index):
+                if index == 0:
+                    return key <= other_key
+                elif index == 1:
+                    return key >= other_key
+            
+            lists = [imp_lt, imp_gt]
+            for index_l, l in enumerate(lists):
+                other_l = lists[(index_l+1)%2]
+                for i, (key, literals) in enumerate(l):
+                    
+                    # all literals in 'literals' are the same => Iff
+                    for j, literal in enumerate(literals):
+                        if j < len(literals) -1:
+                            implications.append(Iff(literal, literals[j+1]))
+                    
+                    # literal at random in the list (because they are all the same)
+                    literal = literals[0]
+                    if i < len(l) -1:
+                        _, literals_next = l[i+1]
+                        implications.append(Implies(literal, literals_next[0]))
+                        
+                    # implications between one list and another
+                    if len(other_l) > 0:
+                        other_key, _ = other_l[0]
+                        if compare(key, other_key, index_l):
+                            index = 0
+                            while(compare(key, other_l[index][0], index_l) and index < len(other_l)-1):
+                                index+=1
+                            # other list [index-1 was the last correct implication]
+                            #   [1 = get list of literals]
+                            #   [0 = get random literal]
+                            other_literal = other_l[index-1][1][0]
+                            implications.append(Implies(literal, Not(other_literal)))
+        implications = And(implications)
+        return And(chi, implications)
 
     @staticmethod
     def check_consistency(formula):
@@ -502,6 +574,7 @@ class WMI:
                     atom_assignments.update(lra_assignments)
                     if over or lra_assignments == {}:
                         break
+                        
                 if not over:
                     # predicate abstraction on LRA atoms with minimal models
                     lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
