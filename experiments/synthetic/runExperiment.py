@@ -34,6 +34,8 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--depth', required=True, help='Depth of the formula tree')
     parser.add_argument('-m', '--models', required=True, help='Number of models per dataset')
     parser.add_argument('-e', '--equals', action='store_true', help='Set this flag if you want to compute wmi only on support and weight with same name')
+    parser.add_argument('-s', '--seed', default=None, help='Random seed')
+    parser.add_argument('-t', '--stub', action="store_true", help='Set this flag if you only want to count the number of integrals to be computed')
     parser.add_argument('--modes', nargs='*', choices=default_modes, help='List of all modes (optional)')
     
     args = parser.parse_args()
@@ -45,11 +47,17 @@ if __name__ == '__main__':
     models = args.models
     equals = args.equals
     modes = args.modes
+    seed = args.seed
+    stub = args.stub
     
     if equals:
         equals = ["-e"]
     else:
         equals = []
+    if stub:
+        stub = ["-t"]
+    else:
+        stub = []
     
     if modes is None:
         modes = default_modes
@@ -66,6 +74,8 @@ if __name__ == '__main__':
     reals = get_range(reals)
     bools = get_range(bools)
     depth = get_range(depth)
+    if seed is not None:
+        seeds = get_range(seed)
     
     if len(reals+bools+depth) == 3:
         print("No parameter with range specified")
@@ -82,11 +92,17 @@ if __name__ == '__main__':
     
     print("### Creating all models ###")
     # create models
+    if seed is not None:
+        if len(seeds) == 1:
+            seeds = (seeds[0] for _ in range(len(reals) * len(bools) * len(depth)))
+        seed_it = iter(seeds)
     for r in reals:
         for b in bools:
             for d in depth:
+                seed_par = [] if seed is None else ['-s', str(next(seed_it))]
                 run(["python3", "randomModels.py", "-o", data_dir,
-                    "-r", str(r), "-b", str(b), "-d", str(d), "-m", str(models)])
+                    "-r", str(r), "-b", str(b), "-d", str(d), "-m", str(models)] + 
+                    seed_par)
                     
     # test models
     for mode in modes:
@@ -94,7 +110,7 @@ if __name__ == '__main__':
         datasets = os.listdir(data_dir)
         for i, f in enumerate(datasets):
             f = path.join(data_dir, f)
-            output = run(["python3", "evaluateModels.py", f, "-o", results_dir, "-m", mode] + equals)
+            output = run(["python3", "evaluateModels.py", f, "-o", results_dir, "-m", mode] + equals + stub)
             
     # create plots
     print("### Plotting everything ###")

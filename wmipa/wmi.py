@@ -55,6 +55,7 @@ class WMI:
             weight (FNode, optional): The weight of the problem (default: 1).
             **options:
                 - n_threads: The number of threads to use when computing WMI.
+                - stub_integrate: If True the integrals will not be computed, just counted
         
         """
         self.variables = WMIVariables()
@@ -62,7 +63,8 @@ class WMI:
         self.chi = And(chi, self.weights.labelling)
         
         n_threads = options.get("n_threads")
-        self.integrator = Latte_Integrator(n_threads = n_threads)
+        stub_integrate = options.get("stub_integrate")
+        self.integrator = Latte_Integrator(n_threads = n_threads, stub_integrate = stub_integrate)
         
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.

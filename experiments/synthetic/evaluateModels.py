@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--filename', help='Name of the result file (optional)')
     parser.add_argument('-m', '--mode', choices=modes, required=True, help='Mode to use')
     parser.add_argument('-e', '--equals', action='store_true', help='Set this flag if you want to compute wmi only on support and weight with same name')
+    parser.add_argument('-t', '--stub', action="store_true", help='Set this flag if you only want to count the number of integrals to be computed')
     
     args = parser.parse_args()
 
@@ -96,7 +97,7 @@ if __name__ == '__main__':
             if not equals or support_filename == weight_filename:
                 weight = read_smtlib(w)
                 
-                wmi = WMI(support, weight)
+                wmi = WMI(support, weight, stub_integrate=args.stub)
                 
                 time_init = time.time()
                 cache = -1

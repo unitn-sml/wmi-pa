@@ -52,6 +52,7 @@ class Latte_Integrator(Integrator):
             **options:
                 - algorithm: Defines the algorithm to use when integrating.
                 - n_threads: Defines the number of threads to use.
+                - stub_integrate: If True the integrals will not be computed
 
         """
         # get algorithm
@@ -68,6 +69,8 @@ class Latte_Integrator(Integrator):
         self.n_threads = n_threads or Latte_Integrator.DEF_N_THREADS
 
         self.hashTable = HashTable()
+        stub_integrate = options.get('stub_integrate')
+        self.stub_integrate = stub_integrate or False
 
     def integrate_batch(self, problems, cache):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
@@ -426,7 +429,10 @@ class Latte_Integrator(Integrator):
                polytope_file]
 
         with open(output_file, 'w') as f:
-            return_value = call(cmd, stdout=f, stderr=f)
+            if self.stub_integrate:
+                f.write("")
+            else:
+                return_value = call(cmd, stdout=f, stderr=f)
 
             """
             if return_value != 0:
