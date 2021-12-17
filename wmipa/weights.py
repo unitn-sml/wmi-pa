@@ -6,6 +6,7 @@ from pysmt.typing import BOOL, REAL
 
 from wmipa.utils import is_pow
 from wmipa.wmiexception import WMIParsingException
+from wmipa.weightconverter import WeightConverter
 
 class Weights:
     """This class handles a FIUC weight function and provides a method that can evaluate the weight result
@@ -34,6 +35,11 @@ class Weights:
         
         """
         self.variables = variables
+        self.converter = WeightConverter(variables)
+        cond = set()
+        w = self.converter.walk(weight_func, conversion_set=cond)
+        print("WEIGHT:", w)
+        print("CONDITIONS:", serialize(And(*cond)))
         
         # labels the weight function with new labels
         self.weights, subs = self.label_conditions(weight_func)

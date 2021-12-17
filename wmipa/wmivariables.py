@@ -6,6 +6,7 @@ from wmipa.utils import get_boolean_variables
 COND = "cond"
 WMI = "wmi"
 QUERY = "query"
+WEIGHT = "weight"
     
 class WMIVariables:
     """This class handles all the variables that the program will create in order to calculate the WMI.
@@ -56,6 +57,18 @@ class WMIVariables:
             
         """
         return self._new_label(WMI, index)
+
+    def new_weight_label(self, index):
+        """Returns a symbol representing a weight label.
+        
+        Args:
+            index (int): The index to associate to the label.
+            
+        Returns:
+            FNode: The new label.
+            
+        """
+        return self._new_label(WEIGHT, index, sym_type=REAL, template="FR%s")
 
     def is_cond_label(self, variable):
         """Checks if the variable is a condition label.
@@ -130,7 +143,7 @@ class WMIVariables:
                 return True
         return False
 
-    def _new_label(self, type_, index):
+    def _new_label(self, type_, index, sym_type=BOOL, template=None):
         """Create a new label based on the type and the index.
         
         Args:
@@ -141,7 +154,7 @@ class WMIVariables:
             FNode: The new label.
             
         """
-        symbol = FreshSymbol()
+        symbol = FreshSymbol(typename=sym_type, template=template)
         assert(symbol not in self.variables)
         self.variables[symbol] = [index, type_]
         return symbol
