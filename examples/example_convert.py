@@ -20,12 +20,12 @@ print("Formula:", serialize(phi))
 
 # weight function definition
 w = Plus(Ite(GE(x1, Real(0)),
-            Ite(GE(x1, Real((1, 2))),
+             Ite(GE(x1, Real((1, 2))),
              Pow(x1, Real(3)),
              Times(Real(-2), x1)),
              Times(Real(-1), x1)
-             
-),
+
+             ),
          Ite(a,
              Times(Real(3), x2),
              Times(Real(-1), Pow(x2, Real(5)))))
@@ -41,4 +41,5 @@ wmi = WMI(chi, w)
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA]:
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
+    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(
+        mode, result, n_integrations))

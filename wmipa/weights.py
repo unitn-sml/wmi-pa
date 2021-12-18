@@ -36,14 +36,13 @@ class Weights:
         """
         self.variables = variables
         self.converter = WeightConverter(variables)
-        cond = set()
-        w = self.converter.walk(weight_func, conversion_set=cond)
-        print("WEIGHT:", w)
-        print("CONDITIONS:", serialize(And(*cond)))
+        weight_conditions, self.weights_as_formula = self.converter.convert(weight_func)
+        self.weight_conditions = {cond: i for i, cond in enumerate(weight_conditions)}
+        self.weights = weight_func
         
         # labels the weight function with new labels
-        self.weights, subs = self.label_conditions(weight_func)
-        self.labels = set(subs.values())
+        self.labelled_weights, subs = self.label_conditions(weight_func)
+        self.labels = {cond: i for i, cond in enumerate(subs.values())}
         self.n_conditions = len(subs)
         
         # create a formula representing all the substitution (e.g: cond_3 <-> (x < 5))
@@ -60,7 +59,7 @@ class Weights:
         else:
             self.cache = None
 
-    def weight_from_assignment(self, assignment):
+    def weight_from_assignment(self, assignment, on_labels=True):
         """Given a total truth assignment of all the conditions inside the weight function, this method
             evaluates the resulting value based on the assignment.
             
@@ -72,37 +71,45 @@ class Weights:
             FNode: The result of the weight function on the given assignment.
         
         """
+        if on_labels:
+            conditions = self.labels
+            weights = self.labelled_weights
+        else:
+            conditions = self.conditions
+            weights = self.weights
+
         # prepare an empty array of lenght 'n_conditions' to be populated with the values of the assignment
-        label_assignment = [None for _ in range(self.n_conditions)]
+        cond_assignment = [None for _ in range(self.n_conditions)]
         
         # populate the array with all the values
         for atom, value in assignment.items():
             assert(isinstance(value,bool)), "Assignment value should be Boolean"
-            if (atom.is_symbol() and atom.get_type() == BOOL and self.variables.is_cond_label(atom)):
+            # if (atom.is_symbol() and atom.get_type() == BOOL and self.variables.is_cond_label(atom)):
+            if atom in conditions:
             
                 # take the index of the variable from the label
-                index = self.variables.get_label_index(atom)
-                label_assignment[index] = value
+                index = conditions[atom]
+                cond_assignment[index] = value
                 
-        assert(not None in label_assignment), "Couldn't retrieve the complete assignment"
-        label_assignment = tuple(label_assignment)
+        assert(not None in cond_assignment), "Couldn't retrieve the complete assignment"
+        cond_assignment = tuple(cond_assignment)
         
         # evaluate the weight from the assignment
         if self.cache != None:
         
             # first check into the cache if the weight associated to the particular assignment was already calculated
-            if label_assignment in self.cache:
-                return self.cache[label_assignment], label_assignment
+            if cond_assignment in self.cache:
+                return self.cache[cond_assignment], cond_assignment
                 
             # else evaluate it and insert it into the cache
             else:
-                flat_w = self._evaluate_weight(self.weights, label_assignment)
-                self.cache[label_assignment] = flat_w
-                return flat_w, label_assignment
+                flat_w = self._evaluate_weight(weights, cond_assignment, conditions)
+                self.cache[cond_assignment] = flat_w
+                return flat_w, cond_assignment
                 
         # if there is no cache just evaluate the weight
         else:
-            return self._evaluate_weight(self.weights, label_assignment), label_assignment
+            return self._evaluate_weight(weights, cond_assignment, conditions), cond_assignment
 
     def label_conditions(self, weight_func):
         """Finds and labels all the conditions inside the weight function with fresh boolean atoms.
@@ -137,7 +144,7 @@ class Weights:
             cond_w = self._evaluate_weight(self.weights, assignment)
             self.cache[assignment] = cond_w
 
-    def _evaluate_weight(self, node, assignment):
+    def _evaluate_weight(self, node, assignment, conditions):
         """Evaluates the value of the given formula applied to the given assignment.
         
         Args:
@@ -152,13 +159,13 @@ class Weights:
             cond, then, _else = node.args()
             
             # gets the index of the label to retrieve the truth value of that specific label
-            index_cond = self.variables.get_label_index(cond)
+            index_cond = conditions[cond]
             
             # iteratively retrieve the leaf nodes from the 'then' or 'else' part, depending on the truth value of the condition
             if assignment[index_cond]:
-                return self._evaluate_weight(then, assignment)
+                return self._evaluate_weight(then, assignment, conditions)
             else:
-                return self._evaluate_weight(_else, assignment)
+                return self._evaluate_weight(_else, assignment, conditions)
                 
         # found a leaf, return it
         elif len(node.args()) == 0:
@@ -168,7 +175,7 @@ class Weights:
         else:
             new_children = []
             for child in node.args():
-                new_children.append(self._evaluate_weight(child, assignment))
+                new_children.append(self._evaluate_weight(child, assignment, conditions))
                 
             # after retrieving all the leaf nodes of the children it creates a new node with these particular leafs
             return get_env().formula_manager.create_node(
