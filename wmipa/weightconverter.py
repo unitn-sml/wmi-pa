@@ -3,7 +3,6 @@
 import pysmt.walkers
 from pysmt.shortcuts import *
 
-
 class WeightConverter(pysmt.walkers.IdentityDagWalker):
     def __init__(self, variables, *args):
         super().__init__(*args)
@@ -12,20 +11,14 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
 
     def convert(self, weight_func):
         conversion_list = list()
-        weight_conditions = set()
         w = self.walk(
-            weight_func, conversion_list=conversion_list, weight_conditions=weight_conditions)
+            weight_func, conversion_list=conversion_list)
         if not w.is_symbol():
             y = self.variables.new_weight_label(len(self.conv_labels))
             conversion_list.append(Equals(y, w))
-            w = y
+            w = y  
 
-        # should we add wv = w ?
-
-        print("WEIGHT:", w)
-        print("CONVERSION:", serialize(And(conversion_list)))
-        print("WEIGHT CONDITIONS:", weight_conditions)
-        return weight_conditions, And(conversion_list)
+        return And(conversion_list)
 
     def _process_stack(self, **kwargs):
         """Empties the stack by processing every node in it.
@@ -85,9 +78,8 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
         res_key = self._get_key(formula, **kwargs)
         return self.memoization[res_key]
 
-    def walk_ite(self, formula, args, branch_condition=None, conversion_list=None, weight_conditions=None):
+    def walk_ite(self, formula, args, branch_condition=None, conversion_list=None):
         phi, left, right = args
-        weight_conditions.add(phi)
         y = self.variables.new_weight_label(len(self.conv_labels))
         self.conv_labels.add(y)
         ops = [] if branch_condition is None else [branch_condition]

@@ -112,6 +112,20 @@ class WMIVariables:
         """    
         return variable in self.variables and self.variables[variable][1] == WMI
 
+    def is_weight_label(self, variable):
+        """Checks if the variable is a weight label.
+        
+        To recognize if the label is a weight label, it first check if it is a weight variable and then it controls its label type.
+        
+        Args:
+            variable (FNode): The variable to examine.
+            
+        Returns:
+            bool: True if the variable is a weight label, False otherwise.
+            
+        """    
+        return variable in self.variables and self.variables[variable][1] == WEIGHT
+
     def is_label(self, variable):
         """Checks if the variable is a condition label, query label or wmi label.
         

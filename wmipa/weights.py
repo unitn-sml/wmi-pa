@@ -35,14 +35,14 @@ class Weights:
         
         """
         self.variables = variables
-        self.converter = WeightConverter(variables)
-        weight_conditions, self.weights_as_formula = self.converter.convert(weight_func)
-        self.weight_conditions = {cond: i for i, cond in enumerate(weight_conditions)}
-        self.weights = weight_func
         
         # labels the weight function with new labels
         self.labelled_weights, subs = self.label_conditions(weight_func)
-        self.labels = {cond: i for i, cond in enumerate(subs.values())}
+        self.labels = {}
+        self.weight_conditions = {}
+        for i, (cond, sub) in enumerate(subs.items()):
+            self.labels[sub] = i
+            self.weight_conditions[cond] = i
         self.n_conditions = len(subs)
         
         # create a formula representing all the substitution (e.g: cond_3 <-> (x < 5))
@@ -50,6 +50,11 @@ class Weights:
         for cond, label in subs.items():
             labelling_list.append(Iff(cond, label))
         self.labelling = And(labelling_list)
+
+        # convert weights as formula for EUF
+        self.converter = WeightConverter(variables)
+        self.weights_as_formula = self.converter.convert(weight_func)
+        self.weights = weight_func
         
         # inizialize the cache (if requested)
         if cache:
@@ -66,6 +71,8 @@ class Weights:
         Args:
             assignment (dict {FNode : bool}): The dictionary containing all the assignments of each condition
                 (e.g: {(x < 3) : True, (y < 5) : False}).
+            on_labels (bool): If True assignment is expected to be over labels of weight condition
+                otherwise it is expected to be over unlabelled conditions
                 
         Returns:
             FNode: The result of the weight function on the given assignment.
@@ -75,7 +82,7 @@ class Weights:
             conditions = self.labels
             weights = self.labelled_weights
         else:
-            conditions = self.conditions
+            conditions = self.weight_conditions
             weights = self.weights
 
         # prepare an empty array of lenght 'n_conditions' to be populated with the values of the assignment
@@ -91,7 +98,7 @@ class Weights:
                 index = conditions[atom]
                 cond_assignment[index] = value
                 
-        assert(not None in cond_assignment), "Couldn't retrieve the complete assignment"
+        # assert(not None in cond_assignment), "Couldn't retrieve the complete assignment"
         cond_assignment = tuple(cond_assignment)
         
         # evaluate the weight from the assignment
@@ -160,7 +167,7 @@ class Weights:
             
             # gets the index of the label to retrieve the truth value of that specific label
             index_cond = conditions[cond]
-            
+            assert assignment[index_cond] is not None, cond
             # iteratively retrieve the leaf nodes from the 'then' or 'else' part, depending on the truth value of the condition
             if assignment[index_cond]:
                 return self._evaluate_weight(then, assignment, conditions)

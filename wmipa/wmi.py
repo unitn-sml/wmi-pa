@@ -45,7 +45,8 @@ class WMI:
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
     MODE_PA_NO_LABEL = "PANL"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL]
+    MODE_PA_EUF = "PAEUF"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL, MODE_PA_EUF]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -60,7 +61,7 @@ class WMI:
         """
         self.variables = WMIVariables()
         self.weights = Weights(weight, self.variables)
-        self.chi = And(chi, self.weights.labelling)
+        self.chi = chi
         
         n_threads = options.get("n_threads")
         stub_integrate = options.get("stub_integrate")
@@ -186,7 +187,12 @@ class WMI:
         self.cache = cache
         
         # Add the phi to the support
-        formula = And(phi, self.chi)
+        if mode != self.MODE_PA_EUF:
+            chi = And(self.chi, self.weights.labelling)
+        else:
+            chi = self.chi
+
+        formula = And(phi, chi)
         
         logger.debug("Computing WMI with mode: {}".format(mode))
         A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
@@ -215,7 +221,8 @@ class WMI:
         compute_with_mode = {WMI.MODE_BC : self._compute_WMI_BC,
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
-                             WMI.MODE_PA_NO_LABEL : self._compute_WMI_PA_no_label}
+                             WMI.MODE_PA_NO_LABEL : self._compute_WMI_PA_no_label,
+                             WMI.MODE_PA_EUF : self._compute_WMI_PA_EUF}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
             
@@ -415,7 +422,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems)-cached, cached
     
-    def _create_problem(self, atom_assignments, weights):
+    def _create_problem(self, atom_assignments, weights, on_labels=True):
         """Create a tuple containing the problem to integrate.
         
         It first finds all the aliases in the atom_assignments and then it takes the actual weight (based on the assignment).
@@ -424,6 +431,8 @@ class WMI:
         Args:
             atom_assignments (dict): The list of assignments and relative value (True, False)
             weights (Weight): The weight of the problem.
+            on_labels (bool): If True assignment is expected to be over labels of weight condition
+                otherwise it is expected to be over unlabelled conditions
             
         Returns:
             tuple: The problem on which to calculate the integral formed by {atom assignment, actual weight, list of aliases}.
@@ -433,6 +442,8 @@ class WMI:
         for atom, value in atom_assignments.items():
             if value is True and atom.is_equals():
                 alias, expr = self._parse_alias(atom)
+                if self.variables.is_weight_label(alias):
+                    continue
                 
                 # check that there are no multiple assignments of the same alias
                 if not alias in aliases:
@@ -441,7 +452,7 @@ class WMI:
                     msg = "Multiple assignments to the same alias"
                     raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
         
-        current_weight, cond_assignments = weights.weight_from_assignment(atom_assignments)
+        current_weight, cond_assignments = weights.weight_from_assignment(atom_assignments, on_labels=on_labels)
         return (atom_assignments, current_weight, aliases, cond_assignments)
         
     def _parse_alias(self, equality):
@@ -619,19 +630,19 @@ class WMI:
                     })
         converter = solver.converter
         solver.add_assertion(lra_formula)
-        # print(serialize(lra_formula))
         lra_assignments = []
+        # for PAEUF filter out new aliases for the weight function written as a formula
+        lra_atoms = {atom for atom in lra_formula.get_atoms() 
+            if not (atom.is_equals() and self.variables.is_weight_label(atom.args()[0]))}
+        assert len(get_boolean_variables(lra_formula)) == 0
         mathsat.msat_all_sat(
             solver.msat_env(),
-            [converter.convert(v) for v in lra_formula.get_atoms()],
+            [converter.convert(v) for v in lra_atoms],
             lambda model : WMI._callback(model, converter, lra_assignments))
-        # atoms = set(lra_formula.get_atoms())
-        for mu_lra in lra_assignments:                    
+
+        for mu_lra in lra_assignments: 
             assignments = {}
             for atom, value in WMI._get_assignments(mu_lra).items():
-                # if atom not in atoms:
-                #     print(atom)
-                #     assert atom in atoms
                 assignments[atom] = value
             assignments.update(other_assignments)
             yield assignments
@@ -684,7 +695,6 @@ class WMI:
                     atom_assignments.update(lra_assignments)
                     if over or lra_assignments == {}:
                         break
-                # print("with model %s simplifies into %s" % (str(model), str(f_next)))
                 if not over:
                     # predicate abstraction on LRA atoms with minimal models
                     # lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
@@ -707,6 +717,93 @@ class WMI:
 
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         volume = fsum(results)
+        return volume, len(problems)-cached, cached
+
+    def _compute_WMI_PA_EUF(self, formula, weights):
+        """Computes WMI using the Predicate Abstraction (PA) algorithm using EUF.
+        
+        Args:
+            formula (FNode): The formula on whick to compute WMI.
+            weights (Weight): The corresponding weight.
+            
+        Returns:
+            real: The final volume of the integral computed by summing up all the integrals' results.
+            int: The number of problems that have been computed.
+        
+        """
+        problems = []
+
+        formula = And(formula, self.weights.weights_as_formula)
+        boolean_variables = get_boolean_variables(formula)
+        # number of booleans not assigned in each problem
+        n_bool_not_assigned = []
+        if len(boolean_variables) == 0:
+            # Enumerate partial TA over theory atoms
+            # Predicate abstraction on LRA atoms with minimal models
+            for assignments in self._compute_WMI_PA_no_boolean_no_label(formula):
+                problem = self._create_problem(assignments, weights, on_labels=False)
+                problems.append(problem)
+                n_bool_not_assigned.append(0)
+        else:
+            solver = Solver(name="msat",
+                    solver_options={"dpll.allsat_minimize_model" : "true",
+                    "dpll.allsat_allow_duplicates" : "false",
+                    "dpll.branching_cache_phase" : "0",
+                    "preprocessor.toplevel_propagation" : "false",
+                    "preprocessor.simplification" : "0"
+                    })
+            converter = solver.converter
+            solver.add_assertion(formula)
+            boolean_models = []
+            # perform AllSAT on the Boolean variables
+            mathsat.msat_all_sat(
+                solver.msat_env(),
+                [converter.convert(v) for v in boolean_variables],
+                lambda model : WMI._callback(model, converter, boolean_models))
+
+            logger.debug("n_boolean_models: {}".format(len(boolean_models)))
+            # for each (partial) boolean assignment mu^A of F        
+            for model in boolean_models:
+                atom_assignments = {}
+                boolean_assignments = WMI._get_assignments(model)
+                atom_assignments.update(boolean_assignments)
+                subs = {k : Bool(v) for k, v in boolean_assignments.items()}
+                f_next = formula
+                # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
+                while True:            
+                    f_before = f_next
+                    f_next = simplify(substitute(f_before, subs))
+                    lra_assignments, over = WMI._parse_lra_formula(f_next)
+                    subs = {k : Bool(v) for k, v in lra_assignments.items()}
+                    atom_assignments.update(lra_assignments)
+                    if over or lra_assignments == {}:
+                        break
+                if not over:
+                    # predicate abstraction on LRA atoms with minimal models
+                    # lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
+                    expressions = []
+                    for k, v in atom_assignments.items():
+                        if k.is_theory_relation():
+                            if v:
+                                expressions.append(k)
+                            else:
+                                expressions.append(Not(k))
+                                                
+                    lra_formula = And([f_next] + expressions)
+                    for assignments in self._compute_WMI_PA_no_boolean_no_label(lra_formula, atom_assignments):
+                        problem = self._create_problem(assignments, weights, on_labels=False)
+                        problems.append(problem)
+                        n_bool_not_assigned.append(len(boolean_variables) - len(model))
+                else:
+                    # integrate over mu^A & mu^LRA
+                    problem = self._create_problem(atom_assignments, weights, on_labels=False)
+                    problems.append(problem)
+                    n_bool_not_assigned.append(len(boolean_variables) - len(model))
+
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        assert len(n_bool_not_assigned) == len(results)
+        # multiply each volume by 2^(|A| - |mu^A|)
+        volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
         return volume, len(problems)-cached, cached
 
     def label_formula(self, formula, atoms_to_label):
