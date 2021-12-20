@@ -16,7 +16,7 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 import mathsat
-from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize
+from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize, Times, Plus, Equals
 from pysmt.typing import BOOL, REAL
 from sympy import sympify, solve
 from math import fsum
@@ -636,6 +636,22 @@ class WMI:
             if not (atom.is_equals() and self.variables.is_weight_label(atom.args()[0]))}
         assert len(get_boolean_variables(lra_formula)) == 0
 
+        norm_aliases = dict()
+        for assignment in lra_atoms:
+            if assignment.is_equals():
+                if assignment.args()[1].is_symbol():
+                    continue
+                right_term = None
+                negated_atoms = list()
+                for atom in assignment.args()[1].args():
+                    if atom.is_real_constant():
+                        right_term = atom
+                    else:
+                        negated_atoms.append(Times(Real(-1.0), atom))
+                left_term = Plus([assignment.args()[0]] + negated_atoms)
+                equality_term = Equals(left_term, right_term)
+                norm_aliases[equality_term] = assignment
+
         mathsat.msat_all_sat(
             solver.msat_env(),
             [converter.convert(v) for v in lra_atoms],
@@ -644,7 +660,10 @@ class WMI:
         for mu_lra in lra_assignments: 
             assignments = {}
             for atom, value in WMI._get_assignments(mu_lra).items():
-                assignments[atom] = value
+                if atom in norm_aliases:
+                    assignments[norm_aliases[atom]] = value
+                else:
+                    assignments[atom] = value
             assignments.update(other_assignments)
             yield assignments
 
