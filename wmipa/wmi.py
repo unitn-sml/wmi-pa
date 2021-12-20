@@ -635,6 +635,7 @@ class WMI:
         lra_atoms = {atom for atom in lra_formula.get_atoms() 
             if not (atom.is_equals() and self.variables.is_weight_label(atom.args()[0]))}
         assert len(get_boolean_variables(lra_formula)) == 0
+
         mathsat.msat_all_sat(
             solver.msat_env(),
             [converter.convert(v) for v in lra_atoms],
