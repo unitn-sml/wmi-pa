@@ -3,11 +3,13 @@
 import pysmt.walkers
 from pysmt.shortcuts import *
 
+
 class WeightConverter(pysmt.walkers.IdentityDagWalker):
     def __init__(self, variables, *args):
         super().__init__(*args)
         self.variables = variables
         self.conv_labels = set()
+        self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
 
     def convert(self, weight_func):
         conversion_list = list()
@@ -16,7 +18,7 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
         if not w.is_symbol():
             y = self.variables.new_weight_label(len(self.conv_labels))
             conversion_list.append(Equals(y, w))
-            w = y  
+            w = y 
 
         return And(conversion_list)
 
@@ -35,7 +37,8 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
                 self._compute_node_result(
                     formula, branch_condition=branch_condition, **kwargs)
             else:
-                self._push_with_children_to_stack(formula, branch_condition, **kwargs)
+                self._push_with_children_to_stack(
+                    formula, branch_condition, **kwargs)
 
     def _push_with_children_to_stack(self, formula, branch_condition, **kwargs):
         """Push children on the stack.
@@ -87,5 +90,39 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
         conversion_list.append(Or(Or(*ops, Not(phi)), Equals(y, left)))
         return y
 
+    def walk_times(self, formula, args, **kwargs):
+        const_val = 1
+        others = []
+        for arg in args:
+            if arg.is_real_constant():
+                const_val *= arg.constant_value()
+            else:
+                others.append(arg)
+        const_val = Real(const_val)
+        if not others:
+            return const_val
+        else:
+            return Times(const_val, self.prod_euf(others))
+
+    def walk_pow(self, formula, args, **kwargs):
+        base, exponent = args
+        if exponent.is_zero():
+            return Real(1)
+        else:
+            n, d = exponent.constant_value().numerator, exponent.constant_value().denominator
+            # print(n, d, n//d)
+            return self.prod_euf([base for _ in range(n // d)])
+
     def _get_key(self, formula, **kwargs):
         return formula
+
+    def prod_euf(self, args):
+        assert isinstance(args, list)
+        if len(args) == 1:
+            return args.pop()
+        curr = args.pop()
+        while args:
+            curr = self.prod_fn(args.pop(), curr)
+        return curr
+
+

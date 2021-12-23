@@ -607,7 +607,6 @@ class WMI:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
-
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         volume = fsum(results)
         return volume, len(problems)-cached, cached
@@ -660,6 +659,7 @@ class WMI:
         for mu_lra in lra_assignments: 
             assignments = {}
             for atom, value in WMI._get_assignments(mu_lra).items():
+                assert (not atom.is_equals() or atom in norm_aliases), serialize(atom)
                 if atom in norm_aliases:
                     assignments[norm_aliases[atom]] = value
                 else:
@@ -734,7 +734,6 @@ class WMI:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
-
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         volume = fsum(results)
         return volume, len(problems)-cached, cached
@@ -752,7 +751,6 @@ class WMI:
         
         """
         problems = []
-
         formula = And(formula, self.weights.weights_as_formula)
         boolean_variables = get_boolean_variables(formula)
         # number of booleans not assigned in each problem
@@ -766,12 +764,12 @@ class WMI:
                 n_bool_not_assigned.append(0)
         else:
             solver = Solver(name="msat",
-                    solver_options={"dpll.allsat_minimize_model" : "true",
-                    "dpll.allsat_allow_duplicates" : "false",
-                    "dpll.branching_cache_phase" : "0",
-                    "preprocessor.toplevel_propagation" : "false",
-                    "preprocessor.simplification" : "0"
-                    })
+                    # solver_options={"dpll.allsat_minimize_model" : "true",
+                    # "dpll.allsat_allow_duplicates" : "false",
+                    # "dpll.branching_cache_phase" : "0",
+                    # "preprocessor.toplevel_propagation" : "false",
+                    # "preprocessor.simplification" : "0"}
+                    )
             converter = solver.converter
             solver.add_assertion(formula)
             boolean_models = []
@@ -819,7 +817,6 @@ class WMI:
                     problem = self._create_problem(atom_assignments, weights, on_labels=False)
                     problems.append(problem)
                     n_bool_not_assigned.append(len(boolean_variables) - len(model))
-
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)

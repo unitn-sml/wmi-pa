@@ -234,7 +234,9 @@ class Weights:
 
     def _evaluate_condition(self, condition, assignment):
         val = simplify(substitute(condition, assignment))
-        assert val.is_bool_constant(),  "Weight condition %s cannot be evaluated" % serialize(condition)
+        assert val.is_bool_constant(),  "Weight condition " + serialize(condition) + \
+            "\n\n cannot be evaluated with assignment " + str(assignment) + "\n\n simplified into " + \
+                serialize(val)
         return val.constant_value()
         
     def __str__(self):
