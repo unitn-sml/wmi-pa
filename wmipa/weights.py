@@ -1,7 +1,7 @@
 
 from itertools import product
 
-from pysmt.shortcuts import And, Iff, Symbol, get_env, serialize
+from pysmt.shortcuts import And, Bool, Iff, Symbol, get_env, serialize, simplify, substitute
 from pysmt.typing import BOOL, REAL
 
 from wmipa.utils import is_pow
@@ -87,36 +87,39 @@ class Weights:
 
         # prepare an empty array of lenght 'n_conditions' to be populated with the values of the assignment
         cond_assignment = [None for _ in range(self.n_conditions)]
-        
-        # populate the array with all the values
-        for atom, value in assignment.items():
-            assert(isinstance(value,bool)), "Assignment value should be Boolean"
-            # if (atom.is_symbol() and atom.get_type() == BOOL and self.variables.is_cond_label(atom)):
-            if atom in conditions:
-            
-                # take the index of the variable from the label
-                index = conditions[atom]
-                cond_assignment[index] = value
+        if on_labels:
+            # populate the array with all the values
+            for atom, value in assignment.items():
+                assert(isinstance(value,bool)), "Assignment value should be Boolean"
+                # if (atom.is_symbol() and atom.get_type() == BOOL and self.variables.is_cond_label(atom)):
+                if atom in conditions:
                 
-        # assert(not None in cond_assignment), "Couldn't retrieve the complete assignment"
-        cond_assignment = tuple(cond_assignment)
+                    # take the index of the variable from the label
+                    index = conditions[atom]
+                    cond_assignment[index] = value
+                
+            assert(not None in cond_assignment), "Couldn't retrieve the complete assignment"
         
+        assignment = {atom : Bool(v) for atom, v in assignment.items()}
         # evaluate the weight from the assignment
         if self.cache != None:
+            cond_assignment_tuple = tuple(cond_assignment)
         
             # first check into the cache if the weight associated to the particular assignment was already calculated
-            if cond_assignment in self.cache:
-                return self.cache[cond_assignment], cond_assignment
+            if cond_assignment_tuple in self.cache:
+                return self.cache[cond_assignment_tuple], cond_assignment_tuple
                 
             # else evaluate it and insert it into the cache
             else:
-                flat_w = self._evaluate_weight(weights, cond_assignment, conditions)
-                self.cache[cond_assignment] = flat_w
-                return flat_w, cond_assignment
+                flat_w = self._evaluate_weight(weights, cond_assignment, conditions, assignment)
+                cond_assignment_tuple = tuple(cond_assignment)
+                self.cache[cond_assignment_tuple] = flat_w
+                return flat_w, cond_assignment_tuple
                 
         # if there is no cache just evaluate the weight
         else:
-            return self._evaluate_weight(weights, cond_assignment, conditions), cond_assignment
+            flat_w = self._evaluate_weight(weights, cond_assignment, conditions, assignment)
+            return flat_w, tuple(cond_assignment)
 
     def label_conditions(self, weight_func):
         """Finds and labels all the conditions inside the weight function with fresh boolean atoms.
@@ -151,7 +154,7 @@ class Weights:
             cond_w = self._evaluate_weight(self.weights, assignment)
             self.cache[assignment] = cond_w
 
-    def _evaluate_weight(self, node, assignment, conditions):
+    def _evaluate_weight(self, node, assignment, conditions, atom_assignment):
         """Evaluates the value of the given formula applied to the given assignment.
         
         Args:
@@ -167,12 +170,14 @@ class Weights:
             
             # gets the index of the label to retrieve the truth value of that specific label
             index_cond = conditions[cond]
-            assert assignment[index_cond] is not None, cond
+            # assert assignment[index_cond] is not None, cond
+            if assignment[index_cond] is None:
+                assignment[index_cond] = self._evaluate_condition(cond, atom_assignment)
             # iteratively retrieve the leaf nodes from the 'then' or 'else' part, depending on the truth value of the condition
             if assignment[index_cond]:
-                return self._evaluate_weight(then, assignment, conditions)
+                return self._evaluate_weight(then, assignment, conditions, atom_assignment)
             else:
-                return self._evaluate_weight(_else, assignment, conditions)
+                return self._evaluate_weight(_else, assignment, conditions, atom_assignment)
                 
         # found a leaf, return it
         elif len(node.args()) == 0:
@@ -182,7 +187,7 @@ class Weights:
         else:
             new_children = []
             for child in node.args():
-                new_children.append(self._evaluate_weight(child, assignment, conditions))
+                new_children.append(self._evaluate_weight(child, assignment, conditions, atom_assignment))
                 
             # after retrieving all the leaf nodes of the children it creates a new node with these particular leafs
             return get_env().formula_manager.create_node(
@@ -226,6 +231,11 @@ class Weights:
             raise WMIParsingException(WMIParsingException.INVALID_WEIGHT_FUNCTION, node)
             
         return subs
+
+    def _evaluate_condition(self, condition, assignment):
+        val = simplify(substitute(condition, assignment))
+        assert val.is_bool_constant(),  "Weight condition %s cannot be evaluated" % serialize(condition)
+        return val.constant_value()
         
     def __str__(self):
         ret = "Weight object {\n"
