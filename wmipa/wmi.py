@@ -46,7 +46,8 @@ class WMI:
     MODE_PA = "PA"
     MODE_PA_NO_LABEL = "PANL"
     MODE_PA_EUF = "PAEUF"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL, MODE_PA_EUF]
+    MODE_PA_EUF_TA = "PAEUFTA"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL, MODE_PA_EUF, MODE_PA_EUF_TA]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -183,14 +184,14 @@ class WMI:
             logger.error(err)
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
         if cache is None:
-            cache = 0
+            cache = -1
         self.cache = cache
         
         # Add the phi to the support
-        if mode != self.MODE_PA_EUF:
-            chi = And(self.chi, self.weights.labelling)
+        if mode in (self.MODE_PA_EUF, self.MODE_PA_EUF_TA):
+            chi = And(self.chi, self.weights.weights_as_formula)
         else:
-            chi = self.chi
+            chi = And(self.chi, self.weights.labelling)
 
         formula = And(phi, chi)
         
@@ -222,7 +223,8 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
                              WMI.MODE_PA_NO_LABEL : self._compute_WMI_PA_no_label,
-                             WMI.MODE_PA_EUF : self._compute_WMI_PA_EUF}
+                             WMI.MODE_PA_EUF : self._compute_WMI_PA_EUF,
+                             WMI.MODE_PA_EUF_TA : self._compute_WMI_PA_EUF_TA}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
             
@@ -634,7 +636,6 @@ class WMI:
         lra_atoms = {atom for atom in lra_formula.get_atoms() 
             if not (atom.is_equals() and self.variables.is_weight_label(atom.args()[0]))}
         assert len(get_boolean_variables(lra_formula)) == 0
-
         norm_aliases = dict()
         for assignment in lra_atoms:
             if assignment.is_equals():
@@ -655,7 +656,6 @@ class WMI:
             solver.msat_env(),
             [converter.convert(v) for v in lra_atoms],
             lambda model : WMI._callback(model, converter, lra_assignments))
-
         for mu_lra in lra_assignments: 
             assignments = {}
             for atom, value in WMI._get_assignments(mu_lra).items():
@@ -666,6 +666,43 @@ class WMI:
                     assignments[atom] = value
             assignments.update(other_assignments)
             yield assignments
+
+    @staticmethod
+    def _simplify_formula(formula, subs, atom_assignments):
+        """Substitute the subs in the formula and iteratively simplify it. 
+        atom_assignments is updated with unit-propagated atoms. 
+
+        Args:
+            formula (FNode): The formula to simplify.
+            subs (dict): Dictionary with the substitutions to perform.
+            atom_assignment (dict): Dictionary with atoms and assigned value.
+            
+        Returns:
+            bool: True if the formula is completely simplified.
+            FNode: The simplified formula.
+        """
+        subs = {k : Bool(v) for k, v in subs.items()}
+        f_next = formula
+        # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
+        while True:            
+            f_before = f_next
+            f_next = simplify(substitute(f_before, subs))
+            lra_assignments, over = WMI._parse_lra_formula(f_next)
+            subs = {k : Bool(v) for k, v in lra_assignments.items()}
+            atom_assignments.update(lra_assignments)
+            if over or lra_assignments == {}:
+                break
+        if not over:
+            # formula not completely simplified, add conjuction of assigned LRA atoms
+            expressions = []
+            for k, v in atom_assignments.items():
+                if k.is_theory_relation():
+                    if v:
+                        expressions.append(k)
+                    else:
+                        expressions.append(Not(k))
+            f_next = And([f_next] + expressions)
+        return over, f_next
 
     def _compute_WMI_PA_no_label(self, formula, weights):
         """Computes WMI using the Predicate Abstraction (PA) algorithm (improved version).
@@ -704,29 +741,10 @@ class WMI:
                 atom_assignments = {}
                 boolean_assignments = WMI._get_assignments(model)
                 atom_assignments.update(boolean_assignments)
-                subs = {k : Bool(v) for k, v in boolean_assignments.items()}
-                f_next = formula
-                # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
-                while True:            
-                    f_before = f_next
-                    f_next = simplify(substitute(f_before, subs))
-                    lra_assignments, over = WMI._parse_lra_formula(f_next)
-                    subs = {k : Bool(v) for k, v in lra_assignments.items()}
-                    atom_assignments.update(lra_assignments)
-                    if over or lra_assignments == {}:
-                        break
+                over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+                
                 if not over:
                     # predicate abstraction on LRA atoms with minimal models
-                    # lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
-                    expressions = []
-                    for k, v in atom_assignments.items():
-                        if k.is_theory_relation():
-                            if v:
-                                expressions.append(k)
-                            else:
-                                expressions.append(Not(k))
-                                                
-                    lra_formula = And([f_next] + expressions)
                     for assignments in self._compute_WMI_PA_no_boolean_no_label(lra_formula, atom_assignments):
                         problem = self._create_problem(assignments, weights)
                         problems.append(problem)
@@ -738,7 +756,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems)-cached, cached
 
-    def _compute_WMI_PA_EUF(self, formula, weights):
+    def _compute_WMI_PA_EUF(self, formula, weights, use_ta=False):
         """Computes WMI using the Predicate Abstraction (PA) algorithm using EUF.
         
         Args:
@@ -751,7 +769,6 @@ class WMI:
         
         """
         problems = []
-        formula = And(formula, self.weights.weights_as_formula)
         boolean_variables = get_boolean_variables(formula)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
@@ -763,13 +780,14 @@ class WMI:
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
         else:
-            solver = Solver(name="msat",
-                    # solver_options={"dpll.allsat_minimize_model" : "true",
-                    # "dpll.allsat_allow_duplicates" : "false",
-                    # "dpll.branching_cache_phase" : "0",
-                    # "preprocessor.toplevel_propagation" : "false",
-                    # "preprocessor.simplification" : "0"}
-                    )
+            if use_ta: # performs first a TA on booleans, then a TTA on the ones that do not simplify
+                solver_options = {"dpll.allsat_minimize_model" : "true",
+                    "dpll.allsat_allow_duplicates" : "false",
+                    "preprocessor.toplevel_propagation" : "false",
+                    "preprocessor.simplification" : "0"}
+            else:
+                solver_options = {}
+            solver = Solver(name="msat", solver_options=solver_options)
             converter = solver.converter
             solver.add_assertion(formula)
             boolean_models = []
@@ -783,45 +801,54 @@ class WMI:
             # for each (partial) boolean assignment mu^A of F        
             for model in boolean_models:
                 atom_assignments = {}
+                # simplify the formula
                 boolean_assignments = WMI._get_assignments(model)
                 atom_assignments.update(boolean_assignments)
-                subs = {k : Bool(v) for k, v in boolean_assignments.items()}
-                f_next = formula
-                # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
-                while True:            
-                    f_before = f_next
-                    f_next = simplify(substitute(f_before, subs))
-                    lra_assignments, over = WMI._parse_lra_formula(f_next)
-                    subs = {k : Bool(v) for k, v in lra_assignments.items()}
-                    atom_assignments.update(lra_assignments)
-                    if over or lra_assignments == {}:
-                        break
-                if not over:
-                    # predicate abstraction on LRA atoms with minimal models
-                    # lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
-                    expressions = []
-                    for k, v in atom_assignments.items():
-                        if k.is_theory_relation():
-                            if v:
-                                expressions.append(k)
-                            else:
-                                expressions.append(Not(k))
-                                                
-                    lra_formula = And([f_next] + expressions)
-                    for assignments in self._compute_WMI_PA_no_boolean_no_label(lra_formula, atom_assignments):
-                        problem = self._create_problem(assignments, weights, on_labels=False)
-                        problems.append(problem)
-                        n_bool_not_assigned.append(len(boolean_variables) - len(model))
+                over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+
+                residual_booleans = get_boolean_variables(lra_formula)
+                # if some boolean have not been simplified, find TTA on them
+                if len(residual_booleans) > 0:
+                    # compute TTA
+                    solver = Solver(name="msat")
+                    converter = solver.converter
+                    solver.add_assertion(lra_formula)
+                    residual_boolean_models = []
+                    mathsat.msat_all_sat(
+                        solver.msat_env(),
+                        [converter.convert(v) for v in residual_booleans],
+                        lambda model : WMI._callback(model, converter, residual_boolean_models))
                 else:
-                    # integrate over mu^A & mu^LRA
-                    problem = self._create_problem(atom_assignments, weights, on_labels=False)
-                    problems.append(problem)
-                    n_bool_not_assigned.append(len(boolean_variables) - len(model))
+                    # all boolean variables have been assigned
+                    residual_boolean_models = [[]]
+                for residual_model in residual_boolean_models:
+                    curr_atom_assignments = dict(atom_assignments)
+                    if len(residual_model) > 0:
+                        residual_boolean_assignments = WMI._get_assignments(residual_model)
+                        curr_atom_assignments.update(residual_boolean_assignments)
+                        over, curr_lra_formula = WMI._simplify_formula(lra_formula, residual_boolean_assignments, curr_atom_assignments)
+                    else:
+                        curr_lra_formula = lra_formula
+                    # print("Simplifies into:", serialize(curr_lra_formula))
+                    if not over:
+                        # predicate abstraction on LRA atoms with minimal models
+                        for assignments in self._compute_WMI_PA_no_boolean_no_label(curr_lra_formula, curr_atom_assignments):
+                            problem = self._create_problem(assignments, weights, on_labels=False)
+                            problems.append(problem)
+                            n_bool_not_assigned.append(len(boolean_variables) - len(model) - len(residual_model))
+                    else:
+                        # integrate over mu^A & mu^LRA
+                        problem = self._create_problem(curr_atom_assignments, weights, on_labels=False)
+                        problems.append(problem)
+                        n_bool_not_assigned.append(len(boolean_variables) - len(model)- len(residual_model))
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
         return volume, len(problems)-cached, cached
+    
+    def _compute_WMI_PA_EUF_TA(self, formula, weights):
+        return self._compute_WMI_PA_EUF(formula, weights, use_ta=True)
 
     def label_formula(self, formula, atoms_to_label):
         """Labels every atom in the input with a new fresh WMI variable.
