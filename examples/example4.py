@@ -30,10 +30,10 @@ chi = And(Or(a, b, c),
 print("Weight function:", serialize(w))
 print("Support:", serialize(chi))
 
-wmi = WMI(chi, w)
 
+wmi = WMI(chi, w)
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA]:
     for phi in phis:
         result, n_integrations = wmi.computeWMI(phi, mode=mode)
         print("Query: {}".format(serialize(phi)))
