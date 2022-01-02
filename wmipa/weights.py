@@ -165,9 +165,20 @@ class Weights:
             FNode: The result of the formula representing (part of) the weight function applied to the given assignment.
         
         """
+        #print("NODE", serialize(node), node.is_ite(), len(node.args()))
+        #print()
+        #print("CONDITIONS")
+        #for c in conditions:
+        #    print("KEY", serialize(c), "\nINDEX", conditions[c], "\nAssingment", assignment[conditions[c]])
+        #    print("*************************")
         if node.is_ite():
             cond, then, _else = node.args()
-            
+            #print("COND", serialize(cond))
+            #print()
+            #print("THEN", serialize(then))
+            #print()
+            #print("ELSE", serialize(_else))
+            #print()
             # gets the index of the label to retrieve the truth value of that specific label
             index_cond = conditions[cond]
             # assert assignment[index_cond] is not None, cond
@@ -186,6 +197,10 @@ class Weights:
         # this condition contains, for example, the Times operator
         else:
             new_children = []
+            #for child in node.args():
+                #print("CHILD", serialize(child))
+                #print()
+
             for child in node.args():
                 new_children.append(self._evaluate_weight(child, assignment, conditions, atom_assignment))
                 
@@ -233,9 +248,17 @@ class Weights:
         return subs
 
     def _evaluate_condition(self, condition, assignment):
-        val = simplify(substitute(condition, assignment))
+        #print("THE ASSIGNMENT")
+        #for ass in assignment:
+        #    print(serialize(ass), assignment[ass])
+        temp1 = condition.substitute(assignment)
+        #print("TEMP1",serialize(temp1))
+        val = simplify(temp1)
+        val = simplify(substitute(val, assignment))
+        if not val.is_bool_constant():
+            print("ERROR")
         assert val.is_bool_constant(),  "Weight condition " + serialize(condition) + \
-            "\n\n cannot be evaluated with assignment " + str(assignment) + "\n\n simplified into " + \
+            "\n\n cannot be evaluated with assignment " + "\n".join([str((x, assignment[x])) for x in assignment]) + "\n\n simplified into " + \
                 serialize(val)
         return val.constant_value()
         

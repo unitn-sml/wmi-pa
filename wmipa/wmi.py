@@ -642,7 +642,8 @@ class WMI:
 
 
         norm_aliases = dict()
-        #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853, -12438304288656212/1826002404306887 == -6.811767749767853)
+        #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
+        #exit()
         # TODO - check precision (che sono infinite in alcuni casi, maledizione)
         j = 1
         for assignment in lra_atoms:
@@ -744,6 +745,7 @@ class WMI:
                     for s in symbols:
                         if constant != 0.0: 
                             symbols[s] /= constant
+                            symbols[s] = round(symbols[s], 14)
                             constant /= constant
                         #print("AAAA", constant, s, symbols[s])
                         if (negate != assignment.is_lt()):
@@ -762,7 +764,7 @@ class WMI:
                             #norm_aliases[LE(s2, s1)] = assignment
                             norm_aliases[frozenset([s1, s2])] = assignment
                         else:
-                            ##print("RESULT(d):", serialize(LE(s1, s2)))
+                            #print("RESULT(d):", serialize(LE(s1, s2)))
                             #norm_aliases[LE(s1, s2)] = assignment 
                             norm_aliases[frozenset([s1, s2])] = assignment
                 else:
@@ -781,8 +783,8 @@ class WMI:
                         m2 = None
                         #print("SSS", s, symbols[s[0]])
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
-                            nn = float(symbols[s[0]]/constant if constant != 0 else symbols[s[0]])
-                            nn2 = float(-symbols[s[0]]/constant if constant != 0 else -symbols[s[0]])
+                            nn = float(round(symbols[s[0]]/constant, 14) if constant != 0 else round(symbols[s[0]], 14))
+                            nn2 = float(round(-symbols[s[0]]/constant, 14) if constant != 0 else round(-symbols[s[0]], 14))
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
@@ -830,9 +832,11 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((1.0/float(right.constant_value()) if right.constant_value() != 0 else 1.0, el))
+                                    subterms.append((round(1.0/float(right.constant_value()), 14) if right.constant_value() != 0 else 1.0, el))
                                 else:
-                                    subterms.append((float(el.args()[0].constant_value())/float(right.constant_value()) if right.constant_value() != 0 else float(el.args()[0].constant_value()), el.args()[1]))
+                                    subterms.append((
+                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), 14) if right.constant_value() != 0 
+                                        else round(float(el.args()[0].constant_value()), 14), el.args()[1]))
                     elif left.is_real_constant():
                         #print('LEFT')
                         subterms.append(1.0 if left.constant_value() != 0 else 0.0)
@@ -843,9 +847,12 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((-1.0/float(left.constant_value()) if left.constant_value() != 0 else -1.0, el))
+                                    subterms.append((round(-1.0/float(left.constant_value()), 14) if left.constant_value() != 0 else -1.0, el))
                                 else:
-                                    subterms.append((-float(el.args()[0].constant_value())/float(left.constant_value()) if left.constant_value() != 0 else -float(el.args()[0].constant_value()), el.args()[1]))
+                                    subterms.append((
+                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), 14) if left.constant_value() != 0 
+                                        else round(-float(el.args()[0].constant_value()), 14), el.args()[1])
+                                    )
 
                     #print(subterms)
                     if frozenset(subterms) in norm_aliases:
@@ -853,6 +860,9 @@ class WMI:
                         assignments[norm_aliases[frozenset(subterms)]] = not value if norm_aliases[frozenset(subterms)].is_lt() else value
                         #print("ASSIGNING", not value if norm_aliases[frozenset(subterms)].is_lt() else value)
                     else:
+                        #print("I SEARCHED", subterms)
+                        #print("BUT IVE FOUND")
+                        #print("\n".join([str(x) for x in norm_aliases.keys()]))
                         assignments[atom] = value
                 else:
                     #print("IMHERE")
@@ -1043,7 +1053,7 @@ class WMI:
                         over, curr_lra_formula = WMI._simplify_formula(lra_formula, residual_boolean_assignments, curr_atom_assignments)
                     else:
                         curr_lra_formula = lra_formula
-                    # print("Simplifies into:", serialize(curr_lra_formula))
+                    # #print("Simplifies into:", serialize(curr_lra_formula))
                     if not over:
                         # predicate abstraction on LRA atoms with minimal models
                         for assignments in self._compute_WMI_PA_no_boolean_no_label(curr_lra_formula, curr_atom_assignments):
