@@ -92,34 +92,31 @@ if __name__ == '__main__':
     for i, s in enumerate(support_files):
         support = read_smtlib(s)
         for j, w in enumerate(weight_files):
-            try:
-                support_filename = path.splitext(s)[0]
-                weight_filename = path.splitext(w)[0]
-                if not equals or support_filename == weight_filename:
-                    weight = read_smtlib(w)
-                    
-                    wmi = WMI(support, weight, stub_integrate=args.stub)
-                    
-                    time_init = time.time()
-                    cache = -1
-                    if "cache" in mode:
-                        cache = int(mode.split("_")[2])
-                    value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=cache)
-                    time_total = time.time() - time_init
-                    
-                    res = {
-                        "support": s,
-                        "weight": w,
-                        "value":value,
-                        "n_integrations":n_integrations,
-                        "time":time_total
-                    }
-                    results.append(res)
-                    
-                    print("\r"*100, end='')
-                    print("Support: {}/{}, Weight: {}/{}".format(i+1, n_support, j+1, n_weight), end='')
-            except:
-                continue
+            support_filename = path.splitext(s)[0]
+            weight_filename = path.splitext(w)[0]
+            if not equals or support_filename == weight_filename:
+                weight = read_smtlib(w)
+                
+                wmi = WMI(support, weight, stub_integrate=args.stub)
+                
+                time_init = time.time()
+                cache = -1
+                if "cache" in mode:
+                    cache = int(mode.split("_")[2])
+                value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=cache)
+                time_total = time.time() - time_init
+                
+                res = {
+                    "support": s,
+                    "weight": w,
+                    "value":value,
+                    "n_integrations":n_integrations,
+                    "time":time_total
+                }
+                results.append(res)
+                
+                print("\r"*100, end='')
+                print("Support: {}/{}, Weight: {}/{}".format(i+1, n_support, j+1, n_weight), end='')
     
     print()
     print("Computed {} WMI".format(len(results)))

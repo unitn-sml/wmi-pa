@@ -70,6 +70,9 @@ class WMI:
         n_threads = options.get("n_threads")
         stub_integrate = options.get("stub_integrate")
         self.integrator = Latte_Integrator(n_threads = n_threads, stub_integrate = stub_integrate)
+        self.list_norm = set()
+        self.norm_aliases = dict()
+
         
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.
@@ -641,14 +644,15 @@ class WMI:
         assert len(get_boolean_variables(lra_formula)) == 0
 
 
-        norm_aliases = dict()
         #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
         #exit()
         # TODO - check precision (che sono infinite in alcuni casi, maledizione)
         j = 1
-        for assignment in lra_atoms:
+        for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
+        #for assignment in lra_atoms:
             #print()
             #print("evaluating", j, assignment)
+            self.list_norm.add(assignment)
             j +=1
             is_constant_in_formula = False
             list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
@@ -696,7 +700,7 @@ class WMI:
                 left_term = Plus([assignment.args()[0]] + negated_atoms)
                 #print("LT",left_term)
                 equality_term = Equals(left_term, right_term)
-                norm_aliases[equality_term] = assignment
+                self.norm_aliases[equality_term] = assignment
             else:
                 #print("-->", assignment)
                 list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
@@ -745,28 +749,28 @@ class WMI:
                     for s in symbols:
                         if constant != 0.0: 
                             symbols[s] /= constant
-                            symbols[s] = round(symbols[s], 14)
+                            symbols[s] = round(symbols[s], 13)
                             constant /= constant
                         #print("AAAA", constant, s, symbols[s])
                         if (negate != assignment.is_lt()):
                             #print("RESULT(a):", frozenset([constant, (symbols[s], s)]))
-                            norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
-                            norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
+                            self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
+                            self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
                         else:
                             #print("RESULT(b):", frozenset([constant, (symbols[s], s)]))
-                            norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
-                            norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
+                            self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
+                            self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
                 elif len(symbols) == 2 and constant == 0 and not assignment.is_equals():
                     s1, s2 = symbols.keys()
                     if abs(symbols[s1]) == abs(symbols[s2]):
                         if (assignment.is_lt()):
                             #print("RESULT(c):", serialize(LE(s2, s1)))
-                            #norm_aliases[LE(s2, s1)] = assignment
-                            norm_aliases[frozenset([s1, s2])] = assignment
+                            #self.norm_aliases[LE(s2, s1)] = assignment
+                            self.norm_aliases[frozenset([s1, s2])] = assignment
                         else:
                             #print("RESULT(d):", serialize(LE(s1, s2)))
-                            #norm_aliases[LE(s1, s2)] = assignment 
-                            norm_aliases[frozenset([s1, s2])] = assignment
+                            #self.norm_aliases[LE(s1, s2)] = assignment 
+                            self.norm_aliases[frozenset([s1, s2])] = assignment
                 else:
                     reverse_symbol_list_id = list()
                     for s in symbols_list_id:
@@ -783,8 +787,8 @@ class WMI:
                         m2 = None
                         #print("SSS", s, symbols[s[0]])
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
-                            nn = float(round(symbols[s[0]]/constant, 14) if constant != 0 else round(symbols[s[0]], 14))
-                            nn2 = float(round(-symbols[s[0]]/constant, 14) if constant != 0 else round(-symbols[s[0]], 14))
+                            nn = float(round(symbols[s[0]]/constant, 13) if constant != 0 else round(symbols[s[0]], 13))
+                            nn2 = float(round(-symbols[s[0]]/constant, 13) if constant != 0 else round(-symbols[s[0]], 13))
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
@@ -798,12 +802,12 @@ class WMI:
                         lsh2_set.append(m2)
                     #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
                     #print("<->SETS", lsh_set, lsh2_set)
-                    norm_aliases[frozenset(lsh_set)] = assignment
-                    norm_aliases[frozenset(lsh2_set)] = assignment
+                    self.norm_aliases[frozenset(lsh_set)] = assignment
+                    self.norm_aliases[frozenset(lsh2_set)] = assignment
 
 
         #print("NORMS")
-        #for norm in norm_aliases:
+        #for norm in self.norm_aliases:
             #print(norm)
 
         mathsat.msat_all_sat(
@@ -832,11 +836,11 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((round(1.0/float(right.constant_value()), 14) if right.constant_value() != 0 else 1.0, el))
+                                    subterms.append((round(1.0/float(right.constant_value()), 13) if right.constant_value() != 0 else 1.0, el))
                                 else:
                                     subterms.append((
-                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), 14) if right.constant_value() != 0 
-                                        else round(float(el.args()[0].constant_value()), 14), el.args()[1]))
+                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), 13) if right.constant_value() != 0 
+                                        else round(float(el.args()[0].constant_value()), 13), el.args()[1]))
                     elif left.is_real_constant():
                         #print('LEFT')
                         subterms.append(1.0 if left.constant_value() != 0 else 0.0)
@@ -847,28 +851,28 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((round(-1.0/float(left.constant_value()), 14) if left.constant_value() != 0 else -1.0, el))
+                                    subterms.append((round(-1.0/float(left.constant_value()), 13) if left.constant_value() != 0 else -1.0, el))
                                 else:
                                     subterms.append((
-                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), 14) if left.constant_value() != 0 
-                                        else round(-float(el.args()[0].constant_value()), 14), el.args()[1])
+                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), 13) if left.constant_value() != 0 
+                                        else round(-float(el.args()[0].constant_value()), 13), el.args()[1])
                                     )
 
                     #print(subterms)
-                    if frozenset(subterms) in norm_aliases:
-                        #print("ATOM NORMALIZED with", norm_aliases[frozenset(subterms)])
-                        assignments[norm_aliases[frozenset(subterms)]] = not value if norm_aliases[frozenset(subterms)].is_lt() else value
-                        #print("ASSIGNING", not value if norm_aliases[frozenset(subterms)].is_lt() else value)
+                    if frozenset(subterms) in self.norm_aliases:
+                        #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
+                        assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
+                        #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
                     else:
                         #print("I SEARCHED", subterms)
                         #print("BUT IVE FOUND")
-                        #print("\n".join([str(x) for x in norm_aliases.keys()]))
+                        #print("\n".join([str(x) for x in self.norm_aliases.keys()]))
                         assignments[atom] = value
                 else:
                     #print("IMHERE")
-                    if atom in norm_aliases:
+                    if atom in self.norm_aliases:
                         #print("ATOM NORMALIZED")
-                        assignments[norm_aliases[atom]] = value
+                        assignments[self.norm_aliases[atom]] = value
                     else:
                         assignments[atom] = value
                 #print()
