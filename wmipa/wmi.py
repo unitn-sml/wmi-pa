@@ -16,7 +16,7 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 import mathsat
-from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize, Times, Plus, Equals, LE
+from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize, Times, Plus, Equals, LE, GE, Symbol
 from pysmt.typing import BOOL, REAL
 from sympy import sympify, solve
 from math import fsum
@@ -787,8 +787,8 @@ class WMI:
                         m2 = None
                         #print("SSS", s, symbols[s[0]])
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
-                            nn = float(round(symbols[s[0]]/constant, 13) if constant != 0 else round(symbols[s[0]], 13))
-                            nn2 = float(round(-symbols[s[0]]/constant, 13) if constant != 0 else round(-symbols[s[0]], 13))
+                            nn = float(round(symbols[s[0]]/abs(constant), 13) if constant != 0 else round(symbols[s[0]], 13))
+                            nn2 = float(round(-symbols[s[0]]/abs(constant), 13) if constant != 0 else round(-symbols[s[0]], 13))
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
@@ -798,8 +798,12 @@ class WMI:
                             else:
                                 m2 = s[0]
                                 m = (-1.0, m2)
-                        lsh_set.append(m)
-                        lsh2_set.append(m2)
+                        if assignment.is_lt():
+                            lsh_set.append(m2)
+                            lsh2_set.append(m)
+                        else:
+                            lsh_set.append(m)
+                            lsh2_set.append(m2)
                     #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
                     #print("<->SETS", lsh_set, lsh2_set)
                     self.norm_aliases[frozenset(lsh_set)] = assignment

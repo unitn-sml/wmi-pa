@@ -248,15 +248,9 @@ class Weights:
         return subs
 
     def _evaluate_condition(self, condition, assignment):
-        #print("THE ASSIGNMENT")
-        #for ass in assignment:
-        #    print(serialize(ass), assignment[ass])
         temp1 = condition.substitute(assignment)
-        #print("TEMP1",serialize(temp1))
         val = simplify(temp1)
         val = simplify(substitute(val, assignment))
-        if not val.is_bool_constant():
-            print("ERROR")
         assert val.is_bool_constant(),  "Weight condition " + serialize(condition) + \
             "\n\n cannot be evaluated with assignment " + "\n".join([str((x, assignment[x])) for x in assignment]) + "\n\n simplified into " + \
                 serialize(val)
