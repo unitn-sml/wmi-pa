@@ -63,7 +63,6 @@ class WMI:
         
         """
         self.variables = WMIVariables()
-        #print("VARIABLES", self.variables)
         self.weights = Weights(weight, self.variables)
         self.chi = chi
         
@@ -789,15 +788,16 @@ class WMI:
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
                             nn = float(round(symbols[s[0]]/abs(constant), 13) if constant != 0 else round(symbols[s[0]], 13))
                             nn2 = float(round(-symbols[s[0]]/abs(constant), 13) if constant != 0 else round(-symbols[s[0]], 13))
+                            #print("constant", constant, "nn and nn2", nn, nn2)
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
                             if symbols[s[0]] == 1:
-                                m = s[0]
-                                m2 = (-1.0, m)
+                                m = (1.0/abs(constant), s[0])
+                                m2 = (-1.0/abs(constant), s[0])
                             else:
-                                m2 = s[0]
-                                m = (-1.0, m2)
+                                m2 = (1.0/abs(constant), s[0])
+                                m = (-1.0/abs(constant), s[0])
                         if assignment.is_lt():
                             lsh_set.append(m2)
                             lsh2_set.append(m)
@@ -809,10 +809,6 @@ class WMI:
                     self.norm_aliases[frozenset(lsh_set)] = assignment
                     self.norm_aliases[frozenset(lsh2_set)] = assignment
 
-
-        #print("NORMS")
-        #for norm in self.norm_aliases:
-            #print(norm)
 
         mathsat.msat_all_sat(
             solver.msat_env(),
