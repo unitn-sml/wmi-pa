@@ -644,14 +644,14 @@ class WMI:
         assert len(get_boolean_variables(lra_formula)) == 0
 
 
-        print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
+        #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
         #exit()
         # TODO - check precision (che sono infinite in alcuni casi, maledizione)
         j = 1
         for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
         #for assignment in lra_atoms:
-            print()
-            print("evaluating", j, assignment)
+            #print()
+            #print("evaluating", j, assignment)
             self.list_norm.add(assignment)
             j +=1
             is_constant_in_formula = False
@@ -683,26 +683,26 @@ class WMI:
                         common_value = symbols[s]
                     else:
                         is_common_coefficient = (common_value == -symbols[s])
-                        print("TTT", common_value, symbols[s], "then", is_common_coefficient)
+                        #print("TTT", common_value, symbols[s], "then", is_common_coefficient)
 
             if assignment.is_equals() and ((len(assignment.get_free_variables()) == 2 and not is_constant_in_formula and is_common_coefficient) or len(assignment.get_free_variables()) == 1):
-                print("EQUALITY", assignment)
+                #print("EQUALITY", assignment)
                 if assignment.args()[1].is_symbol():
                     continue
                 right_term = None
                 negated_atoms = list()
                 for atom in assignment.args()[1].args():
-                    print("A",atom)
+                    #print("A",atom)
                     if atom.is_real_constant():
                         right_term = atom
                     else:
                         negated_atoms.append(Times(Real(-1.0), atom))
                 left_term = Plus([assignment.args()[0]] + negated_atoms)
-                print("LT",left_term)
+                #print("LT",left_term)
                 equality_term = Equals(left_term, right_term)
                 self.norm_aliases[equality_term] = assignment
             else:
-                print("-->", assignment)
+                #print("-->", assignment)
                 list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
                 symbols = defaultdict(float)
                 symbols_list_id = list()
@@ -729,7 +729,7 @@ class WMI:
                     symbols_list_id.append((s, s.node_id()))
                 symbols_list_id.sort(key=lambda x:x[1])
 
-                print("START",  constant, symbols)
+                #print("START",  constant, symbols)
 
                 # DA 805 IN POI DI POLYNORM
                 first_term = symbols_list_id[0]
@@ -742,33 +742,33 @@ class WMI:
                 #elif (len(symbols) < 2 or (len(symbols) == 2 and constant == 0)):
                 #    constant *= -1.0
 
-                print("TEMP 1:", constant, symbols)
+                #print("TEMP 1:", constant, symbols)
 
                 if len(symbols) == 1 and not assignment.is_equals():
-                    print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
+                    #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
                     for s in symbols:
                         if constant != 0.0: 
                             symbols[s] /= constant
                             symbols[s] = round(symbols[s], 13)
                             constant /= constant
-                        print("AAAA", constant, s, symbols[s])
+                        #print("AAAA", constant, s, symbols[s])
                         if (negate != assignment.is_lt()):
-                            print("RESULT(a):", frozenset([constant, (symbols[s], s)]))
+                            #print("RESULT(a):", frozenset([constant, (symbols[s], s)]))
                             self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
                             self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
                         else:
-                            print("RESULT(b):", frozenset([constant, (symbols[s], s)]))
+                            #print("RESULT(b):", frozenset([constant, (symbols[s], s)]))
                             self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
                             self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
                 elif len(symbols) == 2 and constant == 0 and not assignment.is_equals():
                     s1, s2 = symbols.keys()
                     if abs(symbols[s1]) == abs(symbols[s2]):
                         if (assignment.is_lt()):
-                            print("RESULT(c):", serialize(LE(s2, s1)))
+                            #print("RESULT(c):", serialize(LE(s2, s1)))
                             #self.norm_aliases[LE(s2, s1)] = assignment
                             self.norm_aliases[frozenset([s1, s2])] = assignment
                         else:
-                            print("RESULT(d):", serialize(LE(s1, s2)))
+                            #print("RESULT(d):", serialize(LE(s1, s2)))
                             #self.norm_aliases[LE(s1, s2)] = assignment 
                             self.norm_aliases[frozenset([s1, s2])] = assignment
                 else:
@@ -781,15 +781,15 @@ class WMI:
                     lsh2 = None
                     lsh_set = [1.0] if constant != 0 else [0.0]
                     lsh2_set = [-1.0] if constant != 0 else [0.0]
-                    print("reverse", reverse_symbol_list_id)
+                    #print("reverse", reverse_symbol_list_id)
                     for s in reverse_symbol_list_id:
                         m = None
                         m2 = None
-                        print("SSS", s, symbols[s[0]])
+                        #print("SSS", s, symbols[s[0]])
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
                             nn = float(round(symbols[s[0]]/abs(constant), 13) if constant != 0 else round(symbols[s[0]], 13))
                             nn2 = float(round(-symbols[s[0]]/abs(constant), 13) if constant != 0 else round(-symbols[s[0]], 13))
-                            print("constant", constant, "nn and nn2", nn, nn2)
+                            #print("constant", constant, "nn and nn2", nn, nn2)
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
@@ -805,8 +805,8 @@ class WMI:
                         else:
                             lsh_set.append(m)
                             lsh2_set.append(m2)
-                    print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
-                    print("<->SETS", lsh_set, lsh2_set)
+                    #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
+                    #print("<->SETS", lsh_set, lsh2_set)
                     self.norm_aliases[frozenset(lsh_set)] = assignment
                     self.norm_aliases[frozenset(lsh2_set)] = assignment
 
@@ -816,19 +816,19 @@ class WMI:
             [converter.convert(v) for v in lra_atoms],
             lambda model : WMI._callback(model, converter, lra_assignments))
 
-        print()
+        #print()
         for mu_lra in lra_assignments:
             assignments = {}
             i = 1
-            print("MULRA", WMI._get_assignments(mu_lra).items())
+            #print("MULRA", WMI._get_assignments(mu_lra).items())
             for atom, value in WMI._get_assignments(mu_lra).items():
-                print("ATOM", i, atom, value, atom.get_free_variables())
+                #print("ATOM", i, atom, value, atom.get_free_variables())
                 i+=1
                 subterms = []
                 left, right = atom.args()[0], atom.args()[1]
                 if len(atom.get_free_variables()) > 2 or (len(atom.get_free_variables()) <= 2 and (right.is_real_constant() or left.is_real_constant() )):
                     if right.is_real_constant():
-                        print("RIGHT")
+                        #print("RIGHT")
                         subterms.append(-1.0 if right.constant_value() != 0 else 0.0) 
                         temp = [left]
                         for el in temp:
@@ -843,7 +843,7 @@ class WMI:
                                         round(float(el.args()[0].constant_value())/float(right.constant_value()), 13) if right.constant_value() != 0 
                                         else round(float(el.args()[0].constant_value()), 13), el.args()[1]))
                     elif left.is_real_constant():
-                        print('LEFT')
+                        #print('LEFT')
                         subterms.append(1.0 if left.constant_value() != 0 else 0.0)
                         temp = [right]
                         for el in temp:
@@ -859,25 +859,25 @@ class WMI:
                                         else round(-float(el.args()[0].constant_value()), 13), el.args()[1])
                                     )
 
-                    print(subterms)
+                    #print(subterms)
                     if frozenset(subterms) in self.norm_aliases:
-                        print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
+                        #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
                         assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
-                        print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
+                        #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
                     else:
-                        print("I SEARCHED", subterms)
-                        print("BUT IVE FOUND")
-                        print("\n".join([str(x) for x in self.norm_aliases.keys()]))
+                        #print("I SEARCHED", subterms)
+                        #print("BUT IVE FOUND")
+                        #print("\n".join([str(x) for x in self.norm_aliases.keys()]))
                         assignments[atom] = value
                 else:
-                    print("IMHERE")
+                    #print("IMHERE")
                     if atom in self.norm_aliases:
-                        print("ATOM NORMALIZED")
+                        #print("ATOM NORMALIZED")
                         assignments[self.norm_aliases[atom]] = value
                     else:
                         assignments[atom] = value
-                print()
-            print("ENDING", assignments)
+                #print()
+            #print("ENDING", assignments)
             assignments.update(other_assignments)
             yield assignments
         
@@ -1003,12 +1003,12 @@ class WMI:
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
             # Predicate abstraction on LRA atoms with minimal models
-            print("FORMULA", formula)
+            #print("FORMULA", formula)
             for assignments in self._compute_WMI_PA_no_boolean_no_label(formula):
                 problem = self._create_problem(assignments, weights, on_labels=False)
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
-            print("PROBLEM", problems)
+            #print("PROBLEM", problems)
         else:
             if use_ta: # performs first a TA on booleans, then a TTA on the ones that do not simplify
                 solver_options = {"dpll.allsat_minimize_model" : "true",
@@ -1020,7 +1020,7 @@ class WMI:
             solver = Solver(name="msat", solver_options=solver_options)
             converter = solver.converter
             solver.add_assertion(formula)
-            print(serialize(formula))
+            #print(serialize(formula))
             boolean_models = []
             # perform AllSAT on the Boolean variables
             mathsat.msat_all_sat(
@@ -1060,10 +1060,10 @@ class WMI:
                         over, curr_lra_formula = WMI._simplify_formula(lra_formula, residual_boolean_assignments, curr_atom_assignments)
                     else:
                         curr_lra_formula = lra_formula
-                    # print("Simplifies into:", serialize(curr_lra_formula))
+                    # #print("Simplifies into:", serialize(curr_lra_formula))
                     if not over:
                         # predicate abstraction on LRA atoms with minimal models
-                        print("MYDAY")
+                        #print("MYDAY")
                         for assignments in self._compute_WMI_PA_no_boolean_no_label(curr_lra_formula, curr_atom_assignments):
                             problem = self._create_problem(assignments, weights, on_labels=False)
                             problems.append(problem)
@@ -1074,11 +1074,11 @@ class WMI:
                         problems.append(problem)
                         n_bool_not_assigned.append(len(boolean_variables) - len(model)- len(residual_model))
         results, cached = self.integrator.integrate_batch(problems, self.cache)
-        print(";;", problems, results, cached)
+        #print(";;", problems, results, cached)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
-        print("VOLUME",volume)
+        #print("VOLUME",volume)
         return volume, len(problems)-cached, cached
     
     def _compute_WMI_PA_EUF_TA(self, formula, weights):
