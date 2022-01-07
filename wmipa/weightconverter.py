@@ -1,96 +1,72 @@
-# import pysmt.operators as op
-# from pysmt.walkers.generic import handles
-import pysmt.walkers
 from pysmt.shortcuts import *
+from wmipa.utils import is_pow
 
 
-class WeightConverter(pysmt.walkers.IdentityDagWalker):
-    def __init__(self, variables, *args):
-        super().__init__(*args)
+class WeightConverter:
+    def __init__(self, variables):
         self.variables = variables
         self.conv_labels = set()
+        self.conversion_list = list()
         self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
 
     def convert(self, weight_func):
-        conversion_list = list()
-        w = self.walk(
-            weight_func, conversion_list=conversion_list)
+        """Convert the weight function into a LRA formula
+
+        Args:
+            weight_func (FNode): The weight function
+
+        Returns:
+            FNode: The formula representing the weight function
+        """
+        w = self.convert_rec(
+            weight_func, branch_condition=None)
         if not w.is_symbol():
             y = self.variables.new_weight_label(len(self.conv_labels))
-            conversion_list.append(Equals(y, w))
+            self.conversion_list.append(Equals(y, w))
             w = y 
+        return And(self.conversion_list)
 
-        return And(conversion_list)
-
-    def _process_stack(self, **kwargs):
-        """Empties the stack by processing every node in it.
-
-        Processing is performed in two steps.
-        1- A node is expanded and all its children are push to the stack
-        2- Once all children have been processed, the result for the node
-           is computed and memoized.
-        """
-        while self.stack:
-            # pop three items
-            (was_expanded, formula, branch_condition) = self.stack.pop()
-            if was_expanded:
-                self._compute_node_result(
-                    formula, branch_condition=branch_condition, **kwargs)
-            else:
-                self._push_with_children_to_stack(
-                    formula, branch_condition, **kwargs)
-
-    def _push_with_children_to_stack(self, formula, branch_condition, **kwargs):
-        """Push children on the stack.
-        The children are given the branch condition of the parent, that is the negated
-        conjunction of the Ite branches taken.
-        """
+    def convert_rec(self, formula, branch_condition):
         if formula.is_ite():
-            # Need to process it also in pre-order to pass branch condition to children
-            phi, left, right = self._get_children(formula)
-            self.stack.append((True, formula, branch_condition))
-            self.stack.append((True, phi, branch_condition))
-            self.memoization[phi] = phi
-
-            l_cond = Not(phi)
-            r_cond = phi
-            if branch_condition is not None:
-                l_cond = Or(branch_condition, l_cond)
-                r_cond = Or(branch_condition, r_cond)
-            # not need to visit phi
-            l_key = self._get_key(left, branch_condition=l_cond, **kwargs)
-            r_key = self._get_key(right, branch_condition=r_cond, **kwargs)
-
-            if l_key not in self.memoization:
-                self.stack.append((False, left, l_cond))
-            if r_key not in self.memoization:
-                self.stack.append((False, right, r_cond))
+            return self._process_ite(formula, branch_condition)
+        elif formula.is_times():
+            return self._process_times(formula, branch_condition)
+        elif is_pow(formula):
+            return self._process_pow(formula, branch_condition)
+        elif len(formula.args()) == 0:
+            return formula
         else:
-            # normal processing, just push also the branch_condition
-            self.stack.append((True, formula, branch_condition))
-            for s in self._get_children(formula):
-                # Add only if not memoized already
-                key = self._get_key(s, **kwargs)
-                if key not in self.memoization:
-                    self.stack.append((False, s, branch_condition))
+            new_children = (self.convert_rec(arg, branch_condition) for arg in formula.args())
+            return get_env().formula_manager.create_node(
+                node_type=formula.node_type(), args=tuple(new_children))
 
-    def iter_walk(self, formula, **kwargs):
-        """Performs an iterative walk of the DAG"""
-        self.stack.append((False, formula, None))
-        self._process_stack(**kwargs)
-        res_key = self._get_key(formula, **kwargs)
-        return self.memoization[res_key]
+    def _process_ite(self, formula, branch_condition):
+        phi, left, right = formula.args()
+        # update branch conditions for children and recursively convert them
+        l_cond = Not(phi)
+        r_cond = phi
+        if branch_condition is not None:
+            l_cond = Or(branch_condition, l_cond)
+            r_cond = Or(branch_condition, r_cond)
+        left = self.convert_rec(left, l_cond)
+        right = self.convert_rec(right, r_cond)
 
-    def walk_ite(self, formula, args, branch_condition=None, conversion_list=None):
-        phi, left, right = args
+        # add (    branch_conditions) -> y = left
+        # and (not branch_conditions) -> y = right
         y = self.variables.new_weight_label(len(self.conv_labels))
         self.conv_labels.add(y)
+        el = Equals(y, left)
+        er = Equals(y, right)
         ops = [] if branch_condition is None else [branch_condition]
-        conversion_list.append(Or(Or(*ops, phi), Equals(y, right)))
-        conversion_list.append(Or(Or(*ops, Not(phi)), Equals(y, left)))
+        self.conversion_list.append(Or(Or(*ops, Not(phi)), el))
+        self.conversion_list.append(Or(Or(*ops, phi), er))
+        # add also branch_condition -> (not y = left) or (not y = right)
+        # to force the enumeration of relevant branch conditions
+        self.conversion_list.append(Or(*ops, Not(el), Not(er)))
         return y
 
-    def walk_times(self, formula, args, **kwargs):
+    def _process_times(self, formula, branch_condition):
+        args = (self.convert_rec(arg, branch_condition) for arg in formula.args())
         const_val = 1
         others = []
         for arg in args:
@@ -102,21 +78,28 @@ class WeightConverter(pysmt.walkers.IdentityDagWalker):
         if not others:
             return const_val
         else:
-            return Times(const_val, self.prod_euf(others))
+            # abstract product between non-constant nodes with EUF
+            return Times(const_val, self._prod_euf(others))
 
-    def walk_pow(self, formula, args, **kwargs):
+    def _process_pow(self, formula, branch_condition):
+        args = (self.convert_rec(arg, branch_condition) for arg in formula.args())
         base, exponent = args
         if exponent.is_zero():
             return Real(1)
         else:
+            # expand power into product and abstract it with EUF
             n, d = exponent.constant_value().numerator, exponent.constant_value().denominator
-            # print(n, d, n//d)
-            return self.prod_euf([base for _ in range(n // d)])
+            return self._prod_euf([base for _ in range(n // d)])
 
-    def _get_key(self, formula, **kwargs):
-        return formula
+    def _prod_euf(self, args):
+        """Abstract the product between args with EUF
 
-    def prod_euf(self, args):
+        Args:
+            args (list(FNode)): List of nodes to multiply. The list is emptied
+
+        Returns:
+            FNode: node representing abstracted product
+        """
         assert isinstance(args, list)
         if len(args) == 1:
             return args.pop()
