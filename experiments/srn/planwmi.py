@@ -74,10 +74,11 @@ class PlanWMI():
             nonneg_x_k = LE(Real(0), x_vars[k])
             subformulas.append(nonneg_x_k)
 
+            interval_constr_k = [self._interval_constr(p, k, aux_vars, t_vars) for p in range(len(self.partitions)-1)]
             if self.encoding[AUX_CONSTRAINTS] == 'xor':
-                subformulas.append(ExactlyOne(aux_vars[k]))
+                subformulas.append(ExactlyOne(interval_constr_k))
             elif self.encoding[AUX_CONSTRAINTS] == 'or':
-                subformulas.append(Or(aux_vars[k]))           
+                subformulas.append(Or(interval_constr_k))           
 
             for l in range(len(self.locations)):
                 src = self.locations[l]
@@ -96,7 +97,7 @@ class PlanWMI():
                         else:
                             rng_expr = Equals(x_vars[k], Real(0))
                                                                                
-                        ssf = Implies(aux_vars[k][p], And(rng_expr, nxt_expr))
+                        ssf = Implies(self._interval_constr(p, k, aux_vars, t_vars), And(rng_expr, nxt_expr))
                         subsubformulas.append(ssf)                    
                         
                 subformulas.append(Implies(cond, And(subsubformulas)))
@@ -105,10 +106,11 @@ class PlanWMI():
                 last = (p == len(self.partitions)-2)
                 partition = (self.partitions[p], self.partitions[p+1])
                 interval = IntoInterval(t_vars[k], partition, last)
-                if self.encoding[AUX_IFF]:
-                    subformulas.append(Iff(aux_vars[k][p], interval))
-                else:
-                    subformulas.append(Implies(interval, aux_vars[k][p]))
+                if self.encoding[LABEL_AUX]:
+                    if self.encoding[AUX_IFF]:
+                        subformulas.append(Iff(aux_vars[k][p], interval))
+                    else:
+                        subformulas.append(Implies(interval, aux_vars[k][p]))
 
                 if self.encoding[THEORY_CHAINS] and not last:
                     lb1, not_lb2 = interval.args()
@@ -131,7 +133,7 @@ class PlanWMI():
         self.time_vars = t_vars
         self.location_vars = loc_vars
         self.weights = self._compute_weights(subgraph, relevant_edges, aux_vars,
-                                             loc_vars, x_vars)
+                                             loc_vars, x_vars, t_vars)
         
         msg = "real variables: {}, boolean variables: {}"
         nreals = len([v for v in self.formula.get_free_variables()
@@ -140,7 +142,7 @@ class PlanWMI():
                       if v.get_type() == BOOL])
         print(msg.format(nreals, nbools))
 
-    def _compute_weights(self, subgraph, edges, aux_vars, loc_vars, x_vars):
+    def _compute_weights(self, subgraph, edges, aux_vars, loc_vars, x_vars, t_vars):
         #loc_indexes = range(len(self.locations))
         conditionals = []
         for i in range(self.n_steps):
@@ -150,7 +152,7 @@ class PlanWMI():
                 cond = And(loc_vars[i][l1], loc_vars[i+1][l2])
                 subconditionals = []
                 for p in range(len(self.partitions)-1):
-                    subcond = aux_vars[i][p]
+                    subcond = self._interval_constr(p, i, aux_vars, t_vars)
                     poly_var = x_vars[i]
                     coeffs = subgraph[src][dst][p]['coefficients']
                     weight_f = PlanWMI._poly_weight(poly_var, coeffs)
@@ -160,6 +162,14 @@ class PlanWMI():
                 conditionals.append(conditional)
                 
         return Times(conditionals)
+
+    def _interval_constr(self, p, k, aux_vars, t_vars):
+        if self.encoding[LABEL_AUX]:
+            return aux_vars[k][p]
+        else:
+            pt = (self.partitions[p], self.partitions[p+1])
+            interval = IntoInterval(t_vars[k], pt, False)
+            return interval
         
     def arriving_before(self, time):
         return LE(self.time_vars[-1], Real(float(time)))

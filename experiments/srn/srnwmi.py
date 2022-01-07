@@ -109,7 +109,7 @@ class SRNWMI:
                 coeffs = self.graph[src][dst][p]['coefficients']
                 
                 weight_f = SRNWMI._poly_weight(poly_var, coeffs)
-                cond_w = Ite(aux_vars[(p, k)], weight_f, Real(1))
+                cond_w = Ite(self._interval_constr(p, k, aux_vars, t_vars), weight_f, Real(1))
                 cond_weights.append(cond_w)
 
         self.formula = And(And(transitions), And(time_equations))
@@ -124,6 +124,14 @@ class SRNWMI:
             
         self.time_vars = t_vars
         self.weights = Times(cond_weights)
+
+    def _interval_constr(self, p, k, aux_vars, t_vars):
+        if self.encoding[LABEL_AUX]:
+            return aux_vars[(p, k)]
+        else:
+            pt = (self.partitions[p], self.partitions[p+1])
+            interval = IntoInterval(t_vars[k], pt, False)
+            return interval
         
     def arriving_before(self, time, index=-1):
         return LE(self.time_vars[index], Real(float(time)))
@@ -135,21 +143,23 @@ class SRNWMI:
         return Equals(self.time_vars[0], Real(float(time)))
                                                                          
     def _transition(self, step, src, dst, t_vars, x_vars, aux_vars):        
-        auxiliary_vars = []
+        interval_constraints = []
         auxiliary_defs = []
         support_constraints = []
         
         for p in range(len(self.partitions)-1):
-            
-            aux = aux_vars[(p, step)]
-            auxiliary_vars.append(aux)
+
+            tc = self._interval_constr(p, step, aux_vars, t_vars)
+            interval_constraints.append(tc)
+
             pt = (self.partitions[p], self.partitions[p+1])
             interval = IntoInterval(t_vars[step], pt, False)
-
-            if self.encoding[AUX_IFF]:
-                auxiliary_defs.append(Iff(aux, interval))
-            else :
-                auxiliary_defs.append(Implies(interval, aux))
+            
+            if self.encoding[LABEL_AUX]:  
+                if self.encoding[AUX_IFF]:
+                    auxiliary_defs.append(Iff(aux_vars[(p, step)], interval))
+                else:
+                    auxiliary_defs.append(Implies(interval, aux_vars[(p, step)]))
 
             if self.encoding[THEORY_CHAINS]:
                 lb1, not_lb2 = interval.args()
@@ -158,7 +168,7 @@ class SRNWMI:
             # current time partition defines the range of the weight function
             # aux_p^k -> (R_p^min <= x^k <= R_p^max)
             rng = self.graph[src][dst][p]['range']
-            support_constr = Implies(aux_vars[(p, step)],
+            support_constr = Implies(self._interval_constr(p, step, aux_vars, t_vars),
                                 IntoInterval(x_vars[step], rng, True))
             support_constraints.append(support_constr)
 
@@ -166,9 +176,9 @@ class SRNWMI:
         trans_formula = And(And(auxiliary_defs), And(support_constraints))
         
         if self.encoding[AUX_CONSTRAINTS] == 'xor':
-            trans_formula = And(trans_formula, ExactlyOne(auxiliary_vars))
+            trans_formula = And(trans_formula, ExactlyOne(interval_constraints))
         elif self.encoding[AUX_CONSTRAINTS] == 'or':
-            trans_formula = And(trans_formula, Or(auxiliary_vars))
+            trans_formula = And(trans_formula, Or(interval_constraints))
 
         return trans_formula
 

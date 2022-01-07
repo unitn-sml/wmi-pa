@@ -37,9 +37,12 @@ class StrategicRoadNetwork():
     METHOD_WMIALLSMT = 'WMI-ALLSMT'
     METHOD_WMIPA = 'WMI-PA'
     METHOD_WMIPA_NL = 'WMI-PA-NL'
+    METHOD_WMIPA_EUF = 'WMI-PA-EUF'
+    METHOD_WMIPA_EUF_TA = 'WMI-PA-EUF-TA'
 
     METHODS = [METHOD_WMIBC, METHOD_WMIALLSMT,
-               METHOD_WMIPA, METHOD_WMIPA_NL]
+               METHOD_WMIPA, METHOD_WMIPA_NL,
+               METHOD_WMIPA_EUF, METHOD_WMIPA_EUF_TA]
     CACHE = [-1, 0, 1, 2, 3]
 
     PREPROCESSED_TEMPL = "{}_p{}.preprocessed"
@@ -89,6 +92,7 @@ class StrategicRoadNetwork():
                 try:
                     srn_wmi.compile_knowledge(path)
                     wmi = WMI(srn_wmi.formula, srn_wmi.weights)
+                    
                     if wmi.check_consistency(wmi.chi):
                         instance = (path, t_dep, t_arr)
                         instances_step.append(instance)
@@ -96,12 +100,12 @@ class StrategicRoadNetwork():
                     continue                
 
             problem_instances.append((n_steps,instances_step))
-
         output_file = open(output_path, 'wb')
         experiment = (graph, partitions, problem_instances)
         pickle.dump(experiment, output_file)
         output_file.close()
         print("Generated {}".format(output_path))
+
 
 
     def simulate(self, input_path, method, cache, output_path, encoding):
@@ -132,7 +136,9 @@ class StrategicRoadNetwork():
         mode = {self.METHOD_WMIBC : WMI.MODE_BC,
                 self.METHOD_WMIALLSMT : WMI.MODE_ALLSMT,
                 self.METHOD_WMIPA : WMI.MODE_PA,
-                self.METHOD_WMIPA_NL : WMI.MODE_PA_NO_LABEL}
+                self.METHOD_WMIPA_NL : WMI.MODE_PA_NO_LABEL,
+                self.METHOD_WMIPA_EUF : WMI.MODE_PA_EUF,
+                self.METHOD_WMIPA_EUF_TA : WMI.MODE_PA_EUF_TA}
 
         srn_wmi = SRNWMI(graph, partitions, encoding=encoding)
         output_file = open(output_path, "wb")
@@ -141,7 +147,7 @@ class StrategicRoadNetwork():
         print("CACHE", cache)
         pickle.dump(method+"_"+str(cache), output_file)
         pickle.dump(StrategicRoadNetwork.SEPARATOR, output_file)
-        
+
         for n_steps, instances_step in problem_instances:
             results_step = []
             print("n steps:", n_steps)
@@ -150,7 +156,6 @@ class StrategicRoadNetwork():
                 srn_wmi.compile_knowledge(path)
                 wmi_query = srn_wmi.arriving_before(t_arr)
                 wmi_evidence = srn_wmi.departing_at(t_dep)
-                
                 wmi = WMI(And(srn_wmi.formula, wmi_evidence), srn_wmi.weights)
                 
                 try:

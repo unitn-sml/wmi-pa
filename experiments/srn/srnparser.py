@@ -14,7 +14,7 @@ from os import chdir, getcwd
 from fractions import Fraction
 
 #from integration import Integrator
-#from wmiexception import WMIParsingError
+from wmipa.wmiexception import WMIParsingException
 
 class SRNParser():
 
@@ -234,7 +234,7 @@ class SRNParser():
                 rng = edges
             else:
                 print(SRNParser.ERR_FIT)
-                raise WMIParsingError(SRNParser.ERR_FIT)
+                raise WMIParsingException(SRNParser.ERR_FIT)
         elif len(zeros) == 2:
             if pos:
                 # changing the 0-th order coefficient by -k
@@ -247,7 +247,7 @@ class SRNParser():
                 rng = zeros
         else:
             print(SRNParser.ERR_FIT)
-            raise WMIParsingError(SRNParser.ERR_FIT)
+            raise WMIParsingException(SRNParser.ERR_FIT)
 
         rng[0] = max(0, rng[0])
 
@@ -255,7 +255,7 @@ class SRNParser():
         integral = self._integrate_raw(coefficients, rng)
         if integral <= 0:
             print(SRNParser.ERR_FIT)
-            raise WMIParsingError(SRNParser.ERR_FIT)
+            raise WMIParsingException(SRNParser.ERR_FIT)
         
         coefficients = list(map(lambda c : c/integral, coefficients))
         
