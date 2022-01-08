@@ -2,6 +2,7 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 import re
+import time
 from fractions import Fraction
 from subprocess import call
 from os import makedirs, chdir, getcwd
@@ -71,6 +72,10 @@ class Latte_Integrator(Integrator):
         self.hashTable = HashTable()
         stub_integrate = options.get('stub_integrate')
         self.stub_integrate = stub_integrate or False
+        self.integration_time = 0.0
+
+    def get_integration_time(self):
+        return self.integration_time
 
     def integrate_batch(self, problems, cache):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
@@ -79,6 +84,7 @@ class Latte_Integrator(Integrator):
             problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
 
         """
+        
         if cache <= 0:
             # Convert the problems into (integrand, polytope)
             for index in range(len(problems)):
@@ -87,13 +93,14 @@ class Latte_Integrator(Integrator):
                 problems[index] = (integrand, polytope, cond_assignments, cache==0)
 
             # Handle multithreading
+            start_time = time.time()
             pool = Pool(self.n_threads)
             results = pool.map(self.integrate_wrapper, problems)
             values = [r[0] for r in results]
             cached = len([r[1] for r in results if r[1] > 0])
             pool.close()
             pool.join()
-
+            self.integration_time = time.time() - start_time
             return values, cached
         elif cache == 1 or cache == 2 or cache == 3:
             unique_problems = {}

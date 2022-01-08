@@ -4,7 +4,9 @@ from wmipa import WMI
 from multiprocessing import Process, Queue
 
 def compute_wmi(wmi, phi, mode, cache, q):
-    q.put(wmi.computeWMI(phi, mode=mode, cache=cache))
+    res = wmi.computeWMI(phi, mode=mode, cache=cache)
+    it = wmi.integrator.get_integration_time()
+    q.put((*res, it))
 
 if __name__ == '__main__':
     import argparse
@@ -25,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mode', choices=modes, required=True, help='Mode to use')
     parser.add_argument('-e', '--equals', action='store_true', help='Set this flag if you want to compute wmi only on support and weight with same name')
     parser.add_argument('-t', '--stub', action="store_true", help='Set this flag if you only want to count the number of integrals to be computed')
-    parser.add_argument('--timeout', '', type=int, default=3600, help='Max time (in seconds)')
+    parser.add_argument('--timeout', type=int, default=3600, help='Max time (in seconds)')
     
     args = parser.parse_args()
 
@@ -121,7 +123,7 @@ if __name__ == '__main__':
                 timed_proc.start()
                 timed_proc.join(timeout)
                 if timed_proc.is_alive():
-                    res = (None, None)
+                    res = (None, None, timeout)
                     time_total = timeout
                     
                     # kill the process and its children
@@ -137,7 +139,7 @@ if __name__ == '__main__':
                     except psutil.NoSuchProcess:
                         pass
                 else:
-                    value, n_integrations = q.get()
+                    value, n_integrations, integration_time = q.get()
                     time_total = time.time() - time_init
                 
                 
@@ -146,7 +148,8 @@ if __name__ == '__main__':
                     "weight": w,
                     "value":value,
                     "n_integrations":n_integrations,
-                    "time":time_total
+                    "time":time_total,
+                    "integration_time":integration_time
                 }
                 results.append(res)
                 
