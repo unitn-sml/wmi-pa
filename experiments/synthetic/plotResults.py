@@ -88,7 +88,8 @@ if __name__ == '__main__':
 
             for res in data["results"]:
                 results[p_key][mode][0].append(res["time"])
-                results[p_key][mode][1].append(res["n_integrations"])
+                if res["n_integrations"] != None:
+                    results[p_key][mode][1].append(res["n_integrations"])
 
                 files_key = (res["support"], res["weight"])
                 if files_key not in wmi_results:

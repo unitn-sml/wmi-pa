@@ -1,5 +1,10 @@
+import psutil
 from pysmt.shortcuts import Bool, BOOL, REAL, get_free_variables
 from wmipa import WMI
+from multiprocessing import Process, Queue
+
+def compute_wmi(wmi, phi, mode, cache, q):
+    q.put(wmi.computeWMI(phi, mode=mode, cache=cache))
 
 if __name__ == '__main__':
     import argparse
@@ -20,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--mode', choices=modes, required=True, help='Mode to use')
     parser.add_argument('-e', '--equals', action='store_true', help='Set this flag if you want to compute wmi only on support and weight with same name')
     parser.add_argument('-t', '--stub', action="store_true", help='Set this flag if you only want to count the number of integrals to be computed')
+    parser.add_argument('--timeout', '', type=int, default=3600, help='Max time (in seconds)')
     
     args = parser.parse_args()
 
@@ -28,6 +34,7 @@ if __name__ == '__main__':
     output_file = args.filename
     mode = args.mode
     equals = args.equals
+    timeout = args.timeout
     
     # check if input dir exists
     if not path.exists(input_dir):
@@ -96,15 +103,43 @@ if __name__ == '__main__':
             weight_filename = path.splitext(w)[0]
             if not equals or support_filename == weight_filename:
                 weight = read_smtlib(w)
-                
                 wmi = WMI(support, weight, stub_integrate=args.stub)
                 
-                time_init = time.time()
                 cache = -1
                 if "cache" in mode:
                     cache = int(mode.split("_")[2])
-                value, n_integrations = wmi.computeWMI(Bool(True), mode=mode.split("_")[0], cache=cache)
-                time_total = time.time() - time_init
+                
+                time_init = time.time()
+                q = Queue()
+                timed_proc = Process(
+                    target=compute_wmi, args = (wmi, 
+                                                Bool(True), 
+                                                mode.split("_")[0], 
+                                                cache, 
+                                                q)
+                )
+                timed_proc.start()
+                timed_proc.join(timeout)
+                if timed_proc.is_alive():
+                    res = (None, None)
+                    time_total = timeout
+                    
+                    # kill the process and its children
+                    pid = timed_proc.pid
+                    proc = psutil.Process(pid)
+                    for subproc in proc.children(recursive=True):
+                        try:
+                            subproc.kill()
+                        except psutil.NoSuchProcess:
+                            continue
+                    try:
+                        proc.kill()
+                    except psutil.NoSuchProcess:
+                        pass
+                else:
+                    value, n_integrations = q.get()
+                    time_total = time.time() - time_init
+                
                 
                 res = {
                     "support": s,
