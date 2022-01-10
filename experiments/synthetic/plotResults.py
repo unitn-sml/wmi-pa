@@ -145,43 +145,42 @@ if __name__ == '__main__':
                         plot_axis[mode]["integrations_sd"].append(sd_integrations)
 
                 for y in ["time", "integrations"]:
-                    for mode_name in mode_names:
-                        fixed_params_name = [params[i] for i in range(len(params)) if i != index_to_evaluate]
-                        assert len(fixed_params_name) == len(fixed_params)
-                        fixed_params_str = ", ".join([("{}: {}".format(fixed_params_name[i], fixed_params[i])) for i in range(len(fixed_params))])
-                        plt.title("{}\n{}".format(y, fixed_params_str))
-                        plt.xlabel(params[index_to_evaluate])
-                        plt.ylabel(y)
-                        minX = maxX = None
-                        for mode in plot_axis:
-                            if mode_name in mode:
-                                if minX is None:
-                                    minX = min(plot_axis[mode]["x"])
-                                    maxX = max(plot_axis[mode]["x"])
-                                else:
-                                    minX = min([minX] + plot_axis[mode]["x"])
-                                    maxX = max([maxX] + plot_axis[mode]["x"])
+                    fixed_params_name = [params[i] for i in range(len(params)) if i != index_to_evaluate]
+                    assert len(fixed_params_name) == len(fixed_params)
+                    fixed_params_str = ", ".join([("{}: {}".format(fixed_params_name[i], fixed_params[i])) for i in range(len(fixed_params))])
+                    plt.title("{}\n{}".format(y, fixed_params_str))
+                    plt.xlabel(params[index_to_evaluate])
+                    plt.ylabel(y)
+                    minX = maxX = None
+                    for mode in plot_axis:
+                        if minX is None:
+                            minX = min(plot_axis[mode]["x"])
+                            maxX = max(plot_axis[mode]["x"])
+                        else:
+                            minX = min([minX] + plot_axis[mode]["x"])
+                            maxX = max([maxX] + plot_axis[mode]["x"])
 
-                                x_axis = plot_axis[mode]["x"]
-                                y_axis_avg = plot_axis[mode]["{}_avg".format(y)]
-                                y_axis_sd = plot_axis[mode]["{}_sd".format(y)]
-                                y_over = [y_axis_avg[i]+y_axis_sd[i] for i in range(len(y_axis_avg))]
-                                y_under = [y_axis_avg[i]-y_axis_sd[i] for i in range(len(y_axis_avg))]
+                        x_axis = plot_axis[mode]["x"]
+                        y_axis_avg = plot_axis[mode]["{}_avg".format(y)]
+                        y_axis_sd = plot_axis[mode]["{}_sd".format(y)]
+                        y_over = [y_axis_avg[i]+y_axis_sd[i] for i in range(len(y_axis_avg))]
+                        y_under = [y_axis_avg[i]-y_axis_sd[i] for i in range(len(y_axis_avg))]
 
-                                mx = min(x_axis)
-                                Mx = max(x_axis)
+                        mx = min(x_axis)
+                        Mx = max(x_axis)
 
-                                plt.plot(x_axis, y_axis_avg, label=mode, marker='o')
-                                plt.fill_between(range(mx, Mx+1), y_under, y_over, alpha=.1)
-                        plt.xticks(range(minX, maxX+1))
-                        plt.legend(fontsize='small')
-                        params_values = [(str(params[i]) if i != index_to_evaluate else str(x_values[0])+"-"+str(x_values[len(x_values)-1])) for i in range(len(params))]
-                        params_list = [(fixed_params_name[i][0]+str(fixed_params[i])) for i in range(len(fixed_params))] + [params[index_to_evaluate][0]+"{}-{}".format(x_values[0], x_values[len(x_values)-1])]
-                        output_plot_name = "_".join(params_list)
-                        output_plot_file = path.join(output_dir, "{}_{}_{}.{}.png".format(output_plot_name, filename, mode_name, y))
-                        plt.savefig(output_plot_file)
-                        print("Created '{}'".format(output_plot_file))
-                        plt.clf()
+                        plt.plot(x_axis, y_axis_avg, label=mode, marker='o')
+                        plt.fill_between(range(mx, Mx+1), y_under, y_over, alpha=.1)
+
+                    plt.xticks(range(minX, maxX+1))
+                    plt.legend(fontsize='small')
+                    params_values = [(str(params[i]) if i != index_to_evaluate else str(x_values[0])+"-"+str(x_values[len(x_values)-1])) for i in range(len(params))]
+                    params_list = [(fixed_params_name[i][0]+str(fixed_params[i])) for i in range(len(fixed_params))] + [params[index_to_evaluate][0]+"{}-{}".format(x_values[0], x_values[len(x_values)-1])]
+                    output_plot_name = "_".join(params_list)
+                    output_plot_file = path.join(output_dir, "{}_{}.{}.png".format(output_plot_name, filename, y))
+                    plt.savefig(output_plot_file)
+                    print("Created '{}'".format(output_plot_file))
+                    plt.clf()
 
     print("Checking values")
     for files_key in wmi_results:
