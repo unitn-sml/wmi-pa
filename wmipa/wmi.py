@@ -691,12 +691,20 @@ class WMI:
                     continue
                 right_term = None
                 negated_atoms = list()
-                for atom in assignment.args()[1].args():
-                    #print("A",atom)
+                if len(assignment.args()[1].args()) == 0:
+                    atom = assignment.args()[1]
                     if atom.is_real_constant():
                         right_term = atom
                     else:
+                        right_term = Real(0.0)
                         negated_atoms.append(Times(Real(-1.0), atom))
+                else:
+                    for atom in assignment.args()[1].args():
+                        #print("A",atom)
+                        if atom.is_real_constant():
+                            right_term = atom
+                        else:
+                            negated_atoms.append(Times(Real(-1.0), atom))
                 left_term = Plus([assignment.args()[0]] + negated_atoms)
                 #print("LT",left_term)
                 equality_term = Equals(left_term, right_term)
@@ -737,10 +745,6 @@ class WMI:
                 # If first term has negative multiplicative coefficient
                 if symbols[first_term[0]] < 0 and (len(symbols) < 2 or (len(symbols) == 2 and constant == 0)):
                     negate = True
-                    #for term in symbols:
-                    #    symbols[term] *= -1.0
-                #elif (len(symbols) < 2 or (len(symbols) == 2 and constant == 0)):
-                #    constant *= -1.0
 
                 #print("TEMP 1:", constant, symbols)
 
@@ -794,11 +798,15 @@ class WMI:
                             m2 = (nn2, s[0])
                         else:
                             if symbols[s[0]] == 1:
-                                m = (1.0/abs(constant), s[0])
-                                m2 = (-1.0/abs(constant), s[0])
+                                nn = float(round(1.0/abs(constant), 13) if constant != 0 else 1.0)
+                                nn2 = float(round(-1.0/abs(constant), 13) if constant != 0 else -1.0)
+                                m = (nn, s[0])
+                                m2 = (nn2, s[0])
                             else:
-                                m2 = (1.0/abs(constant), s[0])
-                                m = (-1.0/abs(constant), s[0])
+                                nn = float(round(1.0/abs(constant), 13) if constant != 0 else 1.0)
+                                nn2 = float(round(-1.0/abs(constant), 13) if constant != 0 else -1.0)
+                                m2 = (nn, s[0])
+                                m = (nn2, s[0])
                         if assignment.is_lt():
                             lsh_set.append(m2)
                             lsh2_set.append(m)
