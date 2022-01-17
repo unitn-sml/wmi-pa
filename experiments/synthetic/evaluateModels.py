@@ -2,11 +2,32 @@ import psutil
 from pysmt.shortcuts import Bool, BOOL, REAL, get_free_variables
 from wmipa import WMI
 from multiprocessing import Process, Queue
+from pywmi import Domain
+from pywmi.engines import PyXaddEngine
 
-def compute_wmi(wmi, phi, mode, cache, q):
-    res = wmi.computeWMI(phi, mode=mode, cache=cache)
-    it = wmi.integrator.get_integration_time()
-    q.put((*res, it))
+
+def get_real_bounds(support):
+    domain, _ = support.args()
+    bounds = {}
+    for bound in domain.args():
+        lb, ub = bound.args()
+        lb, var1 = lb.args()
+        var2, ub = ub.args()
+        assert var1 == var2
+        var_name = var1.symbol_name()
+        bounds[var_name] = (lb.constant_value(), ub.constant_value())
+    return bounds
+
+def compute_wmi(wmi, domain, mode, cache, q):
+    if "PA" in mode:
+        res = wmi.computeWMI(Bool(True), mode=mode, cache=cache, 
+            domA=set(domain.get_bool_symbols()),
+            domX=set(domain.get_real_symbols()))
+        res = (*res, wmi.integrator.get_integration_time())
+    else:
+        res = (wmi.compute_volume(), 0, 0)
+    # it = wmi.integrator.get_integration_time()
+    q.put(res)
 
 if __name__ == '__main__':
     import argparse
@@ -18,7 +39,7 @@ if __name__ == '__main__':
     from os import path
     from pysmt.shortcuts import read_smtlib
     
-    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES
+    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES + ["XADD"]
     
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .support and .weight files')
@@ -45,7 +66,7 @@ if __name__ == '__main__':
         
     # check if output dir exists
     if not path.exists(output_dir):
-        print("Folder '{}' does not exists".format(input_dir))
+        print("Folder '{}' does not exists".format(output_dir))
         sys.exit(1)
         
     if output_file is not None:
@@ -98,14 +119,24 @@ if __name__ == '__main__':
     time_start = time.time()
     
     results = []
+
     for i, s in enumerate(support_files):
         support = read_smtlib(s)
+        bounds = get_real_bounds(support)
+        domain = Domain.make(bools, list(bounds.keys()), list(bounds.values()))
+        assert (set(bounds.keys()) == set(reals))
+
         for j, w in enumerate(weight_files):
             support_filename = path.splitext(s)[0]
             weight_filename = path.splitext(w)[0]
             if not equals or support_filename == weight_filename:
+                
                 weight = read_smtlib(w)
-                wmi = WMI(support, weight, stub_integrate=args.stub)
+                if "PA" in mode:
+                    wmi = WMI(support, weight, stub_integrate=args.stub)
+                else:
+                    if mode == "XADD":
+                        wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
                 
                 cache = -1
                 if "cache" in mode:
@@ -114,8 +145,8 @@ if __name__ == '__main__':
                 time_init = time.time()
                 q = Queue()
                 timed_proc = Process(
-                    target=compute_wmi, args = (wmi, 
-                                                Bool(True), 
+                    target=compute_wmi, args = (wmi,
+                                                domain,
                                                 mode.split("_")[0], 
                                                 cache, 
                                                 q)
@@ -141,8 +172,7 @@ if __name__ == '__main__':
                 else:
                     value, n_integrations, integration_time = q.get()
                     time_total = time.time() - time_init
-                
-                
+
                 res = {
                     "support": s,
                     "weight": w,
