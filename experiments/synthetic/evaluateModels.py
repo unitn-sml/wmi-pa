@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output', default=os.getcwd(), help='Output folder where to save the result (default: cwd)')
     parser.add_argument('-f', '--filename', help='Name of the result file (optional)')
     parser.add_argument('-m', '--mode', choices=modes, required=True, help='Mode to use')
+    parser.add_argument('--threads', default=None, type=int, help='Number of threads to use for WMIPA')
     parser.add_argument('-e', '--equals', action='store_true', help='Set this flag if you want to compute wmi only on support and weight with same name')
     parser.add_argument('-t', '--stub', action="store_true", help='Set this flag if you only want to count the number of integrals to be computed')
     parser.add_argument('--timeout', type=int, default=3600, help='Max time (in seconds)')
@@ -58,6 +59,7 @@ if __name__ == '__main__':
     mode = args.mode
     equals = args.equals
     timeout = args.timeout
+    threads = args.threads
     
     # check if input dir exists
     if not path.exists(input_dir):
@@ -133,7 +135,7 @@ if __name__ == '__main__':
                 
                 weight = read_smtlib(w)
                 if "PA" in mode:
-                    wmi = WMI(support, weight, stub_integrate=args.stub)
+                    wmi = WMI(support, weight, stub_integrate=args.stub, n_threads=threads)
                 else:
                     if mode == "XADD":
                         wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
