@@ -1046,7 +1046,7 @@ class WMI:
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
-                    residual_boolean_models = WMI._get_allsat(lra_formula, atom=residual_booleans)
+                    residual_boolean_models = WMI._get_allsat(lra_formula, atoms=residual_booleans)
                 else:
                     # all boolean variables have been assigned
                     residual_boolean_models = [[]]
