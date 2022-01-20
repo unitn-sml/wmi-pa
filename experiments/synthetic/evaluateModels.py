@@ -174,8 +174,10 @@ if __name__ == '__main__':
                     except psutil.NoSuchProcess:
                         pass
                 else:
-                    value, n_integrations, integration_time = q.get()
+                    res = q.get()
                     time_total = time.time() - time_init
+
+                value, n_integrations, integration_time = res
 
                 res = {
                     "support": s,

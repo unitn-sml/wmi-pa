@@ -52,53 +52,53 @@ def parse_inputs(input_files):
         # print("File: {:80s} found: {:3d}".format(filename, len(result_out["results"])))
 
         for result in result_out["results"]:
-            result["time"] = min(result["time"], TIMEOUT)
-            if result["time"] == TIMEOUT and "integration_time" in result:
-                result["integration_time"] = TIMEOUT
-            # assert result["time"] >= result["integration_time"]
             result["mode"] = mode
             result.update(params)
         data.extend(result_out["results"])
 
-    data = pd.DataFrame(data)
+    # groupby to easily generate MulitIndex
+    data = pd.DataFrame(data). \
+        groupby(["support", "weight", "mode"]). \
+        aggregate(
+            time=("time", "min"),
+            n_integrations=("n_integrations", "min"),
+            value=("value", "min"),
+            depth=("depth", "min"),
+            real=("real", "min"),
+            bool=("bool", "min"),
+            count=("time", "count")). \
+        unstack()
 
-    modes = (data["mode"].unique())
+    # ensure we have at most one output foreach (support, weight, mode) combination
+    assert ((data["count"] == 1) |
+            (data["count"].isna())).all().all(), "Some output are duplicated"
+
+    # deal with missing values and timeouts
+    data['time'] = data['time'].fillna(TIMEOUT).clip(upper=TIMEOUT)
+
+    # do not plot n_integrations where mode times out or where not available (0)
+    data['n_integrations'] = data['n_integrations'].where(
+        (data['time'] < TIMEOUT) &
+        (data['n_integrations'] > 0),
+        pd.NA)
+
+    # sort by increasing time
+    modes = data.columns.get_level_values(1).unique()
     sort_by = [("time", mode) for mode in ["XSDD", "XADD", "PA", "PAEUF", "PAEUFTA"]
                if mode in modes]
-    # groupby to easily generate MulitIndex
-    data = data. \
-        groupby(["support", "weight", "mode"]). \
-        aggregate({
-            "time": "min",
-            "n_integrations": "min",
-            "value": "min",
-            "depth": "min",
-            "real": "min",
-            "bool": "min",
-            # "integration_time": "sum"
-        }). \
-        unstack()
-    data['time'] = data['time'].fillna(TIMEOUT)
-    # do not plot n_integrations where mode times out
-    data['n_integrations'] = data['n_integrations'].where(
-        data['time'] < TIMEOUT, pd.NA)
     data.sort_values(by=sort_by, inplace=True)
+
     return data
 
 
 def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename=""):
     total_problems = len(data)
-    if frm is not None and to is not None:
-        data = data[frm:to]
-        sfx = "_{}_{}".format(frm, to)
-    elif frm is not None:
-        data = data[frm:]
-        sfx = "_{}_{}".format(frm, total_problems)
-    elif to is not None:
-        data = data[:to]
-        sfx = "_{}_{}".format(0, to)
-    else:
-        sfx = ""
+    sfx = ""
+    if frm is not None or to is not None:
+        frm_i = frm or 0
+        to_i = to or total_problems
+        data = data[frm_i:to_i]
+        sfx = "_{}_{}".format(frm_i, to_i)
 
     data[param].plot(linewidth=lw,
                      figsize=figsize)
@@ -107,8 +107,7 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
     if timeout is not None:
         x = list(range(n_problems))
         y = [timeout] * n_problems
-        plt.plot(x,
-                 y,
+        plt.plot(x, y,
                  linestyle="dashed",
                  linewidth=lw,
                  label="timeout",
@@ -138,20 +137,20 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
     plt.clf()
 
 
-def check_values(data):
-    ii = data["time", "PA"] < TIMEOUT
+def check_values(data, ref="PA"):
+    ii = data["time", ref] < TIMEOUT
 
     for mode in data.columns.get_level_values(1).unique():
         ii_m = data[ii]["time", mode] < TIMEOUT
         diff = ~np.isclose(data[ii][ii_m]["value", mode].values,
-                           data[ii][ii_m]["value", "PAEUF"].values)
+                           data[ii][ii_m]["value", ref].values)
         if diff.any():
             print("Error! {}/{} values of {} do not match with PA".format(
                 diff.sum(), len(diff), mode))
             print(data[ii][ii_m][diff].reset_index()[["time", "value"]])
         else:
-            print("Mode {:10s}: {:4d} values ok".format(
-                mode, len(data[ii][ii_m])))
+            print("Mode {:10s}: {:4d} values OK".format(
+                mode, len(diff)))
 
 
 def parse_interval(interval):
