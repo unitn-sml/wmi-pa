@@ -195,8 +195,6 @@ class WMI:
         self.cache = cache
         
         formula = And(phi, self.chi)
-        x = get_real_variables(formula)
-        A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
         
         # Add the phi to the support
         if mode in (self.MODE_PA_EUF, self.MODE_PA_EUF_TA):
@@ -204,8 +202,9 @@ class WMI:
         else:
             formula = And(formula, self.weights.labelling)
 
-        
         logger.debug("Computing WMI with mode: {}".format(mode))
+        x = {x for x in get_real_variables(formula) if not self.variables.is_weight_label(x)}
+        A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
         
         # Currently, domX has to be the set of real variables in the
         # formula, whereas domA can be a superset of the boolean
