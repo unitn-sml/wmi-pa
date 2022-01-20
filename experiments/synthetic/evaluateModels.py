@@ -3,7 +3,7 @@ from pysmt.shortcuts import Bool, BOOL, REAL, get_free_variables
 from wmipa import WMI
 from multiprocessing import Process, Queue
 from pywmi import Domain
-from pywmi.engines import PyXaddEngine
+from pywmi.engines import PyXaddEngine, XsddEngine
 
 
 def get_real_bounds(support):
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     from os import path
     from pysmt.shortcuts import read_smtlib
     
-    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES + ["XADD"]
+    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)] + WMI.MODES + ["XADD", "XSDD"]
     
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .support and .weight files')
@@ -139,6 +139,8 @@ if __name__ == '__main__':
                 else:
                     if mode == "XADD":
                         wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
+                    elif mode == "XSDD":
+                        wmi = XsddEngine(support=support, weight=weight, domain=domain)
                 
                 cache = -1
                 if "cache" in mode:
