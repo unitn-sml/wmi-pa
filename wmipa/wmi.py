@@ -50,7 +50,10 @@ class WMI:
     MODE_PA_NO_LABEL = "PANL"
     MODE_PA_EUF = "PAEUF"
     MODE_PA_EUF_TA = "PAEUFTA"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL, MODE_PA_EUF, MODE_PA_EUF_TA]
+    MODE_PA_WA = "PAWA"
+    MODE_PA_WA_TA = "PAWATA"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_PA_NO_LABEL, MODE_PA_EUF, 
+             MODE_PA_EUF_TA, MODE_PA_WA, MODE_PA_WA_TA]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -197,13 +200,15 @@ class WMI:
         formula = And(phi, self.chi)
         
         # Add the phi to the support
-        if mode in (self.MODE_PA_EUF, self.MODE_PA_EUF_TA):
-            formula = And(formula, self.weights.weights_as_formula)
+        if mode in (self.MODE_PA_WA, self.MODE_PA_WA_TA):
+            formula = And(formula, self.weights.weights_as_formula_bool)
+        elif mode in (self.MODE_PA_EUF, self.MODE_PA_EUF_TA):
+            formula = And(formula, self.weights.weights_as_formula_euf)
         else:
             formula = And(formula, self.weights.labelling)
 
         logger.debug("Computing WMI with mode: {}".format(mode))
-        x = {x for x in get_real_variables(formula) if not self.variables.is_weight_label(x)}
+        x = {x for x in get_real_variables(formula) if not self.variables.is_weight_alias(x)}
         A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
         
         # Currently, domX has to be the set of real variables in the
@@ -230,8 +235,10 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
                              WMI.MODE_PA_NO_LABEL : self._compute_WMI_PA_no_label,
-                             WMI.MODE_PA_EUF : self._compute_WMI_PA_EUF,
-                             WMI.MODE_PA_EUF_TA : self._compute_WMI_PA_EUF_TA}
+                             WMI.MODE_PA_EUF : self._compute_WMI_PA_WA,
+                             WMI.MODE_PA_EUF_TA : self._compute_WMI_PA_WA_TA,
+                             WMI.MODE_PA_WA : self._compute_WMI_PA_WA,
+                             WMI.MODE_PA_WA_TA : self._compute_WMI_PA_WA_TA}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
             
@@ -451,7 +458,7 @@ class WMI:
         for atom, value in atom_assignments.items():
             if value is True and atom.is_equals():
                 alias, expr = self._parse_alias(atom)
-                if self.variables.is_weight_label(alias):
+                if self.variables.is_weight_alias(alias):
                     continue
                 
                 # check that there are no multiple assignments of the same alias
@@ -667,8 +674,11 @@ class WMI:
         """
         # for PAEUF filter out new aliases for the weight function written as a formula
         lra_atoms = {atom for atom in lra_formula.get_atoms() 
-            if not (atom.is_equals() and self.variables.is_weight_label(atom.args()[0]))}
-        assert len(get_boolean_variables(lra_formula)) == 0
+            if not self.variables.is_weight_bool(atom) and
+               not (atom.is_equals() and self.variables.is_weight_alias(atom.args()[0]))}
+        bools = {a for a in get_boolean_variables(lra_formula) \
+                    if not self.variables.is_weight_bool(a)}
+        assert len(bools) == 0, bools
 
 
         #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
@@ -1005,7 +1015,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems)-cached, cached
 
-    def _compute_WMI_PA_EUF(self, formula, weights, use_ta=False):
+    def _compute_WMI_PA_WA(self, formula, weights, use_ta=False):
         """Computes WMI using the Predicate Abstraction (PA) algorithm using EUF.
         
         Args:
@@ -1019,6 +1029,8 @@ class WMI:
         """
         problems = []
         boolean_variables = get_boolean_variables(formula)
+        weight_bools = {a for a in boolean_variables if self.variables.is_weight_bool(a)}
+        boolean_variables -= weight_bools
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         if len(boolean_variables) == 0:
@@ -1041,7 +1053,7 @@ class WMI:
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
-                residual_booleans = get_boolean_variables(lra_formula)
+                residual_booleans = get_boolean_variables(lra_formula) - weight_bools
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
@@ -1049,6 +1061,7 @@ class WMI:
                 else:
                     # all boolean variables have been assigned
                     residual_boolean_models = [[]]
+
                 for residual_boolean_assignments in residual_boolean_models:
                     curr_atom_assignments = dict(atom_assignments)
                     if len(residual_boolean_assignments) > 0:
@@ -1078,8 +1091,8 @@ class WMI:
         #print("VOLUME",volume)
         return volume, len(problems)-cached, cached
     
-    def _compute_WMI_PA_EUF_TA(self, formula, weights):
-        return self._compute_WMI_PA_EUF(formula, weights, use_ta=True)
+    def _compute_WMI_PA_WA_TA(self, formula, weights):
+        return self._compute_WMI_PA_WA(formula, weights, use_ta=True)
 
     def label_formula(self, formula, atoms_to_label):
         """Labels every atom in the input with a new fresh WMI variable.

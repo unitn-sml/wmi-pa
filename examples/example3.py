@@ -38,7 +38,8 @@ print("Support:", serialize(chi))
 
 wmi = WMI(chi, w)
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, 
+             WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA, WMI.MODE_PA_WA, WMI.MODE_PA_WA_TA]:
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
     print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
 
