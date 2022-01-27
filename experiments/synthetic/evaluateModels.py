@@ -50,9 +50,9 @@ def check_input_output(input_dir, output_dir, output_file):
 
 def problems_from_densities(input_files, output_file, info):
     if output_file is None:
-        input_mode = os.path.split(input_files[0])[1].split('_')[1]
-        output_name = "{}.json".format(
-            input_mode, int(time.time()))
+        problems_class = os.path.split(input_files[0])[1].split('_')[1]
+        output_name = "{}_{}_{}.json".format(
+            problems_class, mode, int(time.time()))
         output_file = path.join(output_dir, output_name)
     input_files = sorted(
         [f for f in input_files if path.splitext(f)[1] == ".json"], 
