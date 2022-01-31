@@ -4,7 +4,8 @@ from pysmt.shortcuts import Bool, BOOL, REAL, get_free_variables
 from wmipa import WMI
 from multiprocessing import Process, Queue
 from pywmi import Domain, Density
-from pywmi.engines import PyXaddEngine, XsddEngine
+from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
+
 
 def get_real_bounds(support):
     domain, _ = support.args()
@@ -19,14 +20,14 @@ def get_real_bounds(support):
     return bounds
 
 
-def compute_wmi(wmi, domain, mode, cache, q):
+def compute_wmi(wmi, domain, mode, cache, q, **kwargs):
     if "PA" in mode:
         res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
                              domA=set(domain.get_bool_symbols()),
                              domX=set(domain.get_real_symbols()))
         res = (*res, wmi.integrator.get_integration_time())
     else:
-        res = (wmi.compute_volume(), 0, 0)
+        res = (wmi.compute_volume(**kwargs), 0, 0)
     # it = wmi.integrator.get_integration_time()
     q.put(res)
 
@@ -50,13 +51,14 @@ def check_input_output(input_dir, output_dir, output_file):
 
 def problems_from_densities(input_files, output_file, info):
     if output_file is None:
-        problems_class = os.path.split(input_files[0])[1].split('_')[1]
+        problems_class = os.path.split(input_files[0])[1]
         output_name = "{}_{}_{}.json".format(
             problems_class, mode, int(time.time()))
         output_file = path.join(output_dir, output_name)
     input_files = sorted(
-        [f for f in input_files if path.splitext(f)[1] == ".json"], 
-        key=lambda f : int(os.path.splitext(os.path.basename(f))[0].split('_')[2]))
+        [f for f in input_files if path.splitext(f)[1] == ".json"],
+        # key=lambda f: int(os.path.splitext(os.path.basename(f))[0].split('_')[2])
+        )
     if len(input_files) == 0:
         print("There are no .json files in the input folder")
         sys.exit(1)
@@ -69,7 +71,10 @@ def problems_from_densities(input_files, output_file, info):
         "output_file": output_file
     })
     for i, filename in enumerate(input_files):
-        density = Density.from_file(filename)
+        try:
+            density = Density.from_file(filename)
+        except:
+            continue
         yield i+1, i+1, density.domain, density.support, density.weight
         print("\r"*200, end='')
         print("Problem: {}/{}".format(i+1, len(input_files)), end='')
@@ -204,6 +209,7 @@ if __name__ == '__main__':
     info = {}
     input_fn = input_types[input_type]
     for s, w, domain, support, weight in input_fn(files, output_file, info):
+        kwargs = dict()
         if "PA" in mode:
             wmi = WMI(support, weight, stub_integrate=args.stub,
                       n_threads=threads)
@@ -213,7 +219,9 @@ if __name__ == '__main__':
                     support=support, weight=weight, domain=domain)
             elif mode == "XSDD":
                 wmi = XsddEngine(support=support, weight=weight,
-                                 domain=domain, factorized=True)
+                                 domain=domain, factorized=False,
+                                 algebra=PyXaddAlgebra(), ordered=False)
+                kwargs.update(dict(add_bounds=False))
 
         cache = -1
         if "cache" in mode:
@@ -226,7 +234,8 @@ if __name__ == '__main__':
                                       domain,
                                       mode.split("_")[0],
                                       cache,
-                                      q)
+                                      q),
+            kwargs=kwargs
         )
         timed_proc.start()
         timed_proc.join(timeout)
