@@ -684,6 +684,7 @@ class WMI:
         #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
         #exit()
         # TODO - check precision (che sono infinite in alcuni casi, maledizione)
+        precision = 10
         j = 1
         for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
         #for assignment in lra_atoms:
@@ -790,7 +791,7 @@ class WMI:
                     for s in symbols:
                         if constant != 0.0: 
                             symbols[s] /= constant
-                            symbols[s] = round(symbols[s], 13)
+                            symbols[s] = round(symbols[s], precision)
                             constant /= constant
                         #print("AAAA", constant, s, symbols[s])
                         if (negate != assignment.is_lt()):
@@ -828,20 +829,20 @@ class WMI:
                         m2 = None
                         #print("SSS", s, symbols[s[0]])
                         if symbols[s[0]] != 1 and symbols[s[0]] != -1:
-                            nn = float(round(symbols[s[0]]/abs(constant), 13) if constant != 0 else round(symbols[s[0]], 13))
-                            nn2 = float(round(-symbols[s[0]]/abs(constant), 13) if constant != 0 else round(-symbols[s[0]], 13))
+                            nn = float(round(symbols[s[0]]/abs(constant), precision) if constant != 0 else round(symbols[s[0]], precision))
+                            nn2 = float(round(-symbols[s[0]]/abs(constant), precision) if constant != 0 else round(-symbols[s[0]], precision))
                             #print("constant", constant, "nn and nn2", nn, nn2)
                             m = (nn, s[0])
                             m2 = (nn2, s[0])
                         else:
                             if symbols[s[0]] == 1:
-                                nn = float(round(1.0/abs(constant), 13) if constant != 0 else 1.0)
-                                nn2 = float(round(-1.0/abs(constant), 13) if constant != 0 else -1.0)
+                                nn = float(round(1.0/abs(constant), precision) if constant != 0 else 1.0)
+                                nn2 = float(round(-1.0/abs(constant), precision) if constant != 0 else -1.0)
                                 m = (nn, s[0])
                                 m2 = (nn2, s[0])
                             else:
-                                nn = float(round(1.0/abs(constant), 13) if constant != 0 else 1.0)
-                                nn2 = float(round(-1.0/abs(constant), 13) if constant != 0 else -1.0)
+                                nn = float(round(1.0/abs(constant), precision) if constant != 0 else 1.0)
+                                nn2 = float(round(-1.0/abs(constant), precision) if constant != 0 else -1.0)
                                 m2 = (nn, s[0])
                                 m = (nn2, s[0])
                         if assignment.is_lt():
@@ -877,11 +878,11 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((round(1.0/float(right.constant_value()), 13) if right.constant_value() != 0 else 1.0, el))
+                                    subterms.append((round(1.0/float(right.constant_value()), precision) if right.constant_value() != 0 else 1.0, el))
                                 else:
                                     subterms.append((
-                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), 13) if right.constant_value() != 0 
-                                        else round(float(el.args()[0].constant_value()), 13), el.args()[1]))
+                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), precision) if right.constant_value() != 0 
+                                        else round(float(el.args()[0].constant_value()), precision), el.args()[1]))
                     elif left.is_real_constant():
                         #print('LEFT')
                         subterms.append(1.0 if left.constant_value() != 0 else 0.0)
@@ -892,11 +893,11 @@ class WMI:
                                 temp.append(el.args()[1])
                             else:
                                 if len(el.args()) == 0:
-                                    subterms.append((round(-1.0/float(left.constant_value()), 13) if left.constant_value() != 0 else -1.0, el))
+                                    subterms.append((round(-1.0/float(left.constant_value()), precision) if left.constant_value() != 0 else -1.0, el))
                                 else:
                                     subterms.append((
-                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), 13) if left.constant_value() != 0 
-                                        else round(-float(el.args()[0].constant_value()), 13), el.args()[1])
+                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), precision) if left.constant_value() != 0 
+                                        else round(-float(el.args()[0].constant_value()), precision), el.args()[1])
                                     )
 
                     #print(subterms)
