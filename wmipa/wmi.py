@@ -662,6 +662,64 @@ class WMI:
         for model in models:
             yield WMI._get_assignments(model)
 
+
+    def normalize_assignment(self, assignment, add_to_norms_aliases):
+        self.list_norm.add(assignment)
+        if not assignment.is_lt():
+            list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
+        else:
+            list_terms = [(assignment.args()[0], -1), (assignment.args()[1],1)]
+        symbols = defaultdict(float)
+        normalizing_coefficient = 0.0
+        #print(">>>", assignment,"<<<")
+        for term, coeff in list_terms:
+            #print("CHECK TERM", term)
+            if term.is_real_constant():
+                #print("NORM COEFF", term.constant_value(), coeff)
+                normalizing_coefficient += (term.constant_value() * coeff)
+            elif term.is_plus():
+                list_terms.extend([(atom, coeff) for atom in term.args()])
+            elif term.is_times():
+                child1 = term.args()[0]
+                child2 = term.args()[1]
+
+                if child1.is_real_constant() and child2.is_real_constant():
+                    #constant += child1.constant_value() * child2.constant_value()
+                    list_terms.append(child1.constant_value() * child2.constant_value(), coeff)
+                elif child1.is_real_constant():
+                    list_terms.append((child2, coeff*child1.constant_value()))
+                elif child2.is_real_constant():
+                    list_terms.append((child1, coeff*child2.constant_value()))
+            else:
+                symbols[term] += coeff
+
+        normalized_assignment = list()
+
+        if assignment.is_equals():
+            normalized_assignment.append(("="))
+        else:
+            normalized_assignment.append(("<=/>="))
+
+        if normalizing_coefficient == 0.0:
+            normalized_assignment.append((0.0))
+            normalizing_coefficient = 1.0
+        else:
+            normalized_assignment.append(normalizing_coefficient/(normalizing_coefficient))
+
+        for term in symbols:
+            normalized_assignment.append((term, round(float(symbols[term])/abs(normalizing_coefficient), 10 )))
+
+        
+
+
+        if add_to_norms_aliases:
+            self.norm_aliases[frozenset(normalized_assignment)] = assignment
+            #print("ADDING", frozenset(normalized_assignment), "for", assignment)
+
+        return None if add_to_norms_aliases else normalized_assignment
+
+
+
     def _compute_WMI_PA_no_boolean_no_label(self, lra_formula, other_assignments={}):
         """Finds all the assignments that satisfy the given formula using AllSAT.
             
@@ -684,192 +742,52 @@ class WMI:
         #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
         #exit()
         # TODO - check precision (che sono infinite in alcuni casi, maledizione)
+        
         precision = 10
         j = 1
+
         for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
-        #for assignment in lra_atoms:
-            #print()
-            #print("evaluating", j, assignment)
-            self.list_norm.add(assignment)
-            j +=1
-            is_constant_in_formula = False
-            list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
-            symbols = defaultdict(float)
-            for term, coeff in list_terms:
-                if term.is_real_constant():
-                    is_constant_in_formula = True
-                elif term.is_plus():
-                    list_terms.append((term.args()[0], coeff))
-                    list_terms.append((term.args()[1], coeff))
-                elif term.is_times():
-                    child1 = term.args()[0]
-                    child2 = term.args()[1]
-
-                    if child1.is_real_constant() and child2.is_real_constant():
-                        constant += child1.constant_value() * child2.constant_value()
-                    elif child1.is_real_constant():
-                        list_terms.append((child2, coeff*child1.constant_value()))
-                    elif child2.is_real_constant():
-                        list_terms.append((child1, coeff*child2.constant_value()))
-                else:
-                    symbols[term] += coeff
-            common_value = None
-            is_common_coefficient = True
-            if len(assignment.get_free_variables()) == 2:
-                for s in symbols:
-                    if common_value is None:
-                        common_value = symbols[s]
-                    else:
-                        is_common_coefficient = (common_value == -symbols[s])
-                        #print("TTT", common_value, symbols[s], "then", is_common_coefficient)
-
-            if assignment.is_equals() and ((len(assignment.get_free_variables()) == 2 and not is_constant_in_formula and is_common_coefficient) or len(assignment.get_free_variables()) == 1):
-                #print("EQUALITY", assignment)
-                if assignment.args()[1].is_symbol():
-                    continue
-                right_term = None
-                negated_atoms = list()
-                if len(assignment.args()[1].args()) == 0:
-                    atom = assignment.args()[1]
-                    if atom.is_real_constant():
-                        right_term = atom
-                    else:
-                        right_term = Real(0.0)
-                        negated_atoms.append(Times(Real(-1.0), atom))
-                else:
-                    for atom in assignment.args()[1].args():
-                        #print("A",atom)
-                        if atom.is_real_constant():
-                            right_term = atom
-                        else:
-                            negated_atoms.append(Times(Real(-1.0), atom))
-                left_term = Plus([assignment.args()[0]] + negated_atoms)
-                #print("LT",left_term)
-                equality_term = Equals(left_term, right_term)
-                self.norm_aliases[equality_term] = assignment
-            else:
-                #print("-->", assignment)
-                list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
-                symbols = defaultdict(float)
-                symbols_list_id = list()
-                constant = 0.0
-                for term, coeff in list_terms:
-                    if term.is_real_constant():
-                        constant += term.constant_value() * coeff
-                    elif term.is_plus():
-                        for node in term.args():
-                            list_terms.append((node, coeff))
-                    elif term.is_times():
-                        child1 = term.args()[0]
-                        child2 = term.args()[1]
-
-                        if child1.is_real_constant() and child2.is_real_constant():
-                            constant += child1.constant_value() * child2.constant_value()
-                        elif child1.is_real_constant():
-                            list_terms.append((child2, coeff*child1.constant_value()))
-                        elif child2.is_real_constant():
-                            list_terms.append((child1, coeff*child2.constant_value()))
-                    else:
-                        symbols[term] += coeff
-                for s in symbols:
-                    symbols_list_id.append((s, s.node_id()))
-                symbols_list_id.sort(key=lambda x:x[1])
-
-                #print("START",  constant, symbols)
-
-                # DA 805 IN POI DI POLYNORM
-                first_term = symbols_list_id[0]
-                negate = False
-                # If first term has negative multiplicative coefficient
-                if symbols[first_term[0]] < 0 and (len(symbols) < 2 or (len(symbols) == 2 and constant == 0)):
-                    negate = True
-
-                #print("TEMP 1:", constant, symbols)
-
-                if len(symbols) == 1 and not assignment.is_equals():
-                    #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
-                    for s in symbols:
-                        if constant != 0.0: 
-                            symbols[s] /= constant
-                            symbols[s] = round(symbols[s], precision)
-                            constant /= constant
-                        #print("AAAA", constant, s, symbols[s])
-                        if (negate != assignment.is_lt()):
-                            #print("RESULT(a):", frozenset([constant, (symbols[s], s)]))
-                            self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
-                            self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
-                        else:
-                            #print("RESULT(b):", frozenset([constant, (symbols[s], s)]))
-                            self.norm_aliases[frozenset([constant, (symbols[s], s)])] = assignment
-                            self.norm_aliases[frozenset([-constant, (-symbols[s], s)])] = assignment
-                elif len(symbols) == 2 and constant == 0 and not assignment.is_equals():
-                    s1, s2 = symbols.keys()
-                    if abs(symbols[s1]) == abs(symbols[s2]):
-                        if (assignment.is_lt()):
-                            #print("RESULT(c):", serialize(LE(s2, s1)))
-                            #self.norm_aliases[LE(s2, s1)] = assignment
-                            self.norm_aliases[frozenset([s1, s2])] = assignment
-                        else:
-                            #print("RESULT(d):", serialize(LE(s1, s2)))
-                            #self.norm_aliases[LE(s1, s2)] = assignment 
-                            self.norm_aliases[frozenset([s1, s2])] = assignment
-                else:
-                    reverse_symbol_list_id = list()
-                    for s in symbols_list_id:
-                        reverse_symbol_list_id.append(s)
-                    reverse_symbol_list_id.sort(key=lambda x:-x[1])
-
-                    lsh = None
-                    lsh2 = None
-                    lsh_set = [1.0] if constant != 0 else [0.0]
-                    lsh2_set = [-1.0] if constant != 0 else [0.0]
-                    #print("reverse", reverse_symbol_list_id)
-                    for s in reverse_symbol_list_id:
-                        m = None
-                        m2 = None
-                        #print("SSS", s, symbols[s[0]])
-                        if symbols[s[0]] != 1 and symbols[s[0]] != -1:
-                            nn = float(round(symbols[s[0]]/abs(constant), precision) if constant != 0 else round(symbols[s[0]], precision))
-                            nn2 = float(round(-symbols[s[0]]/abs(constant), precision) if constant != 0 else round(-symbols[s[0]], precision))
-                            #print("constant", constant, "nn and nn2", nn, nn2)
-                            m = (nn, s[0])
-                            m2 = (nn2, s[0])
-                        else:
-                            if symbols[s[0]] == 1:
-                                nn = float(round(1.0/abs(constant), precision) if constant != 0 else 1.0)
-                                nn2 = float(round(-1.0/abs(constant), precision) if constant != 0 else -1.0)
-                                m = (nn, s[0])
-                                m2 = (nn2, s[0])
-                            else:
-                                nn = float(round(1.0/abs(constant), precision) if constant != 0 else 1.0)
-                                nn2 = float(round(-1.0/abs(constant), precision) if constant != 0 else -1.0)
-                                m2 = (nn, s[0])
-                                m = (nn2, s[0])
-                        if assignment.is_lt():
-                            lsh_set.append(m2)
-                            lsh2_set.append(m)
-                        else:
-                            lsh_set.append(m)
-                            lsh2_set.append(m2)
-                    #print("NEGATE: {} - IS_LT: {}".format(negate, assignment.is_lt()))
-                    #print("<->SETS", lsh_set, lsh2_set)
-                    self.norm_aliases[frozenset(lsh_set)] = assignment
-                    self.norm_aliases[frozenset(lsh2_set)] = assignment
+            _ = self.normalize_assignment(assignment, True)
 
         lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
         #print()
+
         for mu_lra in lra_assignments:
             assignments = {}
             i = 1
             #print("MULRA", WMI._get_assignments(mu_lra).items())
             for atom, value in mu_lra.items():
-                #print("ATOM", i, atom, value, atom.get_free_variables())
+                #print(atom, value)
+                subterms = self.normalize_assignment(atom, False)
+                if frozenset(subterms) in self.norm_aliases:
+                    #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
+                    assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
+                    #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
+                else:
+                    print("I SEARCHED", atom)
+                    print("subterms", subterms)
+                    print("BUT IVE FOUND")
+                    print("\n".join([str(x) for x in self.norm_aliases.keys()]))
+                    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+                    assert(False)
+                    assignments[atom] = value
+            assignments.update(other_assignments)
+            yield assignments
+
+
+        """
+        for mu_lra in lra_assignments:
+            assignments = {}
+            i = 1
+            print("MULRA", WMI._get_assignments(mu_lra).items())
+            for atom, value in mu_lra.items():
+                print("ATOM", i, atom, value, atom.get_free_variables())
                 i+=1
                 subterms = []
                 left, right = atom.args()[0], atom.args()[1]
                 if len(atom.get_free_variables()) > 2 or (len(atom.get_free_variables()) <= 2 and (right.is_real_constant() or left.is_real_constant() )):
                     if right.is_real_constant():
-                        #print("RIGHT")
+                        print("RIGHT")
                         subterms.append(-1.0 if right.constant_value() != 0 else 0.0) 
                         temp = [left]
                         for el in temp:
@@ -884,7 +802,7 @@ class WMI:
                                         round(float(el.args()[0].constant_value())/float(right.constant_value()), precision) if right.constant_value() != 0 
                                         else round(float(el.args()[0].constant_value()), precision), el.args()[1]))
                     elif left.is_real_constant():
-                        #print('LEFT')
+                        print('LEFT')
                         subterms.append(1.0 if left.constant_value() != 0 else 0.0)
                         temp = [right]
                         for el in temp:
@@ -900,20 +818,20 @@ class WMI:
                                         else round(-float(el.args()[0].constant_value()), precision), el.args()[1])
                                     )
 
-                    #print(subterms)
+                    print(subterms)
                     if frozenset(subterms) in self.norm_aliases:
-                        #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
+                        print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
                         assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
-                        #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
+                        print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
                     else:
-                        #print("I SEARCHED", subterms)
-                        #print("BUT IVE FOUND")
-                        #print("\n".join([str(x) for x in self.norm_aliases.keys()]))
+                        print("I SEARCHED", subterms)
+                        print("BUT IVE FOUND")
+                        print("\n".join([str(x) for x in self.norm_aliases.keys()]))
                         assignments[atom] = value
                 else:
-                    #print("IMHERE")
+                    print("IMHERE")
                     if atom in self.norm_aliases:
-                        #print("ATOM NORMALIZED")
+                        print("ATOM NORMALIZED")
                         assignments[self.norm_aliases[atom]] = value
                     else:
                         assignments[atom] = value
@@ -921,13 +839,13 @@ class WMI:
             #print("ENDING", assignments)
             assignments.update(other_assignments)
             yield assignments
-        
+
+
         """
         
-        mathsat.msat_all_sat(
-            solver.msat_env(),
-            [converter.convert(v) for v in lra_atoms],
-            lambda model : WMI._callback(model, converter, lra_assignments))
+        
+        """
+        lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
         for mu_lra in lra_assignments:                    
             assignments = {}
             for atom, value in WMI._get_assignments(mu_lra).items():
