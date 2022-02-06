@@ -7,14 +7,25 @@ from pywmi import Density
 from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
 
 
-def compute_wmi(wmi, domain, mode, cache, q):
+def compute_wmi(domain, support, weight, mode, cache, q):
     if "PA" in mode:
+        wmi = WMI(support, weight, stub_integrate=args.stub,
+                  n_threads=threads)
         res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
                              domA=set(domain.get_bool_symbols()),
                              domX=set(domain.get_real_symbols()))
         res = (*res, wmi.integrator.get_integration_time())
     else:
+        if mode == "XADD":
+            wmi = PyXaddEngine(
+                support=support, weight=weight, domain=domain)
+        elif mode == "XSDD":
+            wmi = XsddEngine(support=support, weight=weight,
+                             domain=domain, factorized=False,
+                             algebra=PyXaddAlgebra(), ordered=False)
+
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
+
     # it = wmi.integrator.get_integration_time()
     q.put(res)
 
@@ -45,7 +56,7 @@ def problems_from_densities(input_files, output_file, info):
     input_files = sorted(
         [f for f in input_files if path.splitext(f)[1] == ".json"],
         # key=lambda f: int(os.path.splitext(os.path.basename(f))[0].split('_')[2])
-        )
+    )
     if len(input_files) == 0:
         print("There are no .json files in the input folder")
         sys.exit(1)
@@ -60,10 +71,13 @@ def problems_from_densities(input_files, output_file, info):
     })
     for i, filename in enumerate(input_files):
         try:
+            # reset pysmt environment
+            reset_env()
+            get_env().enable_infix_notation = True
             density = Density.from_file(filename)
         except Exception as ex:
-            print("Error", filename)
-            traceback.print_exception(type(ex), ex, ex.__traceback__)
+            print("Error on parsing", filename)
+            # traceback.print_exception(type(ex), ex, ex.__traceback__)
             continue
         yield i+1, i+1, density.domain, density.support, density.weight
         print("\r"*200, end='')
@@ -197,22 +211,6 @@ if __name__ == '__main__':
     info = {}
     input_fn = input_types[input_type]
     for s, w, domain, support, weight in input_fn(files, output_file, info):
-        # reset pysmt environment
-        reset_env()
-        get_env().enable_infix_notation = True
-        
-        kwargs = dict()
-        if "PA" in mode:
-            wmi = WMI(support, weight, stub_integrate=args.stub,
-                      n_threads=threads)
-        elif mode == "XADD":
-            wmi = PyXaddEngine(
-                support=support, weight=weight, domain=domain)
-        elif mode == "XSDD":
-            wmi = XsddEngine(support=support, weight=weight,
-                                domain=domain, factorized=False,
-                                algebra=PyXaddAlgebra(), ordered=False)
-        
         cache = -1
         if "cache" in mode:
             cache = int(mode.split("_")[2])
@@ -220,8 +218,9 @@ if __name__ == '__main__':
         time_init = time.time()
         q = Queue()
         timed_proc = Process(
-            target=compute_wmi, args=(wmi,
-                                      domain,
+            target=compute_wmi, args=(domain,
+                                      support,
+                                      weight,
                                       mode.split("_")[0],
                                       cache,
                                       q),
