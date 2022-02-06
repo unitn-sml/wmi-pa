@@ -663,6 +663,13 @@ class WMI:
             yield WMI._get_assignments(model)
 
 
+    def normalize_coefficient(self, val, normalizing_coefficient):
+        midvalue = round(float(val)/abs(normalizing_coefficient), 10 )
+        if abs(midvalue - round(float(val))) < 0.00000001:
+            return round(float(val))
+        return round(float(val)/abs(normalizing_coefficient), 10 )
+
+
     def normalize_assignment(self, assignment, add_to_norms_aliases):
         self.list_norm.add(assignment)
         if not assignment.is_lt():
@@ -707,13 +714,15 @@ class WMI:
             normalized_assignment.append(normalizing_coefficient/(normalizing_coefficient))
 
         for term in symbols:
-            normalized_assignment.append((term, round(float(symbols[term])/abs(normalizing_coefficient), 10 )))
+            normalized_assignment.append((term,self.normalize_coefficient(symbols[term], normalizing_coefficient)))
 
         
 
 
         if add_to_norms_aliases:
-            self.norm_aliases[frozenset(normalized_assignment)] = assignment
+            if frozenset(normalized_assignment) not in self.norm_aliases:
+                self.norm_aliases[frozenset(normalized_assignment)] = list()
+            self.norm_aliases[frozenset(normalized_assignment)].append(assignment)
             #print("ADDING", frozenset(normalized_assignment), "for", assignment)
 
         return None if add_to_norms_aliases else normalized_assignment
@@ -738,6 +747,9 @@ class WMI:
                     if not self.variables.is_weight_bool(a)}
         assert len(bools) == 0, bools
 
+        self.norm_aliases = dict()
+        self.list_norm = set()
+
 
         #print("INEQUALITIES", -12438304288656212/1826002404306887, -6.811767749767853)
         #exit()
@@ -761,7 +773,8 @@ class WMI:
                 subterms = self.normalize_assignment(atom, False)
                 if frozenset(subterms) in self.norm_aliases:
                     #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
-                    assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
+                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
+                        assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
                     #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
                 else:
                     print("I SEARCHED", atom)
