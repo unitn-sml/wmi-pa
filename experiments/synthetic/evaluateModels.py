@@ -47,12 +47,13 @@ def check_input_output(input_dir, output_dir, output_file):
             print("File '{}' already exists".format(output_file))
 
 
-def problems_from_densities(input_files, output_file, info):
-    if output_file is None:
-        problems_class = os.path.split(input_files[0])[0]
-        output_name = "{}_{}_{}.json".format(
-            problems_class, mode, int(time.time()))
-        output_file = path.join(output_dir, output_name)
+def problems_from_densities(input_files):
+    # if output_file is None:
+    #     basename = os.path.basename()
+    #     problems_class = os.path.split(input_files[0])[0]
+    #     output_name = "{}_{}_{}.json".format(
+    #         problems_class, mode, int(time.time()))
+    #     output_file = path.join(output_dir, output_name)
     input_files = sorted(
         [f for f in input_files if path.splitext(f)[1] == ".json"],
         # key=lambda f: int(os.path.splitext(os.path.basename(f))[0].split('_')[2])
@@ -61,14 +62,6 @@ def problems_from_densities(input_files, output_file, info):
         print("There are no .json files in the input folder")
         sys.exit(1)
 
-    info.update({
-        "params": {
-            "real": None,
-            "bool": None,
-            "depth": None
-        },
-        "output_file": output_file
-    })
     for i, filename in enumerate(input_files):
         try:
             # reset pysmt environment
@@ -79,77 +72,9 @@ def problems_from_densities(input_files, output_file, info):
             print("Error on parsing", filename)
             # traceback.print_exception(type(ex), ex, ex.__traceback__)
             continue
-        yield i+1, i+1, density.domain, density.support, density.weight
+        yield filename, density.domain, density.support, density.weight
         print("\r"*200, end='')
         print("Problem: {}/{}".format(i+1, len(input_files)), end='')
-
-
-# def check_vars(support_files, weight_files, reals, bools):
-#     print("Checking variables")
-#     for f in support_files + weight_files:
-#         formula = read_smtlib(f)
-#         variables = get_free_variables(formula)
-#         for v in variables:
-#             v_type = v.symbol_type()
-#             v_name = v.symbol_name()
-#             type(v_type)
-#             if (v_type == BOOL and v_name not in bools) or (v_type == REAL and v_name not in reals):
-#                 print("Variable '{}' in file '{}' is not present in info.json")
-
-
-# def problems_from_smtlib(input_files, output_file, info):
-#     support_files = sorted(
-#         [f for f in input_files if path.splitext(f)[1] == ".support"])
-#     weight_files = sorted(
-#         [f for f in input_files if path.splitext(f)[1] == ".weight"])
-#     n_support = len(support_files)
-#     n_weight = len(weight_files)
-#     info_file = path.join(input_dir, "info.json")
-#     if n_support == 0:
-#         print("There are no .support files in the input folder")
-#         sys.exit(1)
-#     if n_weight == 0:
-#         print("There are no .weight files in the input folder")
-#         sys.exit(1)
-#     if not path.exists(info_file):
-#         print("There is no info.json in the input folder")
-
-#     print("Found {} supports and {} weights".format(n_support, n_weight))
-
-#     with open(info_file, 'r') as f:
-#         problems_info = json.load(f)
-#         reals = problems_info["real_variables"]
-#         bools = problems_info["bool_variables"]
-#         depth = problems_info["depth"]
-
-#     check_vars(support_files, weight_files, reals, bools)
-#     if output_file is None:
-#         output_name = "r{}_b{}_d{}_{}_{}.json".format(
-#             len(reals), len(bools), depth, mode, int(time.time()))
-#         output_file = path.join(output_dir, output_name)
-
-#     info.update({
-#         "params": {
-#             "real": len(reals),
-#             "bool": len(bools),
-#             "depth": depth
-#         },
-#         "output_file": output_file
-#     })
-
-#     for i, s in enumerate(support_files):
-#         support = read_smtlib(s)
-#         domain = Domain.make(bools, reals, [])
-
-#         for j, w in enumerate(weight_files):
-#             support_filename = path.splitext(s)[0]
-#             weight_filename = path.splitext(w)[0]
-#             if not equals or support_filename == weight_filename:
-#                 weight = read_smtlib(w)
-#                 yield s, w, domain, support, weight
-#                 print("\r"*100, end='')
-#                 print("Support: {}/{}, Weight: {}/{}".format(i +
-#                       1, n_support, j+1, n_weight), end='')
 
 
 if __name__ == '__main__':
@@ -158,22 +83,15 @@ if __name__ == '__main__':
     import os
     import time
     import json
-    import re
     from os import path
-    from pysmt.shortcuts import read_smtlib
-
-    input_types = {
-        # "smtlib": problems_from_smtlib,
-        "density": problems_from_densities
-    }
 
     modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
         0, 4)] + WMI.MODES + ["XADD", "XSDD"]
 
     parser = argparse.ArgumentParser(description='Compute WMI on models')
-    parser.add_argument('input', help='Folder with .support and .weight files')
-    parser.add_argument('-i', '--input-type', required=True,
-                        help='Input type', choices=input_types.keys())
+    parser.add_argument('input', help='Folder with .json files')
+    # parser.add_argument('-i', '--input-type', required=True,
+    #                     help='Input type', choices=input_types.keys())
     parser.add_argument('-o', '--output', default=os.getcwd(),
                         help='Output folder where to save the result (default: cwd)')
     parser.add_argument('-f', '--filename',
@@ -182,8 +100,8 @@ if __name__ == '__main__':
                         required=True, help='Mode to use')
     parser.add_argument('--threads', default=None, type=int,
                         help='Number of threads to use for WMIPA')
-    parser.add_argument('-e', '--equals', action='store_true',
-                        help='Set this flag if you want to compute wmi only on support and weight with same name')
+    # parser.add_argument('-e', '--equals', action='store_true',
+    #                     help='Set this flag if you want to compute wmi only on support and weight with same name')
     parser.add_argument('-t', '--stub', action="store_true",
                         help='Set this flag if you only want to count the number of integrals to be computed')
     parser.add_argument('--timeout', type=int, default=3600,
@@ -192,15 +110,18 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     input_dir = args.input
-    input_type = args.input_type
+    # input_type = args.input_type
     output_dir = args.output
     output_file = args.filename
     mode = args.mode
-    equals = args.equals
+    # equals = args.equals
     timeout = args.timeout
     threads = args.threads
 
     check_input_output(input_dir, output_dir, output_file)
+    output_file = output_file or "{}_{}_{}.json".format(
+        os.path.split(input_dir.rstrip('/'))[1], mode, int(time.time()))
+    output_file = path.join(output_dir, output_file)
 
     elements = [path.join(input_dir, f) for f in os.listdir(input_dir)]
     files = [e for e in elements if path.isfile(e)]
@@ -208,9 +129,8 @@ if __name__ == '__main__':
     print("Started computing")
     time_start = time.time()
     results = []
-    info = {}
-    input_fn = input_types[input_type]
-    for s, w, domain, support, weight in input_fn(files, output_file, info):
+
+    for filename, domain, support, weight in problems_from_densities(files):
         cache = -1
         if "cache" in mode:
             cache = int(mode.split("_")[2])
@@ -250,8 +170,7 @@ if __name__ == '__main__':
         value, n_integrations, integration_time = res
 
         res = {
-            "support": s,
-            "weight": w,
+            "filename": filename,
             "value": value,
             "n_integrations": n_integrations,
             "time": time_total,
@@ -262,11 +181,10 @@ if __name__ == '__main__':
     print()
     print("Computed {} WMI".format(len(results)))
 
-    info.update({
+    info = {
         "mode": mode,
         "results": results
-    })
-    output_file = info.pop("output_file")
+    }
 
     with open(output_file, 'w') as f:
         json.dump(info, f, indent=4)

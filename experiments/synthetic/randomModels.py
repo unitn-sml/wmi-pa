@@ -3,6 +3,8 @@ from random import choice, randint, random, sample, seed, uniform
 from pysmt.shortcuts import BOOL, REAL, Symbol, Plus, Times, Pow, Ite, Real, \
     And, Or, Not, LT, Bool, is_sat
 
+from pywmi import Density, Domain
+
 class ModelGenerator:
 
     TEMPL_REALS = "x_{}"
@@ -43,11 +45,13 @@ class ModelGenerator:
 
     def generate_support_tree(self, depth):
         domain = []
+        bounds = {}
         
         # generate the domains of the real variables
         for var in self.reals:
             lower, upper = self.initial_bounds
             dom_formula = And(LT(Real(lower), var), LT(var, Real(upper)))
+            bounds[var.symbol_name()] = [lower, upper]
             domain.append(dom_formula)
         domain = And(domain)
 
@@ -55,7 +59,7 @@ class ModelGenerator:
         support = Bool(False)
         while not is_sat(And(domain, support)):
             support = self._random_formula(depth)
-        return And(domain, support)
+        return And(domain, support), bounds
         
     def generate_weights_tree(self, depth, nonnegative=False, splits_only=False):
         if depth <= 0:
@@ -155,7 +159,6 @@ class ModelGenerator:
             coeff = uniform(min_value, max_value)
         return Real(coeff)
 
-
 if __name__ == '__main__':
     import argparse
     import sys
@@ -222,24 +225,23 @@ if __name__ == '__main__':
     info = {
         "real_variables": [templ_reals.format(i) for i in range(n_reals)],
         "bool_variables": [templ_bools.format(i) for i in range(n_bools)],
-        "depth": depth
     }
-    with open (path.join(output_dir, "info.json"), 'w') as f:
-        json.dump(info, f, indent=4)
-    print("Created info.json")
+    # with open (path.join(output_dir, "info.json"), 'w') as f:
+    #     json.dump(info, f, indent=4)
+    # print("Created info.json")
     
     print("Starting creating models")
     time_start = time.time()
     for i in range(n_models):
-        support = gen.generate_support_tree(depth)        
+        support, bounds = gen.generate_support_tree(depth)        
         weight = gen.generate_weights_tree(depth)
+        domain = Domain.make(info["bool_variables"], bounds)
+        density = Density(domain, support, weight)
         
         number = "0" * (len(str(n_models+1)) - len(str(i+1))) + str(i+1)
-        support_filename = path.join(output_dir, "r{}_b{}_d{}_s{}_{}.support".format(n_reals, n_bools, depth, seedn, number))
-        weight_filename = path.join (output_dir, "r{}_b{}_d{}_s{}_{}.weight".format(n_reals, n_bools, depth, seedn, number))
+        density_file = path.join(output_dir, "r{}_b{}_d{}_s{}_{}.json".format(n_reals, n_bools, depth, seedn, number))
         
-        write_smtlib(support, support_filename)
-        write_smtlib(weight, weight_filename)
+        density.to_file(density_file)
         
         print("\r"*100, end='')
         print("Model {}/{}".format(i+1, n_models), end='')

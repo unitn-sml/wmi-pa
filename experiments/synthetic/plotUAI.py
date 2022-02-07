@@ -14,6 +14,16 @@ ticks_fs = 15
 lw = 2.5  # line width
 figsize = (10, 8)
 label_step = 50
+COLORS={
+    "PA": '#E24A33', 
+    "PAEUF":'#348ABD', 
+    "PAEUFTA": '#988ED5', 
+    "XADD": '#777777', 
+    "PAWATA": '#FBC15E', 
+    "PAWA": '#000000', 
+    "PANL": '#8EBA42', 
+    "XSDD": '#FFB5B8'
+}
 
 
 def error(msg=""):
@@ -45,48 +55,48 @@ def parse_inputs(input_files):
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
-        if mode == "PANL":
+        if mode in ["PAWATA"]:
             continue
 
-        params = result_out["params"]
+        # params = result_out["params"]
+        # if params["depth"] > 6: continue
         # print("File: {:80s} found: {:3d}".format(filename, len(result_out["results"])))
 
         for result in result_out["results"]:
             result["mode"] = mode
-            result.update(params)
+            # result.update(params)
         data.extend(result_out["results"])
 
     # groupby to easily generate MulitIndex
-    data = pd.DataFrame(data). \
-        groupby(["support", "weight", "mode"]). \
-        aggregate(
+    data = pd.DataFrame(data) \
+        .groupby(["filename", "mode"]) \
+        .aggregate(
             time=("time", "min"),
             n_integrations=("n_integrations", "min"),
             value=("value", "min"),
-            depth=("depth", "min"),
-            real=("real", "min"),
-            bool=("bool", "min"),
-            count=("time", "count")). \
-        unstack()
+            count=("time", "count")) \
+        .unstack()
 
     # ensure we have at most one output foreach (support, weight, mode) combination
     assert ((data["count"] == 1) |
             (data["count"].isna())).all().all(), "Some output are duplicated"
 
     # deal with missing values and timeouts
-    data['time'] = data['time'].fillna(TIMEOUT).clip(upper=TIMEOUT)
+    # data['time'] = data['time'].fillna(TIMEOUT).clip(upper=TIMEOUT)
+    data['time'] = data['time'].clip(upper=TIMEOUT)
 
     # do not plot n_integrations where mode times out or where not available (0)
     data['n_integrations'] = data['n_integrations'].where(
-        (data['time'] < TIMEOUT) &
+        (data['time'] < TIMEOUT) & (data['time'].notna()) &
         (data['n_integrations'] > 0),
         pd.NA)
 
     # sort by increasing time
     modes = data.columns.get_level_values(1).unique()
-    sort_by = [("time", mode) for mode in ["XSDD", "XADD", "PA", "PAEUF", "PAEUFTA"]
+    sort_by = [("time", mode) for mode in ["PA", "PANL", "PAEUF", "PAEUFTA", "XSDD", "XADD", "PAWA", "PAWATA"]
                if mode in modes]
     data.sort_values(by=sort_by, inplace=True)
+    print(data.reset_index()[["time", "value"]])
 
     return data
 
@@ -101,7 +111,8 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
         sfx = "_{}_{}".format(frm_i, to_i)
 
     data[param].plot(linewidth=lw,
-                     figsize=figsize)
+                     figsize=figsize,
+                     color=COLORS)
     n_problems = len(data)
     # timeout line
     if timeout is not None:
@@ -137,16 +148,16 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
     plt.clf()
 
 
-def check_values(data, ref="PA"):
-    ii = data["time", ref] < TIMEOUT
+def check_values(data, ref="PAEUFTA"):
+    ii = data["value", ref].notna()
 
     for mode in data.columns.get_level_values(1).unique():
         ii_m = data[ii]["time", mode] < TIMEOUT
         diff = ~np.isclose(data[ii][ii_m]["value", mode].values,
                            data[ii][ii_m]["value", ref].values)
         if diff.any():
-            print("Error! {}/{} values of {} do not match with PA".format(
-                diff.sum(), len(diff), mode))
+            print("Error! {}/{} values of {} do not match with {}".format(
+                diff.sum(), len(diff), mode, ref))
             print(data[ii][ii_m][diff].reset_index()[["time", "value"]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(
