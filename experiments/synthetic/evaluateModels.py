@@ -5,11 +5,17 @@ from wmipa import WMI
 from multiprocessing import Process, Queue
 from pywmi import Density
 from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
+import argparse
+import sys
+import os
+import time
+import json
+from os import path
 
 
-def compute_wmi(domain, support, weight, mode, cache, q):
+def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
     if "PA" in mode:
-        wmi = WMI(support, weight, stub_integrate=args.stub,
+        wmi = WMI(support, weight, stub_integrate=stub,
                   n_threads=threads)
         res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
                              domA=set(domain.get_bool_symbols()),
@@ -48,12 +54,6 @@ def check_input_output(input_dir, output_dir, output_file):
 
 
 def problems_from_densities(input_files):
-    # if output_file is None:
-    #     basename = os.path.basename()
-    #     problems_class = os.path.split(input_files[0])[0]
-    #     output_name = "{}_{}_{}.json".format(
-    #         problems_class, mode, int(time.time()))
-    #     output_file = path.join(output_dir, output_name)
     input_files = sorted(
         [f for f in input_files if path.splitext(f)[1] == ".json"],
         # key=lambda f: int(os.path.splitext(os.path.basename(f))[0].split('_')[2])
@@ -63,6 +63,7 @@ def problems_from_densities(input_files):
         sys.exit(1)
 
     for i, filename in enumerate(input_files):
+        print(i+1, filename)
         try:
             # reset pysmt environment
             reset_env()
@@ -77,14 +78,7 @@ def problems_from_densities(input_files):
         print("Problem: {}/{}".format(i+1, len(input_files)), end='')
 
 
-if __name__ == '__main__':
-    import argparse
-    import sys
-    import os
-    import time
-    import json
-    from os import path
-
+def parse_args():
     modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
         0, 4)] + WMI.MODES + ["XADD", "XSDD"]
 
@@ -107,8 +101,11 @@ if __name__ == '__main__':
     parser.add_argument('--timeout', type=int, default=3600,
                         help='Max time (in seconds)')
 
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def main():
+    args = parse_args()
     input_dir = args.input
     # input_type = args.input_type
     output_dir = args.output
@@ -117,6 +114,7 @@ if __name__ == '__main__':
     # equals = args.equals
     timeout = args.timeout
     threads = args.threads
+    stub = args.stub
 
     check_input_output(input_dir, output_dir, output_file)
     output_file = output_file or "{}_{}_{}.json".format(
@@ -137,12 +135,15 @@ if __name__ == '__main__':
 
         time_init = time.time()
         q = Queue()
+        
         timed_proc = Process(
             target=compute_wmi, args=(domain,
                                       support,
                                       weight,
                                       mode.split("_")[0],
                                       cache,
+                                      threads, 
+                                      stub,
                                       q),
         )
         timed_proc.start()
@@ -192,3 +193,7 @@ if __name__ == '__main__':
 
     seconds = time.time() - time_start
     print("Done! {:.3f}s".format(seconds))
+
+
+if __name__ == '__main__':
+    main()
