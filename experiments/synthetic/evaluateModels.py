@@ -5,6 +5,9 @@ from wmipa import WMI
 from multiprocessing import Process, Queue
 from pywmi import Density
 from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
+from pywmi.engines.algebraic_backend import SympyAlgebra
+from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
+from pywmi.engines.xsdd.vtrees.vtree import bami, balanced
 
 
 def compute_wmi(domain, support, weight, mode, cache, q):
@@ -21,8 +24,16 @@ def compute_wmi(domain, support, weight, mode, cache, q):
                 support=support, weight=weight, domain=domain)
         elif mode == "XSDD":
             wmi = XsddEngine(support=support, weight=weight,
-                             domain=domain, factorized=False,
-                             algebra=PyXaddAlgebra(), ordered=False)
+                             domain=domain,
+                             algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                             ordered=False)
+        elif mode == "FXSDD":
+            wmi = FXSDD(domain,
+                        support,
+                        weight,
+                        vtree_strategy=balanced,
+                        algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                        ordered=False)
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
@@ -168,7 +179,7 @@ if __name__ == '__main__':
     }
 
     modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
-        0, 4)] + WMI.MODES + ["XADD", "XSDD"]
+        0, 4)] + WMI.MODES + ["XADD", "XSDD", "FXSDD"]
 
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .support and .weight files')
