@@ -664,10 +664,10 @@ class WMI:
 
 
     def normalize_coefficient(self, val, normalizing_coefficient):
-        midvalue = round(float(val)/abs(normalizing_coefficient), 10 )
-        if abs(midvalue - round(float(val))) < 0.00000001:
-            return round(float(val))
-        return round(float(val)/abs(normalizing_coefficient), 10 )
+        midvalue = round(float(val)/(normalizing_coefficient), 10 )
+        if abs(midvalue - round(float(midvalue))) < 0.00000001:
+            return round(float(midvalue))
+        return midvalue
 
 
     def normalize_assignment(self, assignment, add_to_norms_aliases):
@@ -723,7 +723,7 @@ class WMI:
             if frozenset(normalized_assignment) not in self.norm_aliases:
                 self.norm_aliases[frozenset(normalized_assignment)] = list()
             self.norm_aliases[frozenset(normalized_assignment)].append(assignment)
-            #print("ADDING", frozenset(normalized_assignment), "for", assignment)
+            print("ADDING", frozenset(normalized_assignment), "for", assignment)
 
         return None if add_to_norms_aliases else normalized_assignment
 
@@ -762,17 +762,17 @@ class WMI:
             _ = self.normalize_assignment(assignment, True)
 
         lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
-        #print()
+        print()
 
         for mu_lra in lra_assignments:
             assignments = {}
             i = 1
-            #print("MULRA", WMI._get_assignments(mu_lra).items())
+            print("MULRA", WMI._get_assignments(mu_lra).items())
             for atom, value in mu_lra.items():
-                #print(atom, value)
+                print(atom, value)
                 subterms = self.normalize_assignment(atom, False)
                 if frozenset(subterms) in self.norm_aliases:
-                    #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
+                    print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
                     for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
                         assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
                     #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
