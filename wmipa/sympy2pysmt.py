@@ -26,7 +26,8 @@ def pysmt2sympy(expression):
         WMIParsingException: If the method fails to parse the formula.
         
     """
-    serialize_formula = serialize(expression)
+    # write reals with no fractional part as integers to help sympy group monomials
+    serialize_formula = serialize(expression).replace('.0', '')
     try:
         sympy_formula = sympify(serialize_formula)
     except SympifyError:
