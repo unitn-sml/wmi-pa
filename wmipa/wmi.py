@@ -404,8 +404,6 @@ class WMI:
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
-        print("TTA")
-        print(models)
         return models, labels
 
     def _compute_WMI_AllSMT(self, formula, weights):
@@ -1004,15 +1002,15 @@ class WMI:
             # logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each (partial) boolean assignment mu^A of F  
 
-            print("BM WA")    
+            # print("BM WA")    
             for boolean_assignments in boolean_models:
-                print(boolean_assignments)
+                # print(boolean_assignments)
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
-                print(lra_formula)
+                # print(lra_formula)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
                 # if some boolean have not been simplified, find TTA on them
