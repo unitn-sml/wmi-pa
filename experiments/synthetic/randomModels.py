@@ -247,7 +247,7 @@ def main():
         r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
-        weight = gen.generate_weights_tree(depth)
+        weight = gen.generate_weights_tree(depth, nonnegative=True)
         domain = Domain.make(bools, bounds)
         density = Density(domain, support, weight)
         density_file = path.join(output_dir, template.format(n=i+1, d=digits))

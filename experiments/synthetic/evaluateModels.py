@@ -8,7 +8,7 @@ from pywmi import Density
 from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
-from pywmi.engines.xsdd.vtrees.vtree import bami, balanced
+from pywmi.engines.xsdd.vtrees.vtree import balanced
 
 import argparse
 import sys
