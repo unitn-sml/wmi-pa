@@ -67,7 +67,7 @@ class ModelGenerator:
             support = self._random_formula(depth)
         return And(domain, support), bounds
 
-    def generate_weights_tree(self, depth, nonnegative=False, splits_only=False):
+    def generate_weights_tree(self, depth, nonnegative=True, splits_only=False):
         if depth <= 0:
             return self._random_polynomial(nonnegative)
         else:
@@ -84,7 +84,7 @@ class ModelGenerator:
             else:
                 return op(left, right)
 
-    def _random_polynomial(self, nonnegative=False):
+    def _random_polynomial(self, nonnegative=True):
         if nonnegative:
             # the sum of squared rational functions is a non-negative polynomial
             sq_sum = []
