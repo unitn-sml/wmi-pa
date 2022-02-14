@@ -3,6 +3,7 @@ import psutil
 from pysmt.shortcuts import Bool, reset_env, get_env
 from wmipa import WMI
 from multiprocessing import Process, Queue
+from queue import Empty as EmptyQueueError
 from pywmi import Density
 from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
 from pywmi.engines.algebraic_backend import SympyAlgebra
@@ -76,7 +77,6 @@ def problems_from_densities(input_files):
         sys.exit(1)
 
     for i, filename in enumerate(input_files):
-        print(i+1, filename)
         try:
             # reset pysmt environment
             reset_env()
@@ -87,8 +87,8 @@ def problems_from_densities(input_files):
             # traceback.print_exception(type(ex), ex, ex.__traceback__)
             continue
         yield filename, density.domain, density.support, density.weight
-        print("\r"*200, end='')
-        print("Problem: {}/{}".format(i+1, len(input_files)), end='')
+        print("\r"*300, end='')
+        print("Problem: {}/{} ({})".format(i+1, len(input_files), filename), end='')
 
 
 def parse_args():
@@ -178,7 +178,11 @@ def main():
             except psutil.NoSuchProcess:
                 pass
         else:
-            res = q.get()
+            try:
+                res = q.get(block=False)
+            except EmptyQueueError:
+                print("Empty queue")
+                res = (None, None, timeout)
             time_total = time.time() - time_init
 
         value, n_integrations, integration_time = res
