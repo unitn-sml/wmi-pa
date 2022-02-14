@@ -404,6 +404,8 @@ class WMI:
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
+        print("TTA")
+        print(models)
         return models, labels
 
     def _compute_WMI_AllSMT(self, formula, weights):
@@ -585,7 +587,8 @@ class WMI:
                 solver.msat_env(),
                 [converter.convert(v) for v in boolean_variables],
                 lambda model : WMI._callback(model, converter, boolean_models))
-
+            #print("TA")
+            #print(boolean_models)
             logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each boolean assignment mu^A of F        
             for model in boolean_models:
@@ -617,12 +620,17 @@ class WMI:
                                                 
                     lab_formula = And([lab_formula] + expressions)
                     for assignments in self._compute_WMI_PA_no_boolean(lab_formula, pa_vars, labels, atom_assignments):
+                        
                         problem = self._create_problem(assignments, weights)
                         problems.append(problem)
+                        #print("PROBLEM")
+                        #print(problem)
                 else:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
+                    #print("PROBLEM")
+                    #print(problem)
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         volume = fsum(results)
         return volume, len(problems)-cached, cached
@@ -686,6 +694,11 @@ class WMI:
                 normalizing_coefficient += (term.constant_value() * coeff)
             elif term.is_plus():
                 list_terms.extend([(atom, coeff) for atom in term.args()])
+            elif term.is_minus():
+                child1 = term.args()[0]
+                child2 = term.args()[1]
+                list_terms.append((child1, coeff))
+                list_terms.append((child2, -1.0*coeff))
             elif term.is_times():
                 child1 = term.args()[0]
                 child2 = term.args()[1]
@@ -701,20 +714,28 @@ class WMI:
                 symbols[term] += coeff
 
         normalized_assignment = list()
+        normalized_assignment2 = list()
 
         if assignment.is_equals():
             normalized_assignment.append(("="))
+            normalized_assignment2.append(("="))
         else:
             normalized_assignment.append(("<=/>="))
 
         if normalizing_coefficient == 0.0:
             normalized_assignment.append((0.0))
             normalizing_coefficient = 1.0
+            if assignment.is_equals():
+                normalized_assignment2.append((0.0))
         else:
             normalized_assignment.append(normalizing_coefficient/abs(normalizing_coefficient))
+            if assignment.is_equals():
+                normalized_assignment2.append((-normalizing_coefficient/abs(normalizing_coefficient)))
 
         for term in symbols:
             normalized_assignment.append((term,self.normalize_coefficient(symbols[term], normalizing_coefficient)))
+            if assignment.is_equals():
+                normalized_assignment2.append((term,self.normalize_coefficient(-symbols[term], normalizing_coefficient)))
 
 
         if add_to_norms_aliases:
@@ -722,6 +743,11 @@ class WMI:
                 self.norm_aliases[frozenset(normalized_assignment)] = list()
             self.norm_aliases[frozenset(normalized_assignment)].append(assignment)
             #print("ADDING", frozenset(normalized_assignment), "for", assignment)
+            if assignment.is_equals():
+                if frozenset(normalized_assignment2) not in self.norm_aliases:
+                    self.norm_aliases[frozenset(normalized_assignment2)] = list()
+                self.norm_aliases[frozenset(normalized_assignment2)].append(assignment)
+                #print("ADDING", frozenset(normalized_assignment2), "for", assignment)
 
         return None if add_to_norms_aliases else normalized_assignment
 
@@ -775,7 +801,7 @@ class WMI:
                         assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
                     #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
                 else:
-                    print("I SEARCHED", atom)
+                    print("I SEARCHED", serialize(atom))
                     print("subterms", subterms)
                     print("BUT IVE FOUND")
                     print("\n".join([str(x) for x in self.norm_aliases.keys()]))
@@ -976,12 +1002,17 @@ class WMI:
             boolean_models = WMI._get_allsat(formula, use_ta=use_ta, atoms=boolean_variables)
 
             # logger.debug("n_boolean_models: {}".format(len(boolean_models)))
-            # for each (partial) boolean assignment mu^A of F        
+            # for each (partial) boolean assignment mu^A of F  
+
+            print("BM WA")    
             for boolean_assignments in boolean_models:
+                print(boolean_assignments)
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+
+                print(lra_formula)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
                 # if some boolean have not been simplified, find TTA on them
