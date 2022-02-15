@@ -89,7 +89,7 @@ class ModelGenerator:
             # the sum of squared rational functions is a non-negative polynomial
             sq_sum = []
             for _ in range(randint(1, self.MAX_SRF)):
-                poly = self._random_polynomial()
+                poly = self._random_polynomial(nonnegative=False)
                 sq_sum.append(Times(poly, poly))
 
             return Plus(sq_sum)
