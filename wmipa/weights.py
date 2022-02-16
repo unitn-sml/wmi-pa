@@ -40,9 +40,9 @@ class Weights:
         self.labelled_weights, subs = self.label_conditions(weight_func)
         self.labels = {}
         self.weight_conditions = {}
-        for i, (cond, sub) in enumerate(subs.items()):
-            self.labels[sub] = i
-            self.weight_conditions[cond] = i
+        for cond, sub in subs.items():
+            self.labels[sub] = self.variables.get_label_index(sub)
+            self.weight_conditions[cond] = self.variables.get_label_index(sub)
         self.n_conditions = len(subs)
         
         # create a formula representing all the substitution (e.g: cond_3 <-> (x < 5))

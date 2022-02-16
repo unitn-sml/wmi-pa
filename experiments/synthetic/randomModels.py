@@ -67,7 +67,7 @@ class ModelGenerator:
             support = self._random_formula(depth)
         return And(domain, support), bounds
 
-    def generate_weights_tree(self, depth, nonnegative=False, splits_only=False):
+    def generate_weights_tree(self, depth, nonnegative=True, splits_only=False):
         if depth <= 0:
             return self._random_polynomial(nonnegative)
         else:
@@ -84,12 +84,12 @@ class ModelGenerator:
             else:
                 return op(left, right)
 
-    def _random_polynomial(self, nonnegative=False):
+    def _random_polynomial(self, nonnegative=True):
         if nonnegative:
             # the sum of squared rational functions is a non-negative polynomial
             sq_sum = []
             for _ in range(randint(1, self.MAX_SRF)):
-                poly = self._random_polynomial()
+                poly = self._random_polynomial(nonnegative=False)
                 sq_sum.append(Times(poly, poly))
 
             return Plus(sq_sum)
@@ -247,7 +247,7 @@ def main():
         r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
-        weight = gen.generate_weights_tree(depth)
+        weight = gen.generate_weights_tree(depth, nonnegative=True)
         domain = Domain.make(bools, bounds)
         density = Density(domain, support, weight)
         density_file = path.join(output_dir, template.format(n=i+1, d=digits))

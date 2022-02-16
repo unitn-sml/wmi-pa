@@ -8,22 +8,23 @@ import numpy as np
 import pandas as pd
 
 TIMEOUT = 3600
-plt.style.use('ggplot')
+plt.style.use("ggplot")
 fs = 15  # font size
 ticks_fs = 15
 lw = 2.5  # line width
 figsize = (10, 8)
-label_step = 50
-COLORS={
-    "PA": '#E24A33', 
-    "PAEUF":'#348ABD', 
-    "PAEUFTA": '#988ED5', 
-    "XADD": '#777777', 
-    "PAWATA": '#FBC15E', 
-    "PAWA": '#000000', 
-    "PANL": '#8EBA42', 
-    "XSDD": '#FFB5B8'
+label_step = 10
+COLORS = {
+    "PA": "#E24A33",
+    "PAEUFTA": "#988ED5",
+    "XSDD": "#777777",
+    "FXSDD": "#111111",
+    "other1": "#FBC15E",
+    "other2": "#8EBA42",
+    "other3": "#348ABD",
+    "other4": "#FFB5B8"
 }
+ORDER = ["FXSDD", "XSDD", "PA", "PAEUFTA"]
 
 
 def error(msg=""):
@@ -55,16 +56,9 @@ def parse_inputs(input_files):
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
-        if mode in ["PAWATA"]:
-            continue
-
-        # params = result_out["params"]
-        # if params["depth"] > 6: continue
-        # print("File: {:80s} found: {:3d}".format(filename, len(result_out["results"])))
 
         for result in result_out["results"]:
             result["mode"] = mode
-            # result.update(params)
         data.extend(result_out["results"])
 
     # groupby to easily generate MulitIndex
@@ -77,26 +71,26 @@ def parse_inputs(input_files):
             count=("time", "count")) \
         .unstack()
 
-    # ensure we have at most one output foreach (support, weight, mode) combination
+    # data.index = data.index.map(os.path.basename)
+
+    # ensure we have at most one output foreach (filename, mode) combination
     assert ((data["count"] == 1) |
             (data["count"].isna())).all().all(), "Some output are duplicated"
 
     # deal with missing values and timeouts
-    # data['time'] = data['time'].fillna(TIMEOUT).clip(upper=TIMEOUT)
-    data['time'] = data['time'].clip(upper=TIMEOUT)
+    data["time"] = data["time"].clip(upper=TIMEOUT)
 
-    # do not plot n_integrations where mode times out or where not available (0)
-    data['n_integrations'] = data['n_integrations'].where(
-        (data['time'] < TIMEOUT) & (data['time'].notna()) &
-        (data['n_integrations'] > 0),
+    # do not plot n_integrations where mode times out or where not available
+    data["n_integrations"] = data["n_integrations"].where(
+        (data["time"] < TIMEOUT) & (data["time"].notna()) &
+        (data["n_integrations"] > 0),
         pd.NA)
 
     # sort by increasing time
     modes = data.columns.get_level_values(1).unique()
-    sort_by = [("time", mode) for mode in ["PA", "PANL", "PAEUF", "PAEUFTA", "XSDD", "XADD", "PAWA", "PAWATA"]
-               if mode in modes]
+    sort_by = [("time", mode) for mode in ORDER if mode in modes]
     data.sort_values(by=sort_by, inplace=True)
-    print(data.reset_index()[["time", "value"]])
+    print(data.reset_index()[["time", "value", "n_integrations"]])
 
     return data
 
@@ -109,8 +103,11 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
         to_i = to or total_problems
         data = data[frm_i:to_i]
         sfx = "_{}_{}".format(frm_i, to_i)
-
-    data[param].plot(linewidth=lw,
+    # plot time for all modes, n_integrations only for *PA*
+    modes = data.columns.get_level_values(1).unique()
+    modes = [mode for mode in modes if param == "time" or "PA" in mode]
+    data = data[param]
+    data[modes].plot(linewidth=lw,
                      figsize=figsize,
                      color=COLORS)
     n_problems = len(data)
@@ -132,7 +129,7 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
     # legend
     plt.legend(loc="center left", fontsize=fs)
     # axes labels
-    plt.xlabel("Random problem instances", fontsize=fs)
+    plt.xlabel("Problem instances", fontsize=fs)
     plt.ylabel(ylabel, fontsize=fs)
     # xticks
     positions = list(range(0, n_problems, label_step))
@@ -153,12 +150,13 @@ def check_values(data, ref="PAEUFTA"):
 
     for mode in data.columns.get_level_values(1).unique():
         ii_m = data[ii]["time", mode] < TIMEOUT
+        # check if results agree with PAEUFTA with an absolute tolerance of 0.005
         diff = ~np.isclose(data[ii][ii_m]["value", mode].values,
-                           data[ii][ii_m]["value", ref].values)
+                           data[ii][ii_m]["value", ref].values, atol=5e-3)
         if diff.any():
             print("Error! {}/{} values of {} do not match with {}".format(
                 diff.sum(), len(diff), mode, ref))
-            print(data[ii][ii_m][diff].reset_index()[["time", "value"]])
+            print(data[ii][ii_m][diff][["value"]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(
                 mode, len(diff)))
@@ -171,7 +169,23 @@ def parse_interval(interval):
     return frm, to
 
 
-def main(args):
+def parse_args():
+    parser = argparse.ArgumentParser(description="Plot WMI results")
+    parser.add_argument(
+        "input", nargs="+", help="Folder and/or files containing result files as .json")
+    parser.add_argument("-o", "--output", default=os.getcwd(),
+                        help="Output folder where to put the plots (default: cwd)")
+    parser.add_argument("-f", "--filename", default="",
+                        help="String to add to the name of the plots (optional)")
+    parser.add_argument("--intervals", nargs="+", default=[],
+                        help="Sub-intervals to plot in the format from-to (optional)")
+    parser.add_argument("--no-timeout", action="store_true",
+                        help="If true timeout line is not plotted")
+    return parser.parse_args()
+
+
+def main():
+    args = parse_args()
     inputs = args.input
     output_dir = args.output
     intervals = args.intervals
@@ -194,16 +208,5 @@ def main(args):
     plot_data(output_dir, data, "n_integrations", filename=filename)
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Plot WMI results')
-    parser.add_argument(
-        'input', nargs='+', help='Folder and/or files containing result files as .json')
-    parser.add_argument('-o', '--output', default=os.getcwd(),
-                        help='Output folder where to put the plots (default: cwd)')
-    parser.add_argument('-f', '--filename', default="",
-                        help='String to add to the name of the plots (optional)')
-    parser.add_argument('--intervals', nargs='+', default=[],
-                        help='Sub-intervals to plot in the format from-to (optional)')
-    parser.add_argument('--no-timeout', action='store_true',
-                        help='If true timeout line is not plotted')
-    main(parser.parse_args())
+if __name__ == "__main__":
+    main()
