@@ -63,7 +63,7 @@ def parse_inputs(input_files):
 
     # groupby to easily generate MulitIndex
     data = pd.DataFrame(data) \
-        .groupby(["filename", "mode"]) \
+        .groupby(["filename", "query", "mode"]) \
         .aggregate(
             time=("time", "min"),
             n_integrations=("n_integrations", "min"),
