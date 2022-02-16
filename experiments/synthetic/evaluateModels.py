@@ -5,7 +5,7 @@ from wmipa import WMI
 from multiprocessing import Process, Queue
 from queue import Empty as EmptyQueueError
 from pywmi import Density
-from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra
+from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra, RejectionEngine
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
 from pywmi.engines.xsdd.vtrees.vtree import balanced
@@ -43,6 +43,10 @@ def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
                         vtree_strategy=balanced,
                         algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
                         ordered=False)
+        elif mode == "Rejection":
+                    wmi = RejectionEngine(domain,
+                                support,
+                                weight, sample_count=100000)
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
@@ -93,7 +97,7 @@ def problems_from_densities(input_files):
 
 def parse_args():
     modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
-        0, 4)] + WMI.MODES + ["XADD", "XSDD", "FXSDD"]
+        0, 4)] + WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .json files')

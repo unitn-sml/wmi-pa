@@ -19,12 +19,12 @@ COLORS = {
     "PAEUFTA": "#988ED5",
     "XSDD": "#777777",
     "FXSDD": "#111111",
-    "other1": "#FBC15E",
+    "Rejection": "#FBC15E",
     "other2": "#8EBA42",
     "other3": "#348ABD",
     "other4": "#FFB5B8"
 }
-ORDER = ["FXSDD", "XSDD", "PA", "PAEUFTA"]
+ORDER = ["PA", "PAEUFTA", "FXSDD", "XSDD"]
 
 
 def error(msg=""):
@@ -152,7 +152,7 @@ def check_values(data, ref="PAEUFTA"):
         ii_m = data[ii]["time", mode] < TIMEOUT
         # check if results agree with PAEUFTA with an absolute tolerance of 0.005
         diff = ~np.isclose(data[ii][ii_m]["value", mode].values,
-                           data[ii][ii_m]["value", ref].values, atol=5e-3)
+                           data[ii][ii_m]["value", ref].values, atol=5e-2)
         if diff.any():
             print("Error! {}/{} values of {} do not match with {}".format(
                 diff.sum(), len(diff), mode, ref))
