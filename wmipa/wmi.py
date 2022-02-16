@@ -404,8 +404,8 @@ class WMI:
         mathsat.msat_all_sat(solver.msat_env(),
                         [converter.convert(v) for v in pa_vars],
                         lambda model : WMI._callback(model, converter, models))
-        print("TTA")
-        print(models)
+        #print("TTA")
+        #print(models)
         return models, labels
 
     def _compute_WMI_AllSMT(self, formula, weights):
@@ -799,7 +799,7 @@ class WMI:
                     #print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
                     for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
                         assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
-                    #print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
+                        #print(not value if element_of_normalization.is_lt() else value)
                 else:
                     print("I SEARCHED", serialize(atom))
                     print("subterms", subterms)
@@ -810,86 +810,6 @@ class WMI:
                     assignments[atom] = value
             assignments.update(other_assignments)
             yield assignments
-
-
-        """
-        for mu_lra in lra_assignments:
-            assignments = {}
-            i = 1
-            print("MULRA", WMI._get_assignments(mu_lra).items())
-            for atom, value in mu_lra.items():
-                print("ATOM", i, atom, value, atom.get_free_variables())
-                i+=1
-                subterms = []
-                left, right = atom.args()[0], atom.args()[1]
-                if len(atom.get_free_variables()) > 2 or (len(atom.get_free_variables()) <= 2 and (right.is_real_constant() or left.is_real_constant() )):
-                    if right.is_real_constant():
-                        print("RIGHT")
-                        subterms.append(-1.0 if right.constant_value() != 0 else 0.0) 
-                        temp = [left]
-                        for el in temp:
-                            if el.is_plus():
-                                temp.append(el.args()[0])
-                                temp.append(el.args()[1])
-                            else:
-                                if len(el.args()) == 0:
-                                    subterms.append((round(1.0/float(right.constant_value()), precision) if right.constant_value() != 0 else 1.0, el))
-                                else:
-                                    subterms.append((
-                                        round(float(el.args()[0].constant_value())/float(right.constant_value()), precision) if right.constant_value() != 0 
-                                        else round(float(el.args()[0].constant_value()), precision), el.args()[1]))
-                    elif left.is_real_constant():
-                        print('LEFT')
-                        subterms.append(1.0 if left.constant_value() != 0 else 0.0)
-                        temp = [right]
-                        for el in temp:
-                            if el.is_plus():
-                                temp.append(el.args()[0])
-                                temp.append(el.args()[1])
-                            else:
-                                if len(el.args()) == 0:
-                                    subterms.append((round(-1.0/float(left.constant_value()), precision) if left.constant_value() != 0 else -1.0, el))
-                                else:
-                                    subterms.append((
-                                        round(-float(el.args()[0].constant_value())/float(left.constant_value()), precision) if left.constant_value() != 0 
-                                        else round(-float(el.args()[0].constant_value()), precision), el.args()[1])
-                                    )
-
-                    print(subterms)
-                    if frozenset(subterms) in self.norm_aliases:
-                        print("ATOM NORMALIZED with", self.norm_aliases[frozenset(subterms)])
-                        assignments[self.norm_aliases[frozenset(subterms)]] = not value if self.norm_aliases[frozenset(subterms)].is_lt() else value
-                        print("ASSIGNING", not value if self.norm_aliases[frozenset(subterms)].is_lt() else value)
-                    else:
-                        print("I SEARCHED", subterms)
-                        print("BUT IVE FOUND")
-                        print("\n".join([str(x) for x in self.norm_aliases.keys()]))
-                        assignments[atom] = value
-                else:
-                    print("IMHERE")
-                    if atom in self.norm_aliases:
-                        print("ATOM NORMALIZED")
-                        assignments[self.norm_aliases[atom]] = value
-                    else:
-                        assignments[atom] = value
-                #print()
-            #print("ENDING", assignments)
-            assignments.update(other_assignments)
-            yield assignments
-
-
-        """
-        
-        
-        """
-        lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
-        for mu_lra in lra_assignments:                    
-            assignments = {}
-            for atom, value in WMI._get_assignments(mu_lra).items():
-                assignments[atom] = value
-            assignments.update(other_assignments)
-            yield assignments
-        """
 
     @staticmethod
     def _simplify_formula(formula, subs, atom_assignments):
@@ -1004,15 +924,15 @@ class WMI:
             # logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each (partial) boolean assignment mu^A of F  
 
-            print("BM WA")    
+            #print("BM WA")    
             for boolean_assignments in boolean_models:
-                print(boolean_assignments)
+                #print(boolean_assignments)
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
-                print(lra_formula)
+                #print(lra_formula)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
                 # if some boolean have not been simplified, find TTA on them
