@@ -18,7 +18,6 @@ import json
 from os import path
 
 
-
 def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
     if "PA" in mode:
         wmi = WMI(support, weight, stub_integrate=stub,
@@ -34,7 +33,8 @@ def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
         elif mode == "XSDD":
             wmi = XsddEngine(support=support, weight=weight,
                              domain=domain,
-                             algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                             algebra=PyXaddAlgebra(
+                                 symbolic_backend=SympyAlgebra()),
                              ordered=False)
         elif mode == "FXSDD":
             wmi = FXSDD(domain,
@@ -44,9 +44,9 @@ def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
                         algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
                         ordered=False)
         elif mode == "Rejection":
-                    wmi = RejectionEngine(domain,
-                                support,
-                                weight, sample_count=100000)
+            wmi = RejectionEngine(domain,
+                                  support,
+                                  weight, sample_count=100000)
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
@@ -90,9 +90,13 @@ def problems_from_densities(input_files):
             print("Error on parsing", filename)
             # traceback.print_exception(type(ex), ex, ex.__traceback__)
             continue
-        yield filename, density.domain, density.support, density.weight
-        print("\r"*300, end='')
-        print("Problem: {}/{} ({})".format(i+1, len(input_files), filename), end='')
+        queries = density.queries or [Bool(True)]
+        for j, query in enumerate(queries):
+            support = density.support & query
+            yield filename, j+1, density.domain, support, density.weight
+            print("\r"*300, end='')
+            print("Problem: {} (query {}/{})/{} ({})".format(i+1, j+1,
+                  len(density.queries), len(input_files), filename), end='')
 
 
 def parse_args():
@@ -145,21 +149,21 @@ def main():
     time_start = time.time()
     results = []
 
-    for filename, domain, support, weight in problems_from_densities(files):
+    for filename, query_n, domain, support, weight in problems_from_densities(files):
         cache = -1
         if "cache" in mode:
             cache = int(mode.split("_")[2])
 
         time_init = time.time()
         q = Queue()
-        
+
         timed_proc = Process(
             target=compute_wmi, args=(domain,
                                       support,
                                       weight,
                                       mode.split("_")[0],
                                       cache,
-                                      threads, 
+                                      threads,
                                       stub,
                                       q),
         )
@@ -193,6 +197,7 @@ def main():
 
         res = {
             "filename": filename,
+            "query": query_n,
             "value": value,
             "n_integrations": n_integrations,
             "time": time_total,
