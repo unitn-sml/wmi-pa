@@ -25,6 +25,7 @@ COLORS = {
     "other4": "#FFB5B8"
 }
 ORDER = ["PA", "PAEUFTA", "FXSDD", "XSDD"]
+ERR_TOLERANCE = 5e-2  # absolute tolerance on value mismatch
 
 
 def error(msg=""):
@@ -62,35 +63,16 @@ def parse_inputs(input_files):
         data.extend(result_out["results"])
 
     # groupby to easily generate MulitIndex
-    data = pd.DataFrame(data) \
-        .groupby(["filename", "query", "mode"]) \
-        .aggregate(
-            time=("time", "min"),
-            n_integrations=("n_integrations", "min"),
-            value=("value", "min"),
-            count=("time", "count")) \
-        .unstack()
-
-    # data.index = data.index.map(os.path.basename)
-
-    # ensure we have at most one output foreach (filename, mode) combination
-    assert ((data["count"] == 1) |
-            (data["count"].isna())).all().all(), "Some output are duplicated"
+    data = pd.DataFrame(data)
 
     # deal with missing values and timeouts
     data["time"] = data["time"].clip(upper=TIMEOUT)
 
     # do not plot n_integrations where mode times out or where not available
     data["n_integrations"] = data["n_integrations"].where(
-        (data["time"] < TIMEOUT) & (data["time"].notna()) &
+        # (data["time"] < TIMEOUT) & (data["time"].notna()) &
         (data["n_integrations"] > 0),
         pd.NA)
-
-    # sort by increasing time
-    modes = data.columns.get_level_values(1).unique()
-    sort_by = [("time", mode) for mode in ORDER if mode in modes]
-    data.sort_values(by=sort_by, inplace=True)
-    print(data.reset_index()[["time", "value", "n_integrations"]])
 
     return data
 
@@ -103,14 +85,22 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
         to_i = to or total_problems
         data = data[frm_i:to_i]
         sfx = "_{}_{}".format(frm_i, to_i)
+    n_problems = len(data)
     # plot time for all modes, n_integrations only for *PA*
+    plt.figure(figsize=figsize)
     modes = data.columns.get_level_values(1).unique()
     modes = [mode for mode in modes if param == "time" or "PA" in mode]
-    data = data[param]
-    data[modes].plot(linewidth=lw,
-                     figsize=figsize,
-                     color=COLORS)
-    n_problems = len(data)
+    for mode in modes:
+        plt.plot(data[param][mode], color=COLORS[mode],
+                 label=mode, linewidth=lw)
+        stddev_col = "stddev{}".format(param)
+        sup = data[param][mode] + data[stddev_col][mode]
+        inf = data[param][mode] - data[stddev_col][mode]
+        plt.fill_between(range(n_problems), sup, inf)
+    # data = data[param]
+    # data[modes].plot(linewidth=lw,
+    #                  figsize=figsize,
+    #                  color=COLORS)
     # timeout line
     if timeout is not None:
         x = list(range(n_problems))
@@ -146,20 +136,34 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
 
 
 def check_values(data, ref="PAEUFTA"):
-    ii = data["value", ref].notna()
+    data = data \
+        .groupby(["filename", "query", "mode"]) \
+        .aggregate(
+            time=("time", "min"),
+            value=("value", "min"),
+            count=("time", "count")) \
+        .unstack()
 
+    # ensure we have at most one output foreach (filename, query, mode) combination
+    assert ((data["count"] == 1) |
+            (data["count"].isna())).all().all(), "Some output are duplicated"
+
+    print(data.reset_index()[["time", "value"]])
+
+    # check values match with the reference mode "ref" (where not NaN)
+    ii = data["value", ref].notna()
     for mode in data.columns.get_level_values(1).unique():
-        ii_m = data[ii]["time", mode] < TIMEOUT
-        # check if results agree with PAEUFTA with an absolute tolerance of 0.005
-        diff = ~np.isclose(data[ii][ii_m]["value", mode].values,
-                           data[ii][ii_m]["value", ref].values, atol=5e-2)
+        indexes = ii & data["value", mode].notna()
+        # check if results agree with PAEUFTA with an absolute tolerance of ERR_TOLERANCE
+        diff = ~np.isclose(data[indexes]["value", mode].values,
+                           data[indexes]["value", ref].values, atol=ERR_TOLERANCE)
         if diff.any():
             print("Error! {}/{} values of {} do not match with {}".format(
-                diff.sum(), len(diff), mode, ref))
-            print(data[ii][ii_m][diff][["value"]])
+                diff.sum(), indexes.sum(), mode, ref))
+            print(data[indexes][diff][["value"]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(
-                mode, len(diff)))
+                mode, indexes.sum()))
 
 
 def parse_interval(interval):
@@ -167,6 +171,26 @@ def parse_interval(interval):
     frm = int(frm) if frm != "" else None
     to = int(to) if to != "" else None
     return frm, to
+
+
+def group_data(data):
+    data = data \
+        .groupby(["filename", "mode"]) \
+        .aggregate(
+            time=("time", "mean"),
+            stddevtime=("time", "std"),
+            n_integrations=("n_integrations", "mean"),
+            stddevn_integrations=("n_integrations", "std")) \
+        .unstack()
+    # stddev is NaN if with only one attribute
+    data["stddevtime"] = data["stddevtime"].fillna(0)
+    data["stddevn_integrations"] = data["stddevn_integrations"].fillna(0)
+
+    # sort by increasing time
+    modes = data.columns.get_level_values(1).unique()
+    sort_by = [("time", mode) for mode in ORDER if mode in modes]
+    data.sort_values(by=sort_by, inplace=True)
+    return data
 
 
 def parse_args():
@@ -198,6 +222,8 @@ def main():
     input_files = get_input_files(inputs)
     data = parse_inputs(input_files)
     check_values(data)
+    data = group_data(data)
+
     for interval in intervals:
         frm, to = parse_interval(interval)
         plot_data(output_dir, data, "time", frm=frm, to=to, filename=filename)

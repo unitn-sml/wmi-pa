@@ -92,11 +92,25 @@ def problems_from_densities(input_files):
             continue
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
-            support = density.support & query
-            yield filename, j+1, density.domain, support, density.weight
             print("\r"*300, end='')
             print("Problem: {} (query {}/{})/{} ({})".format(i+1, j+1,
-                  len(density.queries), len(input_files), filename), end='')
+                  len(queries), len(input_files), filename), end='')
+            support = density.support & query
+            yield filename, j+1, density.domain, support, density.weight
+
+def write_result(mode, res, output_file):
+    if not os.path.exists(output_file):
+        info = {
+            "mode": mode,
+            "results": [res]
+        }
+    else:
+        with open(output_file, 'r') as f:
+            info = json.load(f)
+        info["results"].append(res)
+
+    with open(output_file, 'w') as f:
+        json.dump(info, f, indent=4)
 
 
 def parse_args():
@@ -141,15 +155,16 @@ def main():
     output_file = output_file or "{}_{}_{}.json".format(
         os.path.split(input_dir.rstrip('/'))[1], mode, int(time.time()))
     output_file = path.join(output_dir, output_file)
+    print("Creating... {}".format(output_file))
+
 
     elements = [path.join(input_dir, f) for f in os.listdir(input_dir)]
     files = [e for e in elements if path.isfile(e)]
 
     print("Started computing")
     time_start = time.time()
-    results = []
 
-    for filename, query_n, domain, support, weight in problems_from_densities(files):
+    for i, (filename, query_n, domain, support, weight) in enumerate(problems_from_densities(files)):
         cache = -1
         if "cache" in mode:
             cache = int(mode.split("_")[2])
@@ -194,7 +209,6 @@ def main():
             time_total = time.time() - time_init
 
         value, n_integrations, integration_time = res
-
         res = {
             "filename": filename,
             "query": query_n,
@@ -203,19 +217,12 @@ def main():
             "time": time_total,
             "integration_time": integration_time
         }
-        results.append(res)
+        write_result(mode, res, output_file)
 
     print()
-    print("Computed {} WMI".format(len(results)))
+    print("Computed {} WMI".format(i + 1))
 
-    info = {
-        "mode": mode,
-        "results": results
-    }
-
-    with open(output_file, 'w') as f:
-        json.dump(info, f, indent=4)
-    print("Created {}".format(output_file))
+    
 
     seconds = time.time() - time_start
     print("Done! {:.3f}s".format(seconds))
