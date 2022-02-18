@@ -105,6 +105,7 @@ class Latte_Integrator(Integrator):
         elif cache == 1 or cache == 2 or cache == 3:
             unique_problems = {}
             cached_before = 0
+            problems_to_integrate = []
             for index in range(len(problems)):
                 # get problem
                 atom_assignments, weight, aliases, cond_assignments = problems[index]
@@ -129,17 +130,17 @@ class Latte_Integrator(Integrator):
                         "integrand": integrand,
                         "polytope": polytope,
                         "key": key,
-                        "count": 0
+                        "count": 1
                     }
-                else:
-                    cached_before += 1
-                unique_problems[key]["count"] += 1
+                # else:
+                #     cached_before += 1
+                problems_to_integrate.append(unique_problems[key])
 
-            unique_problems = list(unique_problems.values())
+            # unique_problems = list(unique_problems.values())
 
             # Handle multithreading
             pool = Pool(self.n_threads)
-            results = pool.map(self._integrate_latte_2, unique_problems)
+            results = pool.map(self._integrate_latte_2, problems_to_integrate)
             values = [r[0] for r in results]
             cached = len([r[1] for r in results if r[1] > 0])
             pool.close()
