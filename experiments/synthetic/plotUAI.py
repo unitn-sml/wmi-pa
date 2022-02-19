@@ -154,7 +154,7 @@ def check_values(data, ref="PAEUFTA"):
     assert ((data["count"] == 1) |
             (data["count"].isna())).all().all(), "Some output are duplicated"
 
-    print(data.reset_index()[["time", "value"]])
+    # print(data.reset_index()[["time", "value"]])
 
     # check values match with the reference mode "ref" (where not NaN)
     ii = data["value", ref].notna()
@@ -196,14 +196,13 @@ def group_data(data, cactus):
     modes = data.columns.get_level_values(0).unique()
     modes = [mode for mode in ORDER if mode in modes]
     if cactus:
-        print(data)
         # sort each column independently
         for param in ("time", "n_integrations"):
             for mode in modes:
                 stdcol = "std{}".format(param)
                 cols = data[mode][[param, stdcol]].sort_values(
                     by=param, ignore_index=True)
-                data[mode][[param, stdcol]] = cols
+                data.loc[:][mode][[param, stdcol]] = cols
                
         # print(data["PAEUFTA"])
     else:
