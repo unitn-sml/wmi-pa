@@ -17,14 +17,14 @@ label_step = 10
 COLORS = {
     "PA": "#E24A33",
     "PAEUFTA": "#988ED5",
-    "XSDD": "#777777",
-    "FXSDD": "#111111",
+    "XSDD": "#348ABD",
+    "FXSDD": "#554348",
+    "XADD": "#093A3E",
     "Rejection": "#FBC15E",
-    "other2": "#8EBA42",
-    "other3": "#348ABD",
+    "PA_cache_2": "#8EBA42",
     "other4": "#FFB5B8"
 }
-ORDER = ["PA", "PAEUFTA", "FXSDD", "XSDD"]
+ORDER = ["XADD", "XSDD", "FXSDD", "PA", "PA_cache_2", "PAEUF", "PAEUFTA"]
 ERR_TOLERANCE = 5e-2  # absolute tolerance on value mismatch
 
 
@@ -77,8 +77,9 @@ def parse_inputs(input_files):
     return data
 
 
-def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename=""):
+def plot_data(outdir, data, param, xlabel, timeout=None, frm=None, to=None, filename=""):
     total_problems = len(data)
+    # crop from:to if necessary
     sfx = ""
     if frm is not None or to is not None:
         frm_i = frm or 0
@@ -86,21 +87,9 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
         data = data[frm_i:to_i]
         sfx = "_{}_{}".format(frm_i, to_i)
     n_problems = len(data)
-    # plot time for all modes, n_integrations only for *PA*
+
     plt.figure(figsize=figsize)
-    modes = data.columns.get_level_values(1).unique()
-    modes = [mode for mode in modes if param == "time" or "PA" in mode]
-    for mode in modes:
-        plt.plot(data[param][mode], color=COLORS[mode],
-                 label=mode, linewidth=lw)
-        stddev_col = "stddev{}".format(param)
-        sup = data[param][mode] + data[stddev_col][mode]
-        inf = data[param][mode] - data[stddev_col][mode]
-        plt.fill_between(range(n_problems), sup, inf)
-    # data = data[param]
-    # data[modes].plot(linewidth=lw,
-    #                  figsize=figsize,
-    #                  color=COLORS)
+
     # timeout line
     if timeout is not None:
         x = list(range(n_problems))
@@ -111,6 +100,22 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
                  label="timeout",
                  color="r")
 
+    # plot time for all modes, n_integrations only for *PA*
+    modes = data.columns.get_level_values(0).unique()
+    modes = [mode for mode in ORDER if mode in modes]
+    modes = [mode for mode in modes if param == "time" or "PA" in mode]
+    for mode in modes:
+        plt.plot(data[mode][param], color=COLORS[mode],
+                 label=mode, linewidth=lw, marker="x")
+        # stddev
+        stdcol = "std{}".format(param)
+        sup = (data[mode][param] + data[mode][stdcol])
+        if param == "time":
+            sup.clip(upper=TIMEOUT, inplace=True)
+        inf = (data[mode][param] - data[mode][stdcol]).clip(lower=0)
+        plt.fill_between(range(n_problems), sup, inf,
+                         color=COLORS[mode], alpha=0.1)
+
     if param == "time":
         ylabel = "Query execution time (seconds)"
     else:
@@ -119,9 +124,10 @@ def plot_data(outdir, data, param, timeout=None, frm=None, to=None, filename="")
     # legend
     plt.legend(loc="center left", fontsize=fs)
     # axes labels
-    plt.xlabel("Problem instances", fontsize=fs)
+    plt.xlabel(xlabel, fontsize=fs)
     plt.ylabel(ylabel, fontsize=fs)
     # xticks
+    n_problems = len(data)
     positions = list(range(0, n_problems, label_step))
     labels = list(range(frm or 0, to or total_problems, label_step))
     plt.xticks(positions, labels, fontsize=ticks_fs)
@@ -173,23 +179,37 @@ def parse_interval(interval):
     return frm, to
 
 
-def group_data(data):
+def group_data(data, cactus):
+    # aggregate and compute the mean for each query
     data = data \
         .groupby(["filename", "mode"]) \
         .aggregate(
             time=("time", "mean"),
-            stddevtime=("time", "std"),
+            stdtime=("time", "std"),
             n_integrations=("n_integrations", "mean"),
-            stddevn_integrations=("n_integrations", "std")) \
-        .unstack()
-    # stddev is NaN if with only one attribute
-    data["stddevtime"] = data["stddevtime"].fillna(0)
-    data["stddevn_integrations"] = data["stddevn_integrations"].fillna(0)
+            stdn_integrations=("n_integrations", "std")) \
+        .unstack() \
+        .swaplevel(0, 1, axis=1) \
+        .sort_index(axis=1) \
+        .reset_index(drop=True)
 
-    # sort by increasing time
-    modes = data.columns.get_level_values(1).unique()
-    sort_by = [("time", mode) for mode in ORDER if mode in modes]
-    data.sort_values(by=sort_by, inplace=True)
+    modes = data.columns.get_level_values(0).unique()
+    modes = [mode for mode in ORDER if mode in modes]
+    if cactus:
+        print(data)
+        # sort each column independently
+        for param in ("time", "n_integrations"):
+            for mode in modes:
+                stdcol = "std{}".format(param)
+                cols = data[mode][[param, stdcol]].sort_values(
+                    by=param, ignore_index=True)
+                data[mode][[param, stdcol]] = cols
+               
+        # print(data["PAEUFTA"])
+    else:
+        # sort by increasing time
+        sort_by = [(mode, "time") for mode in modes]
+        data.sort_values(by=sort_by, inplace=True, ignore_index=True)
     return data
 
 
@@ -205,6 +225,8 @@ def parse_args():
                         help="Sub-intervals to plot in the format from-to (optional)")
     parser.add_argument("--no-timeout", action="store_true",
                         help="If true timeout line is not plotted")
+    parser.add_argument("--cactus", action="store_true",
+                        help="If true use cactus plot")
     return parser.parse_args()
 
 
@@ -216,22 +238,29 @@ def main():
     filename = args.filename
     timeout = None if args.no_timeout else TIMEOUT
 
+    if args.cactus:
+        xlabel = "Number of problems solved"
+    else:
+        xlabel = "Problem instances"
+
     if not os.path.exists(output_dir):
         error("Output folder '{}' does not exists".format(output_dir))
 
     input_files = get_input_files(inputs)
     data = parse_inputs(input_files)
     check_values(data)
-    data = group_data(data)
+    data = group_data(data, args.cactus)
 
     for interval in intervals:
         frm, to = parse_interval(interval)
-        plot_data(output_dir, data, "time", frm=frm, to=to, filename=filename)
-        plot_data(output_dir, data, "n_integrations",
+        plot_data(output_dir, data, "time", xlabel,
+                  frm=frm, to=to, filename=filename)
+        plot_data(output_dir, data, "n_integrations", xlabel,
                   frm=frm, to=to, filename=filename)
 
-    plot_data(output_dir, data, "time", timeout=timeout, filename=filename)
-    plot_data(output_dir, data, "n_integrations", filename=filename)
+    plot_data(output_dir, data, "time", xlabel,
+              timeout=timeout, filename=filename)
+    plot_data(output_dir, data, "n_integrations", xlabel, filename=filename)
 
 
 if __name__ == "__main__":
