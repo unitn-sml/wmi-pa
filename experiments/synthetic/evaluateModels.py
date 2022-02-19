@@ -203,10 +203,11 @@ def main():
         else:
             try:
                 res = q.get(block=False)
+                time_total = time.time() - time_init
             except EmptyQueueError:
-                print("Empty queue")
+                # killed because of exceeding resources
                 res = (None, None, timeout)
-            time_total = time.time() - time_init
+                time_total = timeout
 
         value, n_integrations, integration_time = res
         res = {
