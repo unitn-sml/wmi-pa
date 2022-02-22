@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-TIMEOUT = 3600
 plt.style.use("ggplot")
 fs = 15  # font size
 ticks_fs = 15
@@ -16,7 +15,7 @@ figsize = (10, 8)
 label_step = 10
 COLORS = {
     "PA": "#E24A33",
-    "PAEUFTA": "#988ED5",
+    "SA-PA": "#988ED5",
     "XSDD": "#348ABD",
     "FXSDD": "#554348",
     "XADD": "#093A3E",
@@ -24,7 +23,7 @@ COLORS = {
     "PA_cache_2": "#8EBA42",
     "other4": "#FFB5B8"
 }
-ORDER = ["XADD", "XSDD", "FXSDD", "PA", "PA_cache_2", "PAEUF", "PAEUFTA"]
+ORDER = ["XADD", "XSDD", "FXSDD", "PA", "PA_cache_2", "SA-PA"]
 ERR_TOLERANCE = 5e-2  # absolute tolerance on value mismatch
 
 
@@ -51,12 +50,15 @@ def get_input_files(input_dirs):
     return input_files
 
 
-def parse_inputs(input_files):
+def parse_inputs(input_files, timeout):
     data = []
     for filename in input_files:
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
+    
+        if mode == "PAEUFTA":
+            mode = "SA-PA"
 
         for result in result_out["results"]:
             result["mode"] = mode
@@ -66,7 +68,8 @@ def parse_inputs(input_files):
     data = pd.DataFrame(data)
 
     # deal with missing values and timeouts
-    data["time"] = data["time"].clip(upper=TIMEOUT)
+    if timeout:
+        data["time"] = data["time"].clip(upper=timeout)
 
     # do not plot n_integrations where mode times out or where not available
     data["n_integrations"] = data["n_integrations"].where(
@@ -77,7 +80,7 @@ def parse_inputs(input_files):
     return data
 
 
-def plot_data(outdir, data, param, xlabel, timeout=None, frm=None, to=None, filename=""):
+def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filename=""):
     total_problems = len(data)
     # crop from:to if necessary
     sfx = ""
@@ -91,7 +94,7 @@ def plot_data(outdir, data, param, xlabel, timeout=None, frm=None, to=None, file
     plt.figure(figsize=figsize)
 
     # timeout line
-    if timeout is not None:
+    if timeout:
         x = list(range(n_problems))
         y = [timeout] * n_problems
         plt.plot(x, y,
@@ -110,8 +113,8 @@ def plot_data(outdir, data, param, xlabel, timeout=None, frm=None, to=None, file
         # stddev
         stdcol = "std{}".format(param)
         sup = (data[mode][param] + data[mode][stdcol])
-        if param == "time":
-            sup.clip(upper=TIMEOUT, inplace=True)
+        if param == "time" and timeout:
+            sup.clip(upper=timeout, inplace=True)
         inf = (data[mode][param] - data[mode][stdcol]).clip(lower=0)
         plt.fill_between(range(n_problems), sup, inf,
                          color=COLORS[mode], alpha=0.1)
@@ -141,7 +144,7 @@ def plot_data(outdir, data, param, xlabel, timeout=None, frm=None, to=None, file
     plt.clf()
 
 
-def check_values(data, ref="PAEUFTA"):
+def check_values(data, ref="SA-PA"):
     data = data \
         .groupby(["filename", "query", "mode"]) \
         .aggregate(
@@ -151,8 +154,7 @@ def check_values(data, ref="PAEUFTA"):
         .unstack()
 
     # ensure we have at most one output foreach (filename, query, mode) combination
-    assert ((data["count"] == 1) |
-            (data["count"].isna())).all().all(), "Some output are duplicated"
+    assert (data["count"] == 1).all().all(), "Some output are duplicated"
 
     # print(data.reset_index()[["time", "value"]])
 
@@ -160,13 +162,13 @@ def check_values(data, ref="PAEUFTA"):
     ii = data["value", ref].notna()
     for mode in data.columns.get_level_values(1).unique():
         indexes = ii & data["value", mode].notna()
-        # check if results agree with PAEUFTA with an absolute tolerance of ERR_TOLERANCE
+        # check if results agree with SA-PA with an absolute tolerance of ERR_TOLERANCE
         diff = ~np.isclose(data[indexes]["value", mode].values,
                            data[indexes]["value", ref].values, atol=ERR_TOLERANCE)
         if diff.any():
             print("Error! {}/{} values of {} do not match with {}".format(
                 diff.sum(), indexes.sum(), mode, ref))
-            print(data[indexes][diff][["value"]])
+            print(data[indexes][diff]["value"][["SA-PA", "XADD", "FXSDD"]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(
                 mode, indexes.sum()))
@@ -188,9 +190,8 @@ def group_data(data, cactus):
             stdtime=("time", "std"),
             n_integrations=("n_integrations", "mean"),
             stdn_integrations=("n_integrations", "std")) \
-        .unstack() \
-        .swaplevel(0, 1, axis=1) \
-        .sort_index(axis=1) \
+        .stack(dropna=False)\
+        .unstack(level=(1, 2)) \
         .reset_index(drop=True)
 
     modes = data.columns.get_level_values(0).unique()
@@ -203,8 +204,8 @@ def group_data(data, cactus):
                 cols = data[mode][[param, stdcol]].sort_values(
                     by=param, ignore_index=True)
                 data.loc[:][mode][[param, stdcol]] = cols
-               
-        # print(data["PAEUFTA"])
+
+        # print(data["SA-PA"])
     else:
         # sort by increasing time
         sort_by = [(mode, "time") for mode in modes]
@@ -222,7 +223,7 @@ def parse_args():
                         help="String to add to the name of the plots (optional)")
     parser.add_argument("--intervals", nargs="+", default=[],
                         help="Sub-intervals to plot in the format from-to (optional)")
-    parser.add_argument("--no-timeout", action="store_true",
+    parser.add_argument("--timeout", type=int, default=0,
                         help="If true timeout line is not plotted")
     parser.add_argument("--cactus", action="store_true",
                         help="If true use cactus plot")
@@ -235,7 +236,7 @@ def main():
     output_dir = args.output
     intervals = args.intervals
     filename = args.filename
-    timeout = None if args.no_timeout else TIMEOUT
+    timeout = args.timeout
 
     if args.cactus:
         xlabel = "Number of problems solved"
@@ -246,7 +247,7 @@ def main():
         error("Output folder '{}' does not exists".format(output_dir))
 
     input_files = get_input_files(inputs)
-    data = parse_inputs(input_files)
+    data = parse_inputs(input_files, timeout)
     check_values(data)
     data = group_data(data, args.cactus)
 
