@@ -57,7 +57,7 @@ def parse_inputs(input_files, timeout):
             result_out = json.load(f)
         mode = result_out["mode"]
 
-        if mode == "PAEUFTA":
+        if mode == "SAPA":
             mode = "SA-WMI-PA"
         if mode == "PA":
             mode = "WMI-PA"

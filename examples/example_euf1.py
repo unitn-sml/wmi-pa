@@ -27,14 +27,14 @@ w = Ite(a & (x1 >= 1.5),
                 Plus(
                     Ite(x2 <= 0.5, x1 * x1, x1 * x2),
                     Ite(x1 + x2 <= 1, x2 * x2, x1 * x2)
-                ),
+            ),
                 Plus(
                     Ite(x2 <= 0.5, x1 * x1, x1 * x2),
                     Ite(x1 + x2 <= 1, x2 * x2, x1 * x2)
-                )
-                )
-        ),
-        Times(
+            )
+            )
+),
+    Times(
             Ite((x2 <= 1.5),
                 3*(x1*x1),
                 4*(x1)
@@ -43,8 +43,8 @@ w = Ite(a & (x1 >= 1.5),
                 3*(x2*x2),
                 4*(x2)
                 )
-        )
-    )
+)
+)
 
 chi = And(LE(Real(0), x1), LT(x1, Real(1)),
           LE(Real(0), x2), LT(x2, Real(2)),
@@ -54,8 +54,7 @@ print("Weight function:", serialize(w))
 print("Support:", serialize(chi))
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, 
-             WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA, WMI.MODE_PA_WA, WMI.MODE_PA_WA_TA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode, cache=-1)
     print("WMI with mode {} \t result = {}, \t # integrations = {}".format(

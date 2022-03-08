@@ -29,7 +29,7 @@ print("Formula:", serialize(phi))
 # weight function definition
 w = Ite(LE(y, Real(1)),
         Plus(x, y),
-        Times(Real(2),y))
+        Times(Real(2), y))
 
 chi = Bool(True)
 
@@ -38,9 +38,7 @@ print("Support:", serialize(chi))
 
 wmi = WMI(chi, w)
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, 
-             WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA, WMI.MODE_PA_WA, WMI.MODE_PA_WA_TA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
-
-        
+    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(
+        mode, result, n_integrations))

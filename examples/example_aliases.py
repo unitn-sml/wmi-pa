@@ -8,29 +8,29 @@ y = Symbol("y", REAL)
 
 # ---- chi correct (6.0) ----
 chi = And(
-    GE(x, Real(0)), 
+    GE(x, Real(0)),
     Equals(y, Plus(x, Real(-2))),
     LE(y, Real(4))
 )
 
 # ---- chi incorrect (0.0) ----
 # chi = And(
-#     GE(x, Real(0)), 
-#     LE(y, Plus(x, Real(-2))), 
-#     GE(y, Plus(x, Real(-2))), 
+#     GE(x, Real(0)),
+#     LE(y, Plus(x, Real(-2))),
+#     GE(y, Plus(x, Real(-2))),
 #     LE(y, Real(4))
 # )
 
-#---- chi error -----
+# ---- chi error -----
 # chi = And(
-#     GE(x, Real(0)), 
+#     GE(x, Real(0)),
 #     Equals(Times(Real(1), y), Plus(x, Real(-2))),
 #     LE(y, Real(4))
 # )
-    
+
 w = y
 
-wmi = WMI(chi, w) 
+wmi = WMI(chi, w)
 
 phi = Bool(True)
 
@@ -42,7 +42,7 @@ print("Weight function:", serialize(w))
 wmi = WMI(chi, w)
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_PA_NO_LABEL, WMI.MODE_PA_EUF, WMI.MODE_PA_EUF_TA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
-        
+    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(
+        mode, result, n_integrations))

@@ -4,8 +4,7 @@ from wmipa.utils import is_pow
 
 class WeightConverter:
     MODE_EUF = "euf"
-    MODE_BOOL = "bool"
-    MODES = [MODE_EUF, MODE_BOOL]
+    MODES = [MODE_EUF]
 
     def __init__(self, variables):
         self.variables = variables
@@ -26,8 +25,6 @@ class WeightConverter:
         assert mode in WeightConverter.MODES, "Available modes: {}".format(WeightConverter.MODES)
         if mode == WeightConverter.MODE_EUF:
             return self.convert_euf(weight_func)
-        elif mode == WeightConverter.MODE_BOOL:
-            return self.convert_bool(weight_func)
 
     def convert_euf(self, weight_func):
         self.conversion_list = list()
@@ -120,34 +117,3 @@ class WeightConverter:
         while args:
             curr = self.prod_fn(args.pop(), curr)
         return curr
-
-    def convert_bool(self, weight_func):
-        self.conversion_list = list()
-        self._convert_rec_bool(weight_func, None)
-        return And(self.conversion_list)
-
-    def _convert_rec_bool(self, formula, branch_condition):
-        if formula.is_ite():
-            return self._process_ite_bool(formula, branch_condition)
-        else:
-            for arg in formula.args():
-                self._convert_rec_bool(arg, branch_condition)
-    
-    def _process_ite_bool(self, formula, branch_condition):
-        phi, left, right = formula.args()
-        # update branch conditions for children and recursively convert them
-        l_cond = Not(phi)
-        r_cond = phi
-        if branch_condition is not None:
-            l_cond = Or(branch_condition, l_cond)
-            r_cond = Or(branch_condition, r_cond)
-        self._convert_rec_bool(left, l_cond)
-        self._convert_rec_bool(right, r_cond)
-
-        w = self.variables.new_weight_bool(len(self.conv_bools))
-        self.conv_bools.add(w)
-        el = w
-        er = Not(w)
-        ops = [] if branch_condition is None else [branch_condition]
-        self.conversion_list.append(Or(Or(*ops, Not(phi)), el))
-        self.conversion_list.append(Or(Or(*ops, phi), er))

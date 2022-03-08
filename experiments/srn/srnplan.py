@@ -108,9 +108,7 @@ class SRNPlan(StrategicRoadNetwork):
         mode = {self.METHOD_WMIBC : WMI.MODE_BC,
                 self.METHOD_WMIALLSMT : WMI.MODE_ALLSMT,
                 self.METHOD_WMIPA : WMI.MODE_PA,
-                self.METHOD_WMIPA_NL: WMI.MODE_PA_NO_LABEL,        
-                self.METHOD_WMIPA_EUF: WMI.MODE_PA_EUF,        
-                self.METHOD_WMIPA_EUF_TA: WMI.MODE_PA_EUF_TA}        
+                self.METHOD_WMIPA_SA: WMI.MODE_SA_PA}        
 
         srn_wmi = PlanWMI(partitions, plan, encoding=encoding)
 
