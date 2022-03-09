@@ -4,7 +4,8 @@ from wmipa.utils import is_pow
 
 class WeightConverter:
     MODE_EUF = "euf"
-    MODES = [MODE_EUF]
+    MODE_SK = "sk"
+    MODES = [MODE_EUF, MODE_SK]
 
     def __init__(self, variables):
         self.variables = variables
@@ -25,6 +26,8 @@ class WeightConverter:
         assert mode in WeightConverter.MODES, "Available modes: {}".format(WeightConverter.MODES)
         if mode == WeightConverter.MODE_EUF:
             return self.convert_euf(weight_func)
+        elif mode == WeightConverter.MODE_SK:
+            return self.convert_sk(weight_func)
 
     def convert_euf(self, weight_func):
         self.conversion_list = list()
@@ -117,3 +120,30 @@ class WeightConverter:
         while args:
             curr = self.prod_fn(args.pop(), curr)
         return curr
+
+
+    def convert_sk(self, weight_func):
+        self.conversion_list = list()
+        self._convert_rec_sk(weight_func, None)
+        return And(self.conversion_list)
+
+    def _convert_rec_sk(self, formula, branch_condition):
+        if formula.is_ite():
+            return self._process_ite_sk(formula, branch_condition)
+        else:
+            for arg in formula.args():
+                self._convert_rec_sk(arg, branch_condition)
+
+    def _process_ite_sk(self, formula, branch_condition):
+        phi, left, right = formula.args()
+        # update branch conditions for children and recursively convert them
+        l_cond = Not(phi)
+        r_cond = phi
+        if branch_condition is not None:
+            l_cond = Or(branch_condition, l_cond)
+            r_cond = Or(branch_condition, r_cond)
+        self._convert_rec_sk(left, l_cond)
+        self._convert_rec_sk(right, r_cond)
+
+        ops = [] if branch_condition is None else [branch_condition]
+        self.conversion_list.append(Or(*ops, phi, Not(phi)))

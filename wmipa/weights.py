@@ -54,6 +54,7 @@ class Weights:
         # convert weights as formula for EUF
         self.converter = WeightConverter(variables)
         self.weights_as_formula_euf = self.converter.convert(weight_func, mode=WeightConverter.MODE_EUF)
+        self.weights_as_formula_sk = self.converter.convert(weight_func, mode=WeightConverter.MODE_SK)
         self.weights = weight_func
         
         # inizialize the cache (if requested)

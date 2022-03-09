@@ -47,7 +47,8 @@ class WMI:
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA]
+    MODE_SA_PA_SK = "SAPASK"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -196,6 +197,8 @@ class WMI:
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
+        elif mode == WMI.MODE_SA_PA_SK:
+            formula = And(formula, self.weights.weights_as_formula_sk)
         else:
             formula = And(formula, self.weights.labelling)
 
@@ -226,7 +229,8 @@ class WMI:
         compute_with_mode = {WMI.MODE_BC : self._compute_WMI_BC,
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
-                             WMI.MODE_SA_PA: self._compute_WMI_SA_PA}
+                             WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
+                             WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
             
@@ -622,7 +626,7 @@ class WMI:
         return volume, len(problems)-cached, cached
 
     @staticmethod
-    def _get_allsat(formula, use_ta=False, atoms=None):
+    def _get_allsat(formula, use_ta=False, atoms=None, options={}):
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -642,6 +646,7 @@ class WMI:
                     }
         else:
             solver_options = {}
+        solver_options.update(options)
         if atoms is None:
             atoms = get_boolean_variables(formula)
         solver = Solver(name="msat", solver_options=solver_options)
@@ -883,6 +888,45 @@ class WMI:
                         problem = self._create_problem(curr_atom_assignments, weights, on_labels=False)
                         problems.append(problem)
                         n_bool_not_assigned.append(b_not_assigned)
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        assert len(n_bool_not_assigned) == len(results)
+        # multiply each volume by 2^(|A| - |mu^A|)
+        volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
+        return volume, len(problems)-cached, cached
+
+    def _compute_WMI_SA_PA_SK(self, formula, weights):
+        options = {"dpll.enable_skeleton": "true"}
+        problems = []
+        boolean_variables = get_boolean_variables(formula)
+        lra_atoms = get_lra_atoms(formula)
+        # number of booleans not assigned in each problem
+        n_bool_not_assigned = []
+
+        all_atoms = list(boolean_variables) + list(lra_atoms)
+        for atom in lra_atoms:
+            if atom not in self.list_norm:
+                _ = self.normalize_assignment(atom, True)
+
+        models = WMI._get_allsat(formula, use_ta=True, atoms=all_atoms, options=options)
+
+        for atom_assignments in models:
+            assignments = {}
+            b_not_assigned = len(boolean_variables)
+            for atom, value in atom_assignments.items():
+                if atom.is_symbol(BOOL):
+                    b_not_assigned -= 1
+                    assignments[atom] = value
+                else:
+                    subterms = self.normalize_assignment(atom, False)
+                    assert frozenset(subterms) in self.norm_aliases, \
+                        "Atom {}\n(subterms: {})\nnot found in\n{}"\
+                    .format(atom.serialize(), subterms, "\n".join(str(x) for x in self.norm_aliases.keys()))
+                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
+                        assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
+                
+            problem = self._create_problem(assignments, weights, on_labels=False)
+            problems.append(problem)
+            n_bool_not_assigned.append(b_not_assigned)
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
