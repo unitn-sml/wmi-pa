@@ -751,10 +751,8 @@ class WMI:
         """
         # for SAPA filter out new aliases for the weight function written as a formula
         lra_atoms = {atom for atom in lra_formula.get_atoms() 
-            if not self.variables.is_weight_bool(atom) and
-               not (atom.is_equals() and self.variables.is_weight_alias(atom.args()[0]))}
-        bools = {a for a in get_boolean_variables(lra_formula) \
-                    if not self.variables.is_weight_bool(a)}
+            if not (atom.is_equals() and self.variables.is_weight_alias(atom.args()[0]))}
+        bools = get_boolean_variables(lra_formula)
         assert len(bools) == 0, bools
 
         self.norm_aliases = dict()
@@ -837,8 +835,6 @@ class WMI:
         """
         problems = []
         boolean_variables = get_boolean_variables(formula)
-        weight_bools = {a for a in boolean_variables if self.variables.is_weight_bool(a)}
-        boolean_variables -= weight_bools
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         if len(boolean_variables) == 0:
@@ -859,7 +855,7 @@ class WMI:
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
-                residual_booleans = get_boolean_variables(lra_formula) - weight_bools
+                residual_booleans = get_boolean_variables(lra_formula)
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
