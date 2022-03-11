@@ -47,8 +47,9 @@ class WMI:
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
+    MODE_SA_PA_BOOL = "SAPABOOL"
     MODE_SA_PA_SK = "SAPASK"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_BOOL, MODE_SA_PA_SK]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -197,6 +198,8 @@ class WMI:
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
+        elif mode == WMI.MODE_SA_PA_BOOL:
+            formula = And(formula, self.weights.weights_as_formula_bool)
         elif mode == WMI.MODE_SA_PA_SK:
             formula = And(formula, self.weights.weights_as_formula_sk)
         else:
@@ -230,6 +233,7 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
                              WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
+                             WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA_TA,
                              WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
@@ -894,10 +898,10 @@ class WMI:
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
         return volume, len(problems)-cached, cached
 
-    def _compute_WMI_SA_PA_SK(self, formula, weights):
-        options = {"dpll.enable_skeleton": "true"}
+    def _compute_WMI_SA_PA_TA(self, formula, weights, options={}):
         problems = []
-        boolean_variables = get_boolean_variables(formula)
+        boolean_variables = {b for b in get_boolean_variables(formula) 
+            if not self.variables.is_weight_bool(b)}
         lra_atoms = get_lra_atoms(formula)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
@@ -932,6 +936,10 @@ class WMI:
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
         return volume, len(problems)-cached, cached
+
+    def _compute_WMI_SA_PA_SK(self, formula, weights):
+        options = {"dpll.enable_skeleton": "true"}
+        return self._compute_WMI_SA_PA_TA(formula, weights, options)
     
     def label_formula(self, formula, atoms_to_label):
         """Labels every atom in the input with a new fresh WMI variable.

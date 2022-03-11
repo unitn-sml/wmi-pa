@@ -7,6 +7,7 @@ COND = "cond"
 WMI = "wmi"
 QUERY = "query"
 WEIGHT_ALIAS = "weight_alias"
+WEIGHT_BOOL = "weight_bool"
 
 
 class WMIVariables:
@@ -71,6 +72,18 @@ class WMIVariables:
         """
         return self._new_label(WEIGHT_ALIAS, index, sym_type=REAL, template="FR%s")
 
+    def new_weight_bool(self, index):
+        """Returns a symbol representing a weight bool.
+
+        Args:
+            index (int): The index to associate to the bool.
+
+        Returns:
+            FNode: The new bool.
+
+        """
+        return self._new_label(WEIGHT_BOOL, index, sym_type=BOOL, template="WB%s")
+
     def is_cond_label(self, variable):
         """Checks if the variable is a condition label.
 
@@ -126,6 +139,20 @@ class WMIVariables:
 
         """
         return variable in self.variables and self.variables[variable][1] == WEIGHT_ALIAS
+
+    def is_weight_bool(self, variable):
+        """Checks if the variable is a weight bool.
+
+        To recognize if the bool is a weight bool, it first check if it is a weight variable and then it controls its label type.
+
+        Args:
+            variable (FNode): The variable to examine.
+
+        Returns:
+            bool: True if the variable is a weight bool, False otherwise.
+
+        """
+        return variable in self.variables and self.variables[variable][1] == WEIGHT_BOOL
 
     def is_label(self, variable):
         """Checks if the variable is a condition label, query label or wmi label.

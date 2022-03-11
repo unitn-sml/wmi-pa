@@ -33,7 +33,7 @@ print("Support:", serialize(chi))
 
 wmi = WMI(chi, w)
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA,  WMI.MODE_SA_PA_SK]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA,  WMI.MODE_SA_PA_BOOL]:
     for phi in phis:
         result, n_integrations = wmi.computeWMI(phi, mode=mode)
         print("Query: {}".format(serialize(phi)))
