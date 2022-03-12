@@ -124,7 +124,6 @@ class WMI:
         integrations = []
         
         for phi in phis:
-            self.norm_aliases = dict()
             volume, n_integrations = self.computeWMI(phi, **options)
             volumes.append(volume)
             integrations.append(n_integrations)
@@ -629,8 +628,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems)-cached, cached
 
-    @staticmethod
-    def _get_allsat(formula, use_ta=False, atoms=None, options={}):
+    def _get_allsat(self, formula, use_ta=False, atoms=None, options={}):
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -650,9 +648,15 @@ class WMI:
                     }
         else:
             solver_options = {}
+        
         solver_options.update(options)
         if atoms is None:
             atoms = get_boolean_variables(formula)
+
+        for atom in atoms:
+            if not atom.is_symbol(BOOL) and atom not in self.list_norm:
+                _ = self.normalize_assignment(atom, True)
+
         solver = Solver(name="msat", solver_options=solver_options)
         converter = solver.converter
 
@@ -663,8 +667,19 @@ class WMI:
             [converter.convert(v) for v in atoms],
             lambda model : WMI._callback(model, converter, models))
         for model in models:
-            yield WMI._get_assignments(model)
+            assignments = {}
+            for atom, value in WMI._get_assignments(model).items():
+                if atom.is_symbol(BOOL):
+                    assignments[atom] = value
+                else:
+                    subterms = self.normalize_assignment(atom, False)
 
+                    assert frozenset(subterms) in self.norm_aliases, \
+                        "Atom {}\n(subterms: {})\nnot found in\n{}"\
+                    .format(atom.serialize(), subterms, "\n".join(str(x) for x in self.norm_aliases.keys()))
+                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
+                        assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
+            yield assignments
 
     def normalize_coefficient(self, val, normalizing_coefficient):
         midvalue = round(float(val)/abs(normalizing_coefficient), 10 )
@@ -760,38 +775,16 @@ class WMI:
         """
         # for SAPA filter out new aliases for the weight function written as a formula
         lra_atoms = {atom for atom in lra_formula.get_atoms() 
-            if not (atom.is_equals() and self.variables.is_weight_alias(atom.args()[0]))}
-        bools = get_boolean_variables(lra_formula)
+            if not self.variables.is_weight_bool(atom) and
+               not (atom.is_equals() and self.variables.is_weight_alias(atom.args()[0]))}
+        bools = {x for x in get_boolean_variables(lra_formula) if not self.variables.is_weight_bool(x)}
         assert len(bools) == 0, bools
 
-        self.norm_aliases = dict()
-        self.list_norm = set()
-
-        for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
-            _ = self.normalize_assignment(assignment, True)
-
-        lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
+        lra_assignments = self._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
 
         for mu_lra in lra_assignments:
-            assignments = {}
-            i = 1
-            #print("MULRA", WMI._get_assignments(mu_lra).items())
-            for atom, value in mu_lra.items():
-                #print(atom, value)
-                subterms = self.normalize_assignment(atom, False)
-                if frozenset(subterms) in self.norm_aliases:
-                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
-                        assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
-                else:
-                    print("I SEARCHED", serialize(atom))
-                    print("subterms", subterms)
-                    print("BUT IVE FOUND")
-                    print("\n".join([str(x) for x in self.norm_aliases.keys()]))
-                    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-                    assert(False)
-                    assignments[atom] = value
-            assignments.update(other_assignments)
-            yield assignments
+            mu_lra.update(other_assignments)
+            yield mu_lra
 
     @staticmethod
     def _simplify_formula(formula, subs, atom_assignments):
@@ -853,7 +846,7 @@ class WMI:
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
         else:
-            boolean_models = WMI._get_allsat(formula, use_ta=use_ta, atoms=boolean_variables)
+            boolean_models = self._get_allsat(formula, use_ta=use_ta, atoms=boolean_variables)
 
             # logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each (partial) boolean assignment mu^A of F  
@@ -868,7 +861,7 @@ class WMI:
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
-                    residual_boolean_models = WMI._get_allsat(lra_formula, atoms=residual_booleans)
+                    residual_boolean_models = self._get_allsat(lra_formula, atoms=residual_booleans)
                 else:
                     # all boolean variables have been assigned
                     residual_boolean_models = [[]]
@@ -900,37 +893,45 @@ class WMI:
 
     def _compute_WMI_SA_PA_TA(self, formula, weights, options={}):
         problems = []
-        boolean_variables = {b for b in get_boolean_variables(formula) 
-            if not self.variables.is_weight_bool(b)}
-        lra_atoms = get_lra_atoms(formula)
+        weight_bools = {b for b in get_boolean_variables(formula) 
+            if self.variables.is_weight_bool(b)}
+        boolean_variables = get_boolean_variables(formula) - weight_bools
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
 
-        all_atoms = list(boolean_variables) + list(lra_atoms)
-        for atom in lra_atoms:
-            if atom not in self.list_norm:
-                _ = self.normalize_assignment(atom, True)
+        if len(boolean_variables) == 0:
+            # Enumerate partial TA over theory atoms
+            for assignments in self._compute_WMI_PA_no_boolean_no_label(formula):
+                problem = self._create_problem(assignments, weights, on_labels=False)
+                problems.append(problem)
+                n_bool_not_assigned.append(0)
+        else:
+            boolean_models = self._get_allsat(formula, use_ta=True, atoms=boolean_variables, options=options)
 
-        models = WMI._get_allsat(formula, use_ta=True, atoms=all_atoms, options=options)
-
-        for atom_assignments in models:
-            assignments = {}
-            b_not_assigned = len(boolean_variables)
-            for atom, value in atom_assignments.items():
-                if atom.is_symbol(BOOL):
-                    b_not_assigned -= 1
-                    assignments[atom] = value
+            for boolean_assignments in boolean_models:
+                atom_assignments = {}
+                # simplify the formula
+                atom_assignments.update(boolean_assignments)
+                over, res_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+                if not over:
+                    residual_atoms = res_formula.get_atoms() - weight_bools
+                    residual_atoms = sorted(residual_atoms, key=lambda x : not x.is_symbol(BOOL))
+                    for assignments in self._get_allsat(res_formula, use_ta=True, atoms=residual_atoms):
+                        assignments.update(atom_assignments)
+                        assigned_bool = sum(a.is_symbol(BOOL) for a in assignments \
+                            if not self.variables.is_weight_bool(a))
+                        b_not_assigned = len(boolean_variables) - assigned_bool
+                        problem = self._create_problem(assignments, weights, on_labels=False)
+                        problems.append(problem)
+                        n_bool_not_assigned.append(b_not_assigned)
                 else:
-                    subterms = self.normalize_assignment(atom, False)
-                    assert frozenset(subterms) in self.norm_aliases, \
-                        "Atom {}\n(subterms: {})\nnot found in\n{}"\
-                    .format(atom.serialize(), subterms, "\n".join(str(x) for x in self.norm_aliases.keys()))
-                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
-                        assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
+                    assigned_bool = sum(a.is_symbol(BOOL) for a in atom_assignments \
+                        if not self.variables.is_weight_bool(a))
+                    b_not_assigned = len(boolean_variables) - assigned_bool
+                    problem = self._create_problem(atom_assignments, weights, on_labels=False)
+                    problems.append(problem)
+                    n_bool_not_assigned.append(b_not_assigned)
                 
-            problem = self._create_problem(assignments, weights, on_labels=False)
-            problems.append(problem)
-            n_bool_not_assigned.append(b_not_assigned)
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
