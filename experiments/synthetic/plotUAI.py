@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 plt.style.use("ggplot")
-fs = 18  # font size
+fs = 10  # font size
 ticks_fs = 15
 lw = 2.5  # line width
 figsize = (10, 8)
@@ -20,10 +20,14 @@ COLORS = {
     "FXSDD": "#554348",
     "XADD": "#093A3E",
     "Rejection": "#FBC15E",
-    "PA_cache_2": "#8EBA42",
-    "other4": "#FFB5B8"
+    "PA_cache_2": "#FFB5B8",
+    "SA-WMI-PA-BOOL": "#8EBA42",
+    "SA-WMI-PA-BOOL-TA": "#502419",
+    "SA-WMI-PA-BOOL-TA-TA": "#7EA172",
 }
-ORDER = ["XADD", "XSDD", "FXSDD", "WMI-PA", "PA_cache_2", "SA-WMI-PA"]
+ORDER = ["XADD", "XSDD", "FXSDD", "WMI-PA", "PA_cache_2", "SA-WMI-PA-BOOL", "SA-WMI-PA", 
+"SA-WMI-PA-BOOL-TA",
+"SA-WMI-PA-BOOL-TA-TA"]
 ERR_TOLERANCE = 5e-2  # absolute tolerance on value mismatch
 
 
@@ -61,6 +65,12 @@ def parse_inputs(input_files, timeout):
             mode = "SA-WMI-PA"
         if mode == "PA":
             mode = "WMI-PA"
+        if mode == "SAPABOOL":
+            mode = "SA-WMI-PA-BOOL"
+        if mode == "SAPABOOLTA":
+            mode = "SA-WMI-PA-BOOL-TA"
+        if mode == "SAPABOOLTATA":
+            mode = "SA-WMI-PA-BOOL-TA-TA"
         if "cache" in mode:
             continue
 
@@ -148,7 +158,7 @@ def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filenam
         plt.title(title, fontsize=fs)
 
     outfile = os.path.join(
-        outdir, "{}_uai{}{}.pdf".format(param, sfx, filename))
+        outdir, "{}_uai{}{}.png".format(param, sfx, filename))
     plt.savefig(outfile, bbox_inches='tight')
     print("created {}".format(outfile))
     plt.clf()

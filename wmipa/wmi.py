@@ -47,9 +47,12 @@ class WMI:
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
-    MODE_SA_PA_BOOL = "SAPABOOL"
     MODE_SA_PA_SK = "SAPASK"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_BOOL, MODE_SA_PA_SK]
+    MODE_SA_PA_BOOL = "SAPABOOL"
+    MODE_SA_PA_BOOL_TA = "SAPABOOLTA"
+    MODE_SA_PA_BOOL_TA_TA = "SAPABOOLTATA"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_BOOL, MODE_SA_PA_BOOL_TA,
+            MODE_SA_PA_BOOL_TA_TA]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -197,9 +200,9 @@ class WMI:
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
-        elif mode == WMI.MODE_SA_PA_BOOL:
+        elif "BOOL" in mode:
             formula = And(formula, self.weights.weights_as_formula_bool)
-        elif mode == WMI.MODE_SA_PA_SK:
+        elif "SK" in mode:
             formula = And(formula, self.weights.weights_as_formula_sk)
         else:
             formula = And(formula, self.weights.labelling)
@@ -232,7 +235,9 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
                              WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
-                             WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA_TA,
+                             WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA,
+                             WMI.MODE_SA_PA_BOOL_TA: self._compute_WMI_SA_PA_TA,
+                             WMI.MODE_SA_PA_BOOL_TA_TA: self._compute_WMI_SA_PA_TA_TA,
                              WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
@@ -762,7 +767,6 @@ class WMI:
         return None if add_to_norms_aliases else normalized_assignment
 
 
-
     def _compute_WMI_PA_no_boolean_no_label(self, lra_formula, other_assignments={}):
         """Finds all the assignments that satisfy the given formula using AllSAT.
             
@@ -836,8 +840,9 @@ class WMI:
         
         """
         problems = []
-        boolean_variables = get_boolean_variables(formula)
-        # number of booleans not assigned in each problem
+        weight_bools = {b for b in get_boolean_variables(formula) 
+            if self.variables.is_weight_bool(b)}
+        boolean_variables = get_boolean_variables(formula) - weight_bools        # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
@@ -857,7 +862,7 @@ class WMI:
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
-                residual_booleans = get_boolean_variables(lra_formula)
+                residual_booleans = get_boolean_variables(lra_formula) - weight_bools
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
@@ -890,8 +895,34 @@ class WMI:
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
         return volume, len(problems)-cached, cached
-
+    
     def _compute_WMI_SA_PA_TA(self, formula, weights, options={}):
+        problems = []
+        boolean_variables = {b for b in get_boolean_variables(formula) 
+            if not self.variables.is_weight_bool(b)}
+        lra_atoms = get_lra_atoms(formula)
+        # number of booleans not assigned in each problem
+        n_bool_not_assigned = []
+
+        all_atoms = list(boolean_variables) + list(lra_atoms)
+        
+        models = self._get_allsat(formula, use_ta=True, atoms=all_atoms, options=options)
+
+        for atom_assignments in models:
+            assigned_bool = sum(a.is_symbol(BOOL) for a in atom_assignments \
+                if not self.variables.is_weight_bool(a))
+            b_not_assigned = len(boolean_variables) - assigned_bool           
+            problem = self._create_problem(atom_assignments, weights, on_labels=False)
+            problems.append(problem)
+            n_bool_not_assigned.append(b_not_assigned)
+        results, cached = self.integrator.integrate_batch(problems, self.cache)
+        assert len(n_bool_not_assigned) == len(results)
+        # multiply each volume by 2^(|A| - |mu^A|)
+        volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
+        return volume, len(problems)-cached, cached
+
+
+    def _compute_WMI_SA_PA_TA_TA(self, formula, weights, options={}):
         problems = []
         weight_bools = {b for b in get_boolean_variables(formula) 
             if self.variables.is_weight_bool(b)}
@@ -915,6 +946,7 @@ class WMI:
                 over, res_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
                 if not over:
                     residual_atoms = res_formula.get_atoms() - weight_bools
+                    # boolean variables first
                     residual_atoms = sorted(residual_atoms, key=lambda x : not x.is_symbol(BOOL))
                     for assignments in self._get_allsat(res_formula, use_ta=True, atoms=residual_atoms):
                         assignments.update(atom_assignments)
