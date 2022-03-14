@@ -233,10 +233,7 @@ class DeMorganCNFizer(IdentityDagWalker):
             else:
                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
                 list_of_and.append(a.args())
-        # if only one clause
-        if not list_of_and:
-            # print("Returning", Or(or_literals).serialize())
-            return Or(or_literals)
+                
         list_of_and.extend((x,) for x in or_literals)
         # print("Flatten_args:", list_of_and)
         and_args = set()
