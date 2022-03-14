@@ -1,6 +1,8 @@
+from itertools import product
 from pysmt.shortcuts import *
 from wmipa.utils import is_pow
-
+from pysmt.walkers import IdentityDagWalker
+from pysmt.rewritings import nnf
 
 class WeightConverter:
     MODE_EUF = "euf"
@@ -9,13 +11,14 @@ class WeightConverter:
     MODES = [MODE_EUF, MODE_SK, MODE_BOOL]
 
     def __init__(self, variables):
+        self.cnfizer = DeMorganCNFizer()
         self.variables = variables
         self.conv_aliases = set()
         self.conv_bools = set()
         self.conversion_list = list()
         self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
 
-    def convert(self, weight_func, mode):
+    def convert(self, weight_func, mode, expand_cnf=True):
         """Convert the weight function into a LRA formula
 
         Args:
@@ -25,12 +28,19 @@ class WeightConverter:
             FNode: The formula representing the weight function
         """
         assert mode in WeightConverter.MODES, "Available modes: {}".format(WeightConverter.MODES)
+        formula = Bool(True)
         if mode == WeightConverter.MODE_EUF:
-            return self.convert_euf(weight_func)
+            formula = self.convert_euf(weight_func)
         elif mode == WeightConverter.MODE_BOOL:
-            return self.convert_bool(weight_func)
+            formula = self.convert_bool(weight_func)
         elif mode == WeightConverter.MODE_SK:
-            return self.convert_sk(weight_func)
+            formula = self.convert_sk(weight_func)
+        
+        if expand_cnf:
+            formula = self.cnfizer.convert(formula)
+        # print("Conversion:", formula.serialize())
+        # print("CNF:", cnf.serialize())
+        return formula
 
     def convert_euf(self, weight_func):
         self.conversion_list = list()
@@ -181,3 +191,68 @@ class WeightConverter:
         ops = [] if branch_condition is None else [branch_condition]
         self.conversion_list.append(Or(Or(*ops, Not(phi)), el))
         self.conversion_list.append(Or(Or(*ops, phi), er))
+
+
+class DeMorganCNFizer(IdentityDagWalker):
+    def convert(self, formula):
+        # convert in Negative Normal Form
+        formula = nnf(formula)
+        # print("NNF:", formula.serialize())
+        return self.walk(formula)
+
+    def is_atom(self, node):
+        return node.is_constant(BOOL) or node.is_symbol(BOOL) or node.is_theory_relation()
+
+    def is_literal(self, node):
+        return self.is_atom(node) or (node.is_not() and self.is_atom(node.arg(0)))
+
+    def walk_and(self, formula, args, **kwargs):
+        # print("Walking and: ", formula.serialize(), "args: ", args)
+        
+        and_args = set()
+        for a in args:
+            if self.is_literal(a) or a.is_or():
+                and_args.add(a)
+            else:
+                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+                # flatten AND
+                and_args.update(a.args())
+        # print("Returning", And(and_args).serialize())
+        return And(and_args)
+    
+    def walk_or(self, formula, args, **kwargs):
+        # print("Walking or: ", formula.serialize(), "args: ", args)
+        # flatten or
+        or_literals = set()
+        list_of_and = list()
+        for a in args:
+            if self.is_literal(a):
+                or_literals.add(a)
+            elif a.is_or():
+                or_literals.update(a.args())
+            else:
+                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+                list_of_and.append(a.args())
+        # if only one clause
+        if not list_of_and:
+            # print("Returning", Or(or_literals).serialize())
+            return Or(or_literals)
+        list_of_and.extend((x,) for x in or_literals)
+        # print("Flatten_args:", list_of_and)
+        and_args = set()
+        
+        for comb in product(*list_of_and):
+            # print("Comb:", comb)
+            or_args = set()
+            for item in comb:
+                if self.is_literal(item):
+                    or_args.add(item)
+                elif item.is_or():
+                    or_args.update(item.args())
+                else:
+                    assert item.is_and(), "{}".format(item.serialize())
+                    or_args.update(item.args())
+            and_args.add(Or(or_args))
+        # print("Returning", And(and_args).serialize())
+
+        return And(and_args)
