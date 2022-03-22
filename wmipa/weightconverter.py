@@ -4,6 +4,7 @@ from wmipa.utils import is_pow
 from pysmt.walkers import IdentityDagWalker
 from pysmt.rewritings import nnf
 
+
 class WeightConverter:
     MODE_EUF = "euf"
     MODE_BOOL = "bool"
@@ -15,10 +16,10 @@ class WeightConverter:
         self.variables = variables
         self.conv_aliases = set()
         self.conv_bools = set()
-        self.conversion_list = list()
-        self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
+        self.prod_fn = FreshSymbol(typename=FunctionType(
+            REAL, (REAL, REAL)), template="PROD%s")
 
-    def convert(self, weight_func, mode, expand_cnf=True):
+    def convert(self, weight_func, mode):
         """Convert the weight function into a LRA formula
 
         Args:
@@ -27,55 +28,55 @@ class WeightConverter:
         Returns:
             FNode: The formula representing the weight function
         """
-        assert mode in WeightConverter.MODES, "Available modes: {}".format(WeightConverter.MODES)
+        assert mode in WeightConverter.MODES, "Available modes: {}".format(
+            WeightConverter.MODES)
         formula = Bool(True)
+        expand_cnf = False
         if mode == WeightConverter.MODE_EUF:
             formula = self.convert_euf(weight_func)
         elif mode == WeightConverter.MODE_BOOL:
             formula = self.convert_bool(weight_func)
+            expand_cnf = True
         elif mode == WeightConverter.MODE_SK:
             formula = self.convert_sk(weight_func)
-        
+
         if expand_cnf:
+            # print("Conversion:", formula.serialize())
             formula = self.cnfizer.convert(formula)
-        # print("Conversion:", formula.serialize())
-        # print("CNF:", cnf.serialize())
+            # print("CNF:", formula.serialize())
         return formula
 
     def convert_euf(self, weight_func):
-        self.conversion_list = list()
-        w = self.convert_rec_euf(
-            weight_func, branch_condition=None)
+        conversion_list = list()
+        w = self.convert_rec_euf(weight_func, Bool(False), conversion_list)
         if not w.is_symbol():
             y = self.variables.new_weight_alias(len(self.conv_aliases))
-            self.conversion_list.append(Equals(y, w))
-            w = y 
-        return And(self.conversion_list)
+            conversion_list.append(Equals(y, w))
+            w = y
+        return And(conversion_list)
 
-    def convert_rec_euf(self, formula, branch_condition):
+    def convert_rec_euf(self, formula, branch_condition, conversion_list):
         if formula.is_ite():
-            return self._process_ite_euf(formula, branch_condition)
+            return self._process_ite_euf(formula, branch_condition, conversion_list)
         elif formula.is_times():
-            return self._process_times_euf(formula, branch_condition)
+            return self._process_times_euf(formula, branch_condition, conversion_list)
         elif is_pow(formula):
-            return self._process_pow_euf(formula, branch_condition)
+            return self._process_pow_euf(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
             return formula
         else:
-            new_children = (self.convert_rec_euf(arg, branch_condition) for arg in formula.args())
+            new_children = (self.convert_rec_euf(
+                arg, branch_condition, conversion_list) for arg in formula.args())
             return get_env().formula_manager.create_node(
                 node_type=formula.node_type(), args=tuple(new_children))
 
-    def _process_ite_euf(self, formula, branch_condition):
+    def _process_ite_euf(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
         # update branch conditions for children and recursively convert them
-        l_cond = Not(phi)
-        r_cond = phi
-        if branch_condition is not None:
-            l_cond = Or(branch_condition, l_cond)
-            r_cond = Or(branch_condition, r_cond)
-        left = self.convert_rec_euf(left, l_cond)
-        right = self.convert_rec_euf(right, r_cond)
+        l_cond = Or(branch_condition, Not(phi))
+        r_cond = Or(branch_condition, phi)
+        left = self.convert_rec_euf(left, l_cond, conversion_list)
+        right = self.convert_rec_euf(right, r_cond, conversion_list)
 
         # add (    branch_conditions) -> y = left
         # and (not branch_conditions) -> y = right
@@ -83,16 +84,16 @@ class WeightConverter:
         self.conv_aliases.add(y)
         el = Equals(y, left)
         er = Equals(y, right)
-        ops = [] if branch_condition is None else [branch_condition]
-        self.conversion_list.append(Or(Or(*ops, Not(phi)), el))
-        self.conversion_list.append(Or(Or(*ops, phi), er))
+        conversion_list.append(Or(Or(branch_condition, Not(phi)), el))
+        conversion_list.append(Or(Or(branch_condition, phi), er))
         # add also branch_condition -> (not y = left) or (not y = right)
         # to force the enumeration of relevant branch conditions
-        self.conversion_list.append(Or(*ops, Not(el), Not(er)))
+        conversion_list.append(Or(branch_condition, Not(el), Not(er)))
         return y
 
-    def _process_times_euf(self, formula, branch_condition):
-        args = (self.convert_rec_euf(arg, branch_condition) for arg in formula.args())
+    def _process_times_euf(self, formula, branch_condition, conversion_list):
+        args = (self.convert_rec_euf(arg, branch_condition, conversion_list)
+                for arg in formula.args())
         const_val = 1
         others = []
         for arg in args:
@@ -107,8 +108,9 @@ class WeightConverter:
             # abstract product between non-constant nodes with EUF
             return Times(const_val, self._prod_euf(others))
 
-    def _process_pow_euf(self, formula, branch_condition):
-        args = (self.convert_rec_euf(arg, branch_condition) for arg in formula.args())
+    def _process_pow_euf(self, formula, branch_condition, conversion_list):
+        args = (self.convert_rec_euf(arg, branch_condition, conversion_list)
+                for arg in formula.args())
         base, exponent = args
         if exponent.is_zero():
             return Real(1)
@@ -134,63 +136,51 @@ class WeightConverter:
             curr = self.prod_fn(args.pop(), curr)
         return curr
 
-
     def convert_sk(self, weight_func):
-        self.conversion_list = list()
-        self._convert_rec_sk(weight_func, None)
-        return And(self.conversion_list)
+        conversion_list = list()
+        self._convert_rec_sk(weight_func, Bool(False), conversion_list)
+        return And(conversion_list)
 
-    def _convert_rec_sk(self, formula, branch_condition):
+    def _convert_rec_sk(self, formula, branch_condition, conversion_list):
         if formula.is_ite():
-            return self._process_ite_sk(formula, branch_condition)
+            return self._process_ite_sk(formula, branch_condition, conversion_list)
         else:
             for arg in formula.args():
-                self._convert_rec_sk(arg, branch_condition)
+                self._convert_rec_sk(arg, branch_condition, conversion_list)
 
-    def _process_ite_sk(self, formula, branch_condition):
+    def _process_ite_sk(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
         # update branch conditions for children and recursively convert them
-        l_cond = Not(phi)
-        r_cond = phi
-        if branch_condition is not None:
-            l_cond = Or(branch_condition, l_cond)
-            r_cond = Or(branch_condition, r_cond)
-        self._convert_rec_sk(left, l_cond)
-        self._convert_rec_sk(right, r_cond)
+        l_cond = Or(branch_condition, Not(phi))
+        r_cond = Or(branch_condition, phi)
+        self._convert_rec_sk(left, l_cond, conversion_list)
+        self._convert_rec_sk(right, r_cond, conversion_list)
 
-        ops = [] if branch_condition is None else [branch_condition]
-        self.conversion_list.append(Or(*ops, phi, Not(phi)))
+        conversion_list.append(Or(branch_condition, phi, Not(phi)))
 
     def convert_bool(self, weight_func):
-        self.conversion_list = list()
-        self._convert_rec_bool(weight_func, None)
-        return And(self.conversion_list)
+        conversion_list = list()
+        self._convert_rec_bool(weight_func, Bool(False), conversion_list)
+        return And(conversion_list)
 
-    def _convert_rec_bool(self, formula, branch_condition):
+    def _convert_rec_bool(self, formula, branch_condition, conversion_list):
         if formula.is_ite():
-            return self._process_ite_bool(formula, branch_condition)
+            return self._process_ite_bool(formula, branch_condition, conversion_list)
         else:
             for arg in formula.args():
-                self._convert_rec_bool(arg, branch_condition)
-    
-    def _process_ite_bool(self, formula, branch_condition):
+                self._convert_rec_bool(arg, branch_condition, conversion_list)
+
+    def _process_ite_bool(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
         # update branch conditions for children and recursively convert them
-        l_cond = Not(phi)
-        r_cond = phi
-        if branch_condition is not None:
-            l_cond = Or(branch_condition, l_cond)
-            r_cond = Or(branch_condition, r_cond)
-        self._convert_rec_bool(left, l_cond)
-        self._convert_rec_bool(right, r_cond)
-
         w = self.variables.new_weight_bool(len(self.conv_bools))
         self.conv_bools.add(w)
-        el = w
-        er = Not(w)
-        ops = [] if branch_condition is None else [branch_condition]
-        self.conversion_list.append(Or(Or(*ops, Not(phi)), el))
-        self.conversion_list.append(Or(Or(*ops, phi), er))
+        conversion_list.append(Or(branch_condition, Not(w), phi))
+        conversion_list.append(Or(branch_condition, w, Not(phi)))
+        l_cond = Or(branch_condition, Not(w))
+        r_cond = Or(branch_condition, w)
+        self._convert_rec_bool(left, l_cond, conversion_list)
+        self._convert_rec_bool(right, r_cond, conversion_list)
 
 
 class DeMorganCNFizer(IdentityDagWalker):
@@ -198,20 +188,26 @@ class DeMorganCNFizer(IdentityDagWalker):
         # convert in Negative Normal Form
         formula = nnf(formula)
         # print("NNF:", formula.serialize())
-        return self.walk(formula)
+        formula = self.walk(formula)
+        assert self.is_cnf(formula), formula.serialize()
+        return formula
 
     def is_atom(self, node):
-        return node.is_constant(BOOL) or node.is_symbol(BOOL) or node.is_theory_relation()
+        return node.is_symbol(BOOL) or node.is_theory_relation()
 
     def is_literal(self, node):
         return self.is_atom(node) or (node.is_not() and self.is_atom(node.arg(0)))
 
     def walk_and(self, formula, args, **kwargs):
         # print("Walking and: ", formula.serialize(), "args: ", args)
-        
+
         and_args = set()
         for a in args:
-            if self.is_literal(a) or a.is_or():
+            if a.is_true():
+                continue
+            elif a.is_false():
+                return FALSE()
+            elif self.is_literal(a) or a.is_or():
                 and_args.add(a)
             else:
                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
@@ -219,25 +215,29 @@ class DeMorganCNFizer(IdentityDagWalker):
                 and_args.update(a.args())
         # print("Returning", And(and_args).serialize())
         return And(and_args)
-    
+
     def walk_or(self, formula, args, **kwargs):
         # print("Walking or: ", formula.serialize(), "args: ", args)
         # flatten or
         or_literals = set()
         list_of_and = list()
         for a in args:
-            if self.is_literal(a):
+            if a.is_false():
+                continue
+            elif a.is_true():
+                return TRUE()
+            elif self.is_literal(a):
                 or_literals.add(a)
             elif a.is_or():
                 or_literals.update(a.args())
             else:
                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
                 list_of_and.append(a.args())
-                
+
         list_of_and.extend((x,) for x in or_literals)
         # print("Flatten_args:", list_of_and)
         and_args = set()
-        
+
         for comb in product(*list_of_and):
             # print("Comb:", comb)
             or_args = set()
@@ -253,3 +253,9 @@ class DeMorganCNFizer(IdentityDagWalker):
         # print("Returning", And(and_args).serialize())
 
         return And(and_args)
+
+    def is_clause(self, formula):
+        return self.is_literal(formula) or (formula.is_or() and all(self.is_literal(l) for l in formula.args()))
+
+    def is_cnf(self, formula):
+        return self.is_clause(formula) or (formula.is_and() and all(self.is_clause(c) for c in formula.args()))

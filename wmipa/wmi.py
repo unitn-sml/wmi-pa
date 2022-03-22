@@ -842,7 +842,8 @@ class WMI:
         problems = []
         weight_bools = {b for b in get_boolean_variables(formula) 
             if self.variables.is_weight_bool(b)}
-        boolean_variables = get_boolean_variables(formula) - weight_bools        # number of booleans not assigned in each problem
+        boolean_variables = get_boolean_variables(formula) - weight_bools
+        # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
@@ -863,6 +864,7 @@ class WMI:
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
+
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
@@ -1059,7 +1061,7 @@ class WMI:
         """
         if formula.is_bool_constant():
             return {}, True            
-        elif formula.is_theory_relation():
+        elif formula.is_theory_relation() or formula.is_symbol(BOOL):
             return {formula : pos_polarity}, True
         elif formula.is_not():
             return WMI._plra_rec(formula.arg(0), not pos_polarity)
