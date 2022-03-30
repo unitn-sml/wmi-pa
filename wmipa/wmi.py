@@ -669,6 +669,7 @@ class WMI:
         converter = solver.converter
         if cnfize:
             formula = self.cnfizer.convert(formula)
+            # print("CNF:", formula.serialize())
         solver.add_assertion(formula)
         models = []
         mathsat.msat_all_sat(
@@ -979,8 +980,7 @@ class WMI:
 
     def _compute_WMI_SA_PA_SK(self, formula, weights):
         # options = {"dpll.enable_skeleton": "true"}
-        options = {}
-        return self._compute_WMI_SA_PA(formula, weights, options)
+        return self._compute_WMI_SA_PA(formula, weights)
     
     def label_formula(self, formula, atoms_to_label):
         """Labels every atom in the input with a new fresh WMI variable.

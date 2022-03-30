@@ -3,7 +3,6 @@ from pysmt.shortcuts import *
 from wmipa.utils import is_pow
 from pysmt.walkers import IdentityDagWalker
 from pysmt.rewritings import nnf
-from local_tseitin.conds_cnfizer import LocalTseitinCNFizerConds as CNFizer
 from pysmt.fnode import FNode
 
 
@@ -152,7 +151,11 @@ class WeightConverter:
 
         skl = self.convert_sk(left)
         skr = self.convert_sk(right)
-
+        if skl.is_true() and skr.is_true():
+            C = self.variables.new_weight_bool(len(self.conv_bools))
+            self.conv_bools.add(C)
+            skl = C
+            skr = Not(C)
         return Or(And(phi, skl), And(Not(phi), skr))
 
     def convert_bool(self, weight_func):
