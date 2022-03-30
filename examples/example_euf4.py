@@ -24,7 +24,6 @@ w = Plus(Ite(GE(x1, Real(0)),
              Times(x1, Real(3)),
              Times(Real(-2), x1)),
              Times(Real(-1), x1)
-
              ),
          Ite(a,
              Times(Real(3), x2),
@@ -38,7 +37,9 @@ print("Weight function:", serialize(w))
 print("Support:", serialize(chi))
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA,  WMI.MODE_SA_PA_BOOL]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA,
+             WMI.MODE_SA_PA_BOOL,  WMI.MODE_SA_PA_BOOL_TA, 
+             WMI.MODE_SA_PA_BOOL_TA_TA, WMI.MODE_SA_PA_SK]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
     print("WMI with mode {} \t result = {}, \t # integrations = {}".format(

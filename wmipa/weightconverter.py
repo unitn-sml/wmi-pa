@@ -1,8 +1,10 @@
-from itertools import product
+from itertools import islice, product
 from pysmt.shortcuts import *
 from wmipa.utils import is_pow
 from pysmt.walkers import IdentityDagWalker
 from pysmt.rewritings import nnf
+from local_tseitin.conds_cnfizer import LocalTseitinCNFizerConds as CNFizer
+from pysmt.fnode import FNode
 
 
 class WeightConverter:
@@ -12,7 +14,6 @@ class WeightConverter:
     MODES = [MODE_EUF, MODE_SK, MODE_BOOL]
 
     def __init__(self, variables):
-        self.cnfizer = DeMorganCNFizer()
         self.variables = variables
         self.conv_aliases = set()
         self.conv_bools = set()
@@ -31,18 +32,18 @@ class WeightConverter:
         assert mode in WeightConverter.MODES, "Available modes: {}".format(
             WeightConverter.MODES)
         formula = Bool(True)
-        expand_cnf = False
+        # expand_cnf = False
         if mode == WeightConverter.MODE_EUF:
             formula = self.convert_euf(weight_func)
         elif mode == WeightConverter.MODE_BOOL:
             formula = self.convert_bool(weight_func)
-            expand_cnf = True
+            # expand_cnf = True
         elif mode == WeightConverter.MODE_SK:
             formula = self.convert_sk(weight_func)
 
-        if expand_cnf:
-            # print("Conversion:", formula.serialize())
-            formula = self.cnfizer.convert(formula)
+        # if expand_cnf:
+        #     # print("Conversion:", formula.serialize())
+        #     formula = self.cnfizer.convert(formula)
             # print("CNF:", formula.serialize())
         return formula
 
@@ -136,27 +137,23 @@ class WeightConverter:
             curr = self.prod_fn(args.pop(), curr)
         return curr
 
-    def convert_sk(self, weight_func):
-        conversion_list = list()
-        self._convert_rec_sk(weight_func, Bool(False), conversion_list)
-        return And(conversion_list)
-
-    def _convert_rec_sk(self, formula, branch_condition, conversion_list):
+    def convert_sk(self, formula: FNode):
         if formula.is_ite():
-            return self._process_ite_sk(formula, branch_condition, conversion_list)
+            return self._process_ite_sk(formula)
+        elif formula.is_theory_op():
+            results = (s for a in formula.args() if not (
+                s := self.convert_sk(a)).is_true())
+            return And(results)
         else:
-            for arg in formula.args():
-                self._convert_rec_sk(arg, branch_condition, conversion_list)
+            return TRUE()
 
-    def _process_ite_sk(self, formula, branch_condition, conversion_list):
+    def _process_ite_sk(self, formula):
         phi, left, right = formula.args()
-        # update branch conditions for children and recursively convert them
-        l_cond = Or(branch_condition, Not(phi))
-        r_cond = Or(branch_condition, phi)
-        self._convert_rec_sk(left, l_cond, conversion_list)
-        self._convert_rec_sk(right, r_cond, conversion_list)
 
-        conversion_list.append(Or(branch_condition, phi, Not(phi)))
+        skl = self.convert_sk(left)
+        skr = self.convert_sk(right)
+
+        return Or(And(phi, skl), And(Not(phi), skr))
 
     def convert_bool(self, weight_func):
         conversion_list = list()
@@ -183,79 +180,79 @@ class WeightConverter:
         self._convert_rec_bool(right, r_cond, conversion_list)
 
 
-class DeMorganCNFizer(IdentityDagWalker):
-    def convert(self, formula):
-        # convert in Negative Normal Form
-        formula = nnf(formula)
-        # print("NNF:", formula.serialize())
-        formula = self.walk(formula)
-        assert self.is_cnf(formula), formula.serialize()
-        return formula
+# class DeMorganCNFizer(IdentityDagWalker):
+#     def convert(self, formula):
+#         # convert in Negative Normal Form
+#         formula = nnf(formula)
+#         # print("NNF:", formula.serialize())
+#         formula = self.walk(formula)
+#         assert self.is_cnf(formula), formula.serialize()
+#         return formula
 
-    def is_atom(self, node):
-        return node.is_symbol(BOOL) or node.is_theory_relation()
+#     def is_atom(self, node):
+#         return node.is_symbol(BOOL) or node.is_theory_relation()
 
-    def is_literal(self, node):
-        return self.is_atom(node) or (node.is_not() and self.is_atom(node.arg(0)))
+#     def is_literal(self, node):
+#         return self.is_atom(node) or (node.is_not() and self.is_atom(node.arg(0)))
 
-    def walk_and(self, formula, args, **kwargs):
-        # print("Walking and: ", formula.serialize(), "args: ", args)
+#     def walk_and(self, formula, args, **kwargs):
+#         # print("Walking and: ", formula.serialize(), "args: ", args)
 
-        and_args = set()
-        for a in args:
-            if a.is_true():
-                continue
-            elif a.is_false():
-                return FALSE()
-            elif self.is_literal(a) or a.is_or():
-                and_args.add(a)
-            else:
-                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
-                # flatten AND
-                and_args.update(a.args())
-        # print("Returning", And(and_args).serialize())
-        return And(and_args)
+#         and_args = set()
+#         for a in args:
+#             if a.is_true():
+#                 continue
+#             elif a.is_false():
+#                 return FALSE()
+#             elif self.is_literal(a) or a.is_or():
+#                 and_args.add(a)
+#             else:
+#                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+#                 # flatten AND
+#                 and_args.update(a.args())
+#         # print("Returning", And(and_args).serialize())
+#         return And(and_args)
 
-    def walk_or(self, formula, args, **kwargs):
-        # print("Walking or: ", formula.serialize(), "args: ", args)
-        # flatten or
-        or_literals = set()
-        list_of_and = list()
-        for a in args:
-            if a.is_false():
-                continue
-            elif a.is_true():
-                return TRUE()
-            elif self.is_literal(a):
-                or_literals.add(a)
-            elif a.is_or():
-                or_literals.update(a.args())
-            else:
-                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
-                list_of_and.append(a.args())
+#     def walk_or(self, formula, args, **kwargs):
+#         # print("Walking or: ", formula.serialize(), "args: ", args)
+#         # flatten or
+#         or_literals = set()
+#         list_of_and = list()
+#         for a in args:
+#             if a.is_false():
+#                 continue
+#             elif a.is_true():
+#                 return TRUE()
+#             elif self.is_literal(a):
+#                 or_literals.add(a)
+#             elif a.is_or():
+#                 or_literals.update(a.args())
+#             else:
+#                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+#                 list_of_and.append(a.args())
 
-        list_of_and.extend((x,) for x in or_literals)
-        # print("Flatten_args:", list_of_and)
-        and_args = set()
+#         list_of_and.extend((x,) for x in or_literals)
+#         # print("Flatten_args:", list_of_and)
+#         and_args = set()
 
-        for comb in product(*list_of_and):
-            # print("Comb:", comb)
-            or_args = set()
-            for item in comb:
-                if self.is_literal(item):
-                    or_args.add(item)
-                elif item.is_or():
-                    or_args.update(item.args())
-                else:
-                    assert item.is_and(), "{}".format(item.serialize())
-                    or_args.update(item.args())
-            and_args.add(Or(or_args))
-        # print("Returning", And(and_args).serialize())
+#         for comb in product(*list_of_and):
+#             # print("Comb:", comb)
+#             or_args = set()
+#             for item in comb:
+#                 if self.is_literal(item):
+#                     or_args.add(item)
+#                 elif item.is_or():
+#                     or_args.update(item.args())
+#                 else:
+#                     assert item.is_and(), "{}".format(item.serialize())
+#                     or_args.update(item.args())
+#             and_args.add(Or(or_args))
+#         # print("Returning", And(and_args).serialize())
 
-        return And(and_args)
+#         return And(and_args)
 
-    def is_clause(self, formula):
-        return self.is_literal(formula) or (formula.is_or() and all(self.is_literal(l) for l in formula.args()))
+#     def is_clause(self, formula):
+#         return self.is_literal(formula) or (formula.is_or() and all(self.is_literal(l) for l in formula.args()))
 
-    def is_cnf(self, formula):
-        return self.is_clause(formula) or (formula.is_and() and all(self.is_clause(c) for c in formula.args()))
+#     def is_cnf(self, formula):
+#         return self.is_clause(formula) or (formula.is_and() and all(self.is_clause(c) for c in formula.args()))
