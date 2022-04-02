@@ -6,7 +6,7 @@ from pysmt.typing import BOOL, REAL
 
 from wmipa.utils import is_pow
 from wmipa.wmiexception import WMIParsingException
-from wmipa.weightconverter import WeightConverter
+from wmipa.weightconverter import WeightConverter, WeightConverterEUF, WeightConverterSkeleton
 
 class Weights:
     """This class handles a FIUC weight function and provides a method that can evaluate the weight result
@@ -52,10 +52,10 @@ class Weights:
         self.labelling = And(labelling_list)
 
         # convert weights as formula for EUF
-        self.converter = WeightConverter(variables)
-        self.weights_as_formula_euf = self.converter.convert(weight_func, mode=WeightConverter.MODE_EUF)
-        self.weights_as_formula_bool = self.converter.convert(weight_func, mode=WeightConverter.MODE_BOOL)
-        self.weights_as_formula_sk = self.converter.convert(weight_func, mode=WeightConverter.MODE_SK)
+        self.converterEUF = WeightConverterEUF(variables)
+        self.converterSK = WeightConverterSkeleton(variables)
+        self.weights_as_formula_euf = self.converterEUF.convert(weight_func)
+        self.weights_as_formula_sk = self.converterSK.convert(weight_func)
         self.weights = weight_func
         
         # inizialize the cache (if requested)

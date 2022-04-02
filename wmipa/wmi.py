@@ -28,8 +28,6 @@ from wmipa import logger
 from wmipa.utils import get_boolean_variables, get_real_variables, get_lra_atoms
 from wmipa.wmiexception import WMIRuntimeException, WMIParsingException
 from wmipa.wmivariables import WMIVariables
-from wmipa.simplifier import WMISimplifier
-from local_tseitin.conds_cnfizer import LocalTseitinCNFizerConds as CNFizer
 import math
 
 class WMI:
@@ -50,11 +48,10 @@ class WMI:
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
     MODE_SA_PA_SK = "SAPASK"
-    MODE_SA_PA_BOOL = "SAPABOOL"
-    MODE_SA_PA_BOOL_TA = "SAPABOOLTA"
-    MODE_SA_PA_BOOL_TA_TA = "SAPABOOLTATA"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_BOOL, MODE_SA_PA_BOOL_TA,
-            MODE_SA_PA_BOOL_TA_TA, MODE_SA_PA_SK]
+    # MODE_SA_PA_BOOL = "SAPABOOL"
+    # MODE_SA_PA_BOOL_TA = "SAPABOOLTA"
+    # MODE_SA_PA_BOOL_TA_TA = "SAPABOOLTATA"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
 
     def __init__(self, chi, weight=Real(1), **options):
         """Default constructor.
@@ -68,7 +65,6 @@ class WMI:
         
         """
         self.variables = WMIVariables()
-        self.cnfizer = CNFizer()
         self.weights = Weights(weight, self.variables)
         self.chi = chi
         
@@ -77,7 +73,6 @@ class WMI:
         self.integrator = Latte_Integrator(n_threads = n_threads, stub_integrate = stub_integrate)
         self.list_norm = set()
         self.norm_aliases = dict()
-        self.simplifier = WMISimplifier()
 
         
     def computeMI_batch(self, phis, **options):
@@ -204,8 +199,6 @@ class WMI:
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
-        elif "BOOL" in mode:
-            formula = And(formula, self.weights.weights_as_formula_bool)
         elif "SK" in mode:
             formula = And(formula, self.weights.weights_as_formula_sk)
         else:
@@ -239,9 +232,9 @@ class WMI:
                              WMI.MODE_ALLSMT : self._compute_WMI_AllSMT,
                              WMI.MODE_PA : self._compute_WMI_PA,
                              WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
-                             WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA,
-                             WMI.MODE_SA_PA_BOOL_TA: self._compute_WMI_SA_PA_TA,
-                             WMI.MODE_SA_PA_BOOL_TA_TA: self._compute_WMI_SA_PA_TA_TA,
+                            #  WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA,
+                            #  WMI.MODE_SA_PA_BOOL_TA: self._compute_WMI_SA_PA_TA,
+                            #  WMI.MODE_SA_PA_BOOL_TA_TA: self._compute_WMI_SA_PA_TA_TA,
                              WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK}
                              
         volume, n_integrations, n_cached = compute_with_mode[mode](formula, self.weights)
@@ -637,7 +630,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems)-cached, cached
 
-    def _get_allsat(self, formula, use_ta=False, atoms=None, options={}, cnfize=True):
+    def _get_allsat(self, formula, use_ta=False, atoms=None, options={}):
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -667,9 +660,7 @@ class WMI:
                 _ = self.normalize_assignment(atom, True)
         solver = Solver(name="msat", solver_options=solver_options)
         converter = solver.converter
-        if cnfize:
-            formula = self.cnfizer.convert(formula)
-            # print("CNF:", formula.serialize())
+        
         solver.add_assertion(formula)
         models = []
         mathsat.msat_all_sat(
@@ -794,7 +785,8 @@ class WMI:
             mu_lra.update(other_assignments)
             yield mu_lra
 
-    def _simplify_formula(self, formula, subs, atom_assignments, enable_skeleton=True):
+    @staticmethod
+    def _simplify_formula(formula, subs, atom_assignments):
         """Substitute the subs in the formula and iteratively simplify it. 
         atom_assignments is updated with unit-propagated atoms. 
 
@@ -814,7 +806,7 @@ class WMI:
         while True:            
             f_before = f_next
             # print("Substituting", subs)
-            f_next = self.simplifier.simplify(substitute(f_before, subs), enable_skeleton)
+            f_next = simplify(substitute(f_before, subs))
             # print("Simplifies into:", f_next.serialize())
             lra_assignments, over = WMI._parse_lra_formula(f_next)
             subs = {k : Bool(v) for k, v in lra_assignments.items()}
@@ -866,7 +858,7 @@ class WMI:
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
-                over, lra_formula = self._simplify_formula(formula, boolean_assignments, atom_assignments)
+                over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
 
@@ -882,7 +874,7 @@ class WMI:
                     curr_atom_assignments = dict(atom_assignments)
                     if len(residual_boolean_assignments) > 0:
                         curr_atom_assignments.update(residual_boolean_assignments)
-                        over, curr_lra_formula = self._simplify_formula(lra_formula, residual_boolean_assignments, curr_atom_assignments)
+                        over, curr_lra_formula = WMI._simplify_formula(lra_formula, residual_boolean_assignments, curr_atom_assignments)
                     else:
                         curr_lra_formula = lra_formula
                     # print(boolean_assignments, residual_boolean_assignments, "\nsimplifies into\n", curr_lra_formula.serialize())
@@ -951,7 +943,7 @@ class WMI:
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
-                over, res_formula = self._simplify_formula(formula, boolean_assignments, atom_assignments)
+                over, res_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
                 if not over:
                     residual_atoms = res_formula.get_atoms() - weight_bools
                     # boolean variables first
