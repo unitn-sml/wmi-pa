@@ -162,9 +162,48 @@ class WeightConverterSkeleton(WeightConverter):
         self._convert_rec(right, r_cond, conversion_list)
 
 
+class CNFPreprocessor(IdentityDagWalker):
+    def walk_or(self, formula, args, **kwargs):
+        children = []
+        for arg in args:
+            if arg.is_true():
+                return TRUE()
+            elif arg.is_false():
+                continue
+            elif arg.is_or():
+                children.extend(arg.args())
+            elif arg.is_not() and arg.arg(0).is_and():
+                children.extend(map(Not, arg.arg(0).args()))
+            else:
+                children.append(arg)
+        return Or(children)
+        
+    
+    def walk_and(self, formula, args, **kwargs):
+        children = []
+        for arg in args:
+            if arg.is_false():
+                return FALSE()
+            elif arg.is_true():
+                continue
+            elif arg.is_and():
+                children.extend(arg.args())
+            elif arg.is_not() and arg.arg(0).is_or():
+                children.extend(map(Not, arg.arg(0).args()))
+            else:
+                children.append(arg)
+        return And(children) 
+    
+    def walk_implies(self, formula, args, **kwargs):
+        left, right = formula.args()
+        left_a, right_a = args
+        return self.walk_or(Or(Not(left), right), (Not(left_a), right_a), **kwargs)
+
+
 class TseitinCNFizer(CNFizer):
     def __init__(self, new_label, environment=None):
         super().__init__(environment)
+        self.preprocessor = CNFPreprocessor(env=environment)
         self.new_label = new_label
 
     def _key_var(self, formula):
@@ -180,6 +219,9 @@ class TseitinCNFizer(CNFizer):
 
         Returns a set of clauses: a set of set of literals.
         """
+        # print("Preprocessing", formula.serialize())
+        formula = self.preprocessor.walk(formula)
+        # print("Done:", formula.serialize())
         tl, _cnf = self.walk(formula)
         if not _cnf:
             return [frozenset([tl])]
@@ -199,6 +241,7 @@ class TseitinCNFizer(CNFizer):
                     simp.append(lit)
             if simp:
                 res.append(frozenset(simp))
+        # print("CNF:", And(map(Or, res)))
         return frozenset(res)
 
     def walk_not(self, formula, args, **kwargs):
@@ -210,6 +253,7 @@ class TseitinCNFizer(CNFizer):
         else:
             return Not(a), _cnf
 
+
 # class DeMorganCNFizer(IdentityDagWalker):
 #     def convert(self, formula):
 #         # convert in Negative Normal Form
@@ -219,11 +263,6 @@ class TseitinCNFizer(CNFizer):
 #         assert self.is_cnf(formula), formula.serialize()
 #         return formula
 
-#     def is_atom(self, node):
-#         return node.is_symbol(BOOL) or node.is_theory_relation()
-
-#     def is_literal(self, node):
-#         return self.is_atom(node) or (node.is_not() and self.is_atom(node.arg(0)))
 
 #     def walk_and(self, formula, args, **kwargs):
 #         # print("Walking and: ", formula.serialize(), "args: ", args)
@@ -281,8 +320,15 @@ class TseitinCNFizer(CNFizer):
 
 #         return And(and_args)
 
-#     def is_clause(self, formula):
-#         return self.is_literal(formula) or (formula.is_or() and all(self.is_literal(l) for l in formula.args()))
 
-#     def is_cnf(self, formula):
-#         return self.is_clause(formula) or (formula.is_and() and all(self.is_clause(c) for c in formula.args()))
+def is_atom(node):
+    return node.is_symbol(BOOL) or node.is_theory_relation()
+
+def is_literal(node):
+    return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
+
+def is_clause(formula):
+    return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
+
+def is_cnf(formula):
+    return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))

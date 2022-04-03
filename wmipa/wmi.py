@@ -667,6 +667,7 @@ class WMI:
             solver.msat_env(),
             [converter.convert(v) for v in atoms],
             lambda model : WMI._callback(model, converter, models))
+        
         for model in models:
             assignments = {}
             for atom, value in WMI._get_assignments(model).items():
