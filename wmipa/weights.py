@@ -252,7 +252,10 @@ class Weights:
     def _evaluate_condition(self, condition, assignment):
         temp1 = condition.substitute(assignment)
         val = simplify(temp1)
-        val = simplify(substitute(val, assignment))
+        for _ in range(9):
+            if val.is_bool_constant():
+                break
+            val = simplify(substitute(val, assignment))
         assert val.is_bool_constant(),  "Weight condition " + serialize(condition) + \
             "\n\n cannot be evaluated with assignment " + "\n".join([str((x, assignment[x])) for x in assignment]) + "\n\n simplified into " + \
                 serialize(val)

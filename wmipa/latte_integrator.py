@@ -101,6 +101,7 @@ class Latte_Integrator(Integrator):
             pool.close()
             pool.join()
             self.integration_time = time.time() - start_time
+            print("INTEGRAL", values)
             return values, cached
         elif cache == 1 or cache == 2 or cache == 3:
             unique_problems = {}

@@ -129,7 +129,8 @@ class WeightConverterSkeleton(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
         self.conv_bools = set()
-        self.cnfizer = TseitinCNFizer(self.new_label)
+        #self.cnfizer = TseitinCNFizer(self.new_label)
+        self.cnfizer = DeMorganCNFizer()
 
     def new_label(self):
         w = self.variables.new_weight_bool(len(self.conv_bools))
@@ -150,16 +151,53 @@ class WeightConverterSkeleton(WeightConverter):
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
-        w = self.new_label()
-        l_cond = Or(branch_condition, Not(w))
-        r_cond = Or(branch_condition, w)
-        for clause in self.cnfizer.convert(phi):
-            conversion_list.append(Or(l_cond, *clause))
-        for clause in self.cnfizer.convert(Not(phi)):
-            conversion_list.append(Or(r_cond, *clause))
+        #print("MIPHI", serialize(phi), branch_condition)
+        if self.is_atom(phi):
+            #print("ISATOM")
+            if branch_condition is not None:
+                l_cond = Or(branch_condition, Not(phi))
+                r_cond = Or(branch_condition, phi)
+            else:
+                l_cond = Not(phi)
+                r_cond = phi
+            conversion_list.append(Or(branch_condition, phi, Not(phi)))
+            #print("Clause", Or(branch_condition, phi, Not(phi)))
+            self._convert_rec(left, l_cond, conversion_list)
+            self._convert_rec(right, r_cond, conversion_list)
+        else:
+            w = self.new_label()
+            #print("IS COMPLEX, WE ADD WEIGHT", w)
+            if branch_condition is not None:
+                l_cond = Or(branch_condition, Not(w))
+                r_cond = Or(branch_condition, w)
+            else:
+                l_cond = Not(w)
+                r_cond = w
+            for clause in self.cnfizer.convert(phi):
+                conversion_list.append(Or(l_cond, *clause))
+                #print("Clause", Or(l_cond, *clause))
+                #print("tYpe", Or(l_cond, *clause).get_type())
+            for clause in self.cnfizer.convert(Not(phi)):
+                conversion_list.append(Or(r_cond, *clause))
+                #print("Clause", Or(r_cond, *clause))
+                #print("tYpe", Or(r_cond, *clause).get_type())
+            conversion_list.append(Or(branch_condition, w, Not(w)))
+            #print("Clause final", Or(branch_condition, w, Not(w)))
+            self._convert_rec(left, l_cond, conversion_list)
+            self._convert_rec(right, r_cond, conversion_list)
+        #for clause in self.cnfizer.convert(phi):
+        #    conversion_list.append(Or(l_cond, *clause))
+        #for clause in self.cnfizer.convert(Not(phi)):
+        #    conversion_list.append(Or(r_cond, *clause))
+        #for clause in self.cnfizer.convert(phi):
+        #    conversion_list.append(Or(l_cond, *clause))
+        #for clause in self.cnfizer.convert(Not(phi)):
+        #    conversion_list.append(Or(r_cond, *clause))
 
-        self._convert_rec(left, l_cond, conversion_list)
-        self._convert_rec(right, r_cond, conversion_list)
+    def is_atom(self, node):
+        return node.is_symbol(BOOL) or node.is_theory_relation()
+
+        
 
 
 class CNFPreprocessor(IdentityDagWalker):
@@ -219,9 +257,9 @@ class TseitinCNFizer(CNFizer):
 
         Returns a set of clauses: a set of set of literals.
         """
-        # print("Preprocessing", formula.serialize())
+        #print("Preprocessing", formula.serialize())
         formula = self.preprocessor.walk(formula)
-        # print("Done:", formula.serialize())
+        #print("Done:", formula.serialize())
         tl, _cnf = self.walk(formula)
         if not _cnf:
             return [frozenset([tl])]
@@ -241,7 +279,7 @@ class TseitinCNFizer(CNFizer):
                     simp.append(lit)
             if simp:
                 res.append(frozenset(simp))
-        # print("CNF:", And(map(Or, res)))
+        print("CNF:", And(map(Or, res)))
         return frozenset(res)
 
     def walk_not(self, formula, args, **kwargs):
@@ -254,71 +292,99 @@ class TseitinCNFizer(CNFizer):
             return Not(a), _cnf
 
 
-# class DeMorganCNFizer(IdentityDagWalker):
-#     def convert(self, formula):
-#         # convert in Negative Normal Form
-#         formula = nnf(formula)
-#         # print("NNF:", formula.serialize())
-#         formula = self.walk(formula)
-#         assert self.is_cnf(formula), formula.serialize()
-#         return formula
+class DeMorganCNFizer(IdentityDagWalker):
+    def convert(self, formula):
+        # convert in Negative Normal Form
+        #print("FFF", serialize(formula))
+        formula = nnf(formula)
+        #print("NNF:", formula.serialize())
+        formula = self.walk(formula)
+        assert self.is_cnf(formula), formula.serialize()
+        #print("CONVERTED INTO (and check {})".format(formula.is_or()))
+        res = []
+        if formula.is_or():
+            #print("ATOMS by clause!", frozenset([x for x in formula.args()]))
+            return frozenset([frozenset([x for x in formula.args()])])
+        for c in formula.args():
+            #print("ANALYZING", c, c.get_type(), is_atom(c) or c.is_not() and is_atom(c.arg(0)))
+            if is_atom(c) or c.is_not() and is_atom(c.arg(0)):
+                res.append(frozenset([c]))
+            else:
+                res.append(frozenset([x for x in c.args()]))
+            #print("TEMP", res)
+        #res = [frozenset([x for x in c.args()]) for c in formula.args()]
+        #print("ATOMS", res)
+        return frozenset(res)
 
 
-#     def walk_and(self, formula, args, **kwargs):
-#         # print("Walking and: ", formula.serialize(), "args: ", args)
+    def walk_and(self, formula, args, **kwargs):
+        # print("Walking and: ", formula.serialize(), "args: ", args)
 
-#         and_args = set()
-#         for a in args:
-#             if a.is_true():
-#                 continue
-#             elif a.is_false():
-#                 return FALSE()
-#             elif self.is_literal(a) or a.is_or():
-#                 and_args.add(a)
-#             else:
-#                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
-#                 # flatten AND
-#                 and_args.update(a.args())
-#         # print("Returning", And(and_args).serialize())
-#         return And(and_args)
+        and_args = set()
+        for a in args:
+            if a.is_true():
+                continue
+            elif a.is_false():
+                return FALSE()
+            elif self.is_literal(a) or a.is_or():
+                and_args.add(a)
+            else:
+                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+                # flatten AND
+                and_args.update(a.args())
+        # print("Returning", And(and_args).serialize())
+        return And(and_args)
 
-#     def walk_or(self, formula, args, **kwargs):
-#         # print("Walking or: ", formula.serialize(), "args: ", args)
-#         # flatten or
-#         or_literals = set()
-#         list_of_and = list()
-#         for a in args:
-#             if a.is_false():
-#                 continue
-#             elif a.is_true():
-#                 return TRUE()
-#             elif self.is_literal(a):
-#                 or_literals.add(a)
-#             elif a.is_or():
-#                 or_literals.update(a.args())
-#             else:
-#                 assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
-#                 list_of_and.append(a.args())
+    def walk_or(self, formula, args, **kwargs):
+        # print("Walking or: ", formula.serialize(), "args: ", args)
+        # flatten or
+        or_literals = set()
+        list_of_and = list()
+        for a in args:
+            if a.is_false():
+                continue
+            elif a.is_true():
+                return TRUE()
+            elif self.is_literal(a):
+                or_literals.add(a)
+            elif a.is_or():
+                or_literals.update(a.args())
+            else:
+                assert a.is_and(), "{} {}".format(formula.serialize(), a.serialize())
+                list_of_and.append(a.args())
 
-#         list_of_and.extend((x,) for x in or_literals)
-#         # print("Flatten_args:", list_of_and)
-#         and_args = set()
+        list_of_and.extend((x,) for x in or_literals)
+        # print("Flatten_args:", list_of_and)
+        and_args = set()
 
-#         for comb in product(*list_of_and):
-#             # print("Comb:", comb)
-#             or_args = set()
-#             for item in comb:
-#                 if self.is_literal(item):
-#                     or_args.add(item)
-#                 elif item.is_or():
-#                     or_args.update(item.args())
-#                 else:
-#                     assert item.is_and(), "{}".format(item.serialize())
-#                     or_args.update(item.args())
-#             and_args.add(Or(or_args))
-#         # print("Returning", And(and_args).serialize())
+        for comb in product(*list_of_and):
+            # print("Comb:", comb)
+            or_args = set()
+            for item in comb:
+                if self.is_literal(item):
+                    or_args.add(item)
+                elif item.is_or():
+                    or_args.update(item.args())
+                else:
+                    assert item.is_and(), "{}".format(item.serialize())
+                    or_args.update(item.args())
+            and_args.add(Or(or_args))
+        # print("Returning", And(and_args).serialize())
 
-#         return And(and_args)
+        return And(and_args)
+
+
+    def is_atom(self, node):
+        return node.is_symbol(BOOL) or node.is_theory_relation()
+
+    def is_literal(self, node):
+        return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
+
+    def is_clause(self, formula):
+        return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
+
+    def is_cnf(self, formula):
+        return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))
 
 
 def is_atom(node):
