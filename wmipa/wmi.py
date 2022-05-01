@@ -206,7 +206,7 @@ class WMI:
             formula = And(formula, self.weights.labelling)
         
         print()
-        print("FORMULA: ", serialize(formula))
+        #print("FORMULA: ", serialize(formula))
         logger.debug("Computing WMI with mode: {}".format(mode))
         x = {x for x in get_real_variables(formula) if not self.variables.is_weight_alias(x)}
         A = {x for x in get_boolean_variables(formula) if not self.variables.is_label(x)}
@@ -651,6 +651,7 @@ class WMI:
                     "dpll.allsat_allow_duplicates" : "false",
                     "preprocessor.toplevel_propagation" : "false",
                     "preprocessor.simplification" : "0",
+                    #"debug.api_call_trace": "1"
                     }
         else:
             solver_options = {}
@@ -876,7 +877,6 @@ class WMI:
                 #print("--", boolean_assignments)
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
-                #print("SIMPLIFY", serialize(lra_formula))
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
 
@@ -967,8 +967,9 @@ class WMI:
     def _compute_WMI_SA_PA_TA_TA(self, formula, weights, options={}):
         problems = []
         weight_bools = {b for b in get_boolean_variables(formula) 
-            if self.variables.is_weight_bool(b)}
+            if self.variables.is_weight_bool(b) or b.symbol_name()[0] == "T"}
         boolean_variables = get_boolean_variables(formula) - weight_bools
+        #print("BOOLVARS", boolean_variables)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
 
@@ -1019,7 +1020,7 @@ class WMI:
                     n_bool_not_assigned.append(b_not_assigned)
                 
         results, cached = self.integrator.integrate_batch(problems, self.cache)
-        print("N BOOL NOT ASSIGNED TATA", n_bool_not_assigned)
+        #print("N BOOL NOT ASSIGNED TATA", n_bool_not_assigned)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))

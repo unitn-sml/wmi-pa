@@ -7,7 +7,7 @@ from pysmt.walkers import IdentityDagWalker
 from pysmt.rewritings import nnf
 from pysmt.fnode import FNode
 from pysmt.rewritings import CNFizer
-
+from local_tseitin.conds_cnfizer import LocalTseitinCNFizerConds
 
 class WeightConverter(ABC):
 
@@ -129,8 +129,9 @@ class WeightConverterSkeleton(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
         self.conv_bools = set()
-        #self.cnfizer = TseitinCNFizer(self.new_label)
-        self.cnfizer = DeMorganCNFizer()
+        self.cnfizer = TseitinCNFizer(self.new_label)
+        #self.cnfizer = LocalTseitinCNFizer(self.new_label)
+        self.cnfizer2 = DeMorganCNFizer()
 
     def new_label(self):
         w = self.variables.new_weight_bool(len(self.conv_bools))
@@ -139,6 +140,9 @@ class WeightConverterSkeleton(WeightConverter):
 
     def convert(self, weight_func):
         conversion_list = list()
+        LTv2 = False
+        if LTv2:
+            return self.convert_sk(weight_func)
         self._convert_rec(weight_func, Bool(False), conversion_list)
         return And(conversion_list)
 
@@ -173,16 +177,22 @@ class WeightConverterSkeleton(WeightConverter):
             else:
                 l_cond = Not(w)
                 r_cond = w
-            for clause in self.cnfizer.convert(phi):
+            #print("PHI", phi)
+            #print("NNF(PHI)", nnf(phi))
+            for clause in self.cnfizer.convert(nnf(phi)):
                 conversion_list.append(Or(l_cond, *clause))
-                #print("Clause", Or(l_cond, *clause))
+                #print("Clause", serialize(Or(l_cond, *clause)))
                 #print("tYpe", Or(l_cond, *clause).get_type())
-            for clause in self.cnfizer.convert(Not(phi)):
+            
+            # Probably error ere?
+            #print("Not(PHI)", Not(phi))
+            #print("NNF(Not(PHI))", nnf(Not(phi)))
+            for clause in self.cnfizer.convert(nnf(Not(phi))):
                 conversion_list.append(Or(r_cond, *clause))
-                #print("Clause", Or(r_cond, *clause))
+                #print("Clause", serialize(Or(r_cond, *clause)))
                 #print("tYpe", Or(r_cond, *clause).get_type())
             conversion_list.append(Or(branch_condition, w, Not(w)))
-            #print("Clause final", Or(branch_condition, w, Not(w)))
+            #print("Clause final", serialize(Or(branch_condition, w, Not(w))))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
         #for clause in self.cnfizer.convert(phi):
@@ -197,7 +207,27 @@ class WeightConverterSkeleton(WeightConverter):
     def is_atom(self, node):
         return node.is_symbol(BOOL) or node.is_theory_relation()
 
-        
+    def convert_sk(self, formula: FNode):
+        if formula.is_ite():
+            return self._process_ite_sk(formula)
+        elif formula.is_theory_op():
+            results = (s for a in formula.args() if not (
+                s := self.convert_sk(a)).is_true())
+            return And(results)
+        else:
+            return TRUE()
+
+    def _process_ite_sk(self, formula):
+        phi, left, right = formula.args()
+
+        skl = self.convert_sk(left)
+        skr = self.convert_sk(right)
+        if skl.is_true() and skr.is_true():
+            C = self.variables.new_weight_bool(len(self.conv_bools))
+            self.conv_bools.add(C)
+            skl = C
+            skr = Not(C)
+        return Or(And(phi, skl), And(Not(phi), skr))
 
 
 class CNFPreprocessor(IdentityDagWalker):
@@ -238,6 +268,111 @@ class CNFPreprocessor(IdentityDagWalker):
         return self.walk_or(Or(Not(left), right), (Not(left_a), right_a), **kwargs)
 
 
+class LocalTseitinCNFizer(CNFizer):
+    def __init__(self, new_label, environment=None):
+        super().__init__(environment)
+        self.preprocessor = CNFPreprocessor(env=environment)
+        self.new_label = new_label
+        self.cnd = LocalTseitinCNFizerConds()
+        self.mapper = dict()
+
+    def _key_var(self, formula):
+        if formula in self._introduced_variables:
+            res = self._introduced_variables[formula]
+        else:
+            res = self.new_label()
+            self._introduced_variables[formula] = res
+            if formula not in mapper:
+                formula[mapper] = res
+        return res
+
+    def convert(self, formula):
+        """Convert formula into an Equisatisfiable CNF.
+
+        Returns a set of clauses: a set of set of literals.
+        """
+        #print("Preprocessing", formula.serialize())
+        
+        formula = self.preprocessor.walk(formula)
+        cnf, S = self.cnd.convert(formula)
+
+        #print("Done:", formula.serialize())
+
+        if not (formula.is_not() and formula.arg(0) in self.mapper):
+            self.mapper[formula] = S
+
+        #print("CNF", cnf)
+        # tl, _cnf = self.walk(formula)
+        # if not _cnf:
+        #    return [frozenset([tl])]
+        res = []
+
+        for clause in cnf.args():
+            if is_atom(clause):
+                res.append(frozenset([clause]))
+            else:
+                simp = []
+                for lit in clause.args():
+                    if lit.is_true():
+                        # Prune clauses that are trivially TRUE
+                        # and clauses containing the top level label
+                        simp = None
+                        break
+                    elif not lit.is_false():
+                        # Prune FALSE literals
+                        simp.append(lit)
+                if simp:
+                    res.append(frozenset(simp))
+        #if formula.is_not() and formula.arg(0) in self.mapper:
+        #    res.append(frozenset([self.mapper[formula.arg(0)], S]))
+        #    res.append(frozenset([Not(self.mapper[formula.arg(0)]), Not(S)]))
+        #print("CNF:", And(map(Or, res)))
+        return frozenset(res)
+
+    def walk(self, formula, **kwargs):
+        if formula in self.memoization:
+            return self.memoization[formula]
+
+        res = self.iter_walk(formula, **kwargs)
+
+        if self.invalidate_memoization:
+            self.memoization.clear()
+        return res
+
+    def walk_not(self, formula, args, **kwargs):
+        a, _cnf = args[0]
+        if a.is_true():
+            return self.mgr.FALSE(), CNFizer.TRUE_CNF
+        elif a.is_false():
+            return self.mgr.TRUE(), CNFizer.TRUE_CNF
+        else:
+            return Not(a), _cnf
+
+    def walk_and(self, formula, args, **kwargs):
+        if len(args) == 1:
+            return args[0]
+
+        k = self._key_var(formula)
+        #_cnf = [frozenset([k] + [self.mgr.Not(a).simplify() for a,_ in args])]
+        _cnf = []
+        for a,c in args:
+            _cnf.append(frozenset([a, self.mgr.Not(k)]))
+            for clause in c:
+                _cnf.append(clause)
+        return k, frozenset(_cnf)
+
+    def walk_or(self, formula, args, **kwargs):
+        if len(args) == 1:
+            return args[0]
+        k = self._key_var(formula)
+        _cnf = [frozenset([self.mgr.Not(k)] + [a for a,_ in args])]
+        #for a,c in args:
+        #    _cnf.append(frozenset([k, self.mgr.Not(a)]))
+        #    for clause in c:
+        #        _cnf.append(clause)
+        return k, frozenset(_cnf)
+
+
 class TseitinCNFizer(CNFizer):
     def __init__(self, new_label, environment=None):
         super().__init__(environment)
@@ -258,9 +393,13 @@ class TseitinCNFizer(CNFizer):
         Returns a set of clauses: a set of set of literals.
         """
         #print("Preprocessing", formula.serialize())
+        formula = simplify(formula)
         formula = self.preprocessor.walk(formula)
         #print("Done:", formula.serialize())
+        #if is_cnf(formula):
+        #    return frozenset([frozenset(x.args()) for x in formula.args()])
         tl, _cnf = self.walk(formula)
+        #print("END PREVIOUS CONVERSION")
         if not _cnf:
             return [frozenset([tl])]
         res = []
@@ -279,10 +418,13 @@ class TseitinCNFizer(CNFizer):
                     simp.append(lit)
             if simp:
                 res.append(frozenset(simp))
-        print("CNF:", And(map(Or, res)))
+        #print("CNF:", And(map(Or, res))) 
+        #print("Res", res)
+        #return frozenset([frozenset({WB4}), frozenset({(! WB5), A, C}), frozenset({WB4, (! D)}), frozenset({A, (! WB4), B, D}), frozenset({WB4, (! B)}), frozenset({WB4, (! A)}), frozenset({WB5, (! C)}), frozenset({WB5, (! A)}), frozenset({WB5})])
         return frozenset(res)
 
     def walk_not(self, formula, args, **kwargs):
+        #print("WALK NOT", formula, args)
         a, _cnf = args[0]
         if a.is_true():
             return self.mgr.FALSE(), CNFizer.TRUE_CNF
@@ -290,6 +432,36 @@ class TseitinCNFizer(CNFizer):
             return self.mgr.TRUE(), CNFizer.TRUE_CNF
         else:
             return Not(a), _cnf
+
+    def walk_and(self, formula, args, **kwargs):
+        #print("WALK AND", formula, args)
+        if len(args) == 1:
+            return args[0]
+
+        k = self._key_var(formula)
+        #print("KKK", k)
+        #_cnf = [frozenset([k] + [self.mgr.Not(a).simplify() for a,_ in args])]
+        _cnf = []
+        for a,c in args:
+            _cnf.append(frozenset([a, self.mgr.Not(k)]))
+            for clause in c:
+                _cnf.append(clause)
+        #print("_CNF", _cnf)
+        return k, frozenset(_cnf)
+
+    def walk_or(self, formula, args, **kwargs):
+        #print("WALK OR", formula, args)
+        if len(args) == 1:
+            return args[0]
+        k = self._key_var(formula)
+        #print("KKK", k)
+        _cnf = [frozenset([self.mgr.Not(k)] + [a for a,_ in args])]
+        for a,c in args:
+        #    _cnf.append(frozenset([k, self.mgr.Not(a)]))
+            for clause in c:
+                _cnf.append(clause)
+        #print("_CNF", _cnf)
+        return k, frozenset(_cnf)
 
 
 class DeMorganCNFizer(IdentityDagWalker):
