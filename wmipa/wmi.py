@@ -16,7 +16,7 @@ __version__ = '0.999'
 __author__ = 'Paolo Morettin'
 
 import mathsat
-from pysmt.shortcuts import Real, Bool, And, Iff, Not, Implies, Solver, simplify, substitute, serialize, Times, Plus, Equals, LE, GE, Symbol
+from pysmt.shortcuts import Real, Bool, And, Or, Iff, Not, Implies, Solver, simplify, substitute, serialize, Times, Plus, Equals, LE, GE, Symbol
 from pysmt.typing import BOOL, REAL
 from sympy import sympify, solve
 from math import fsum
@@ -969,6 +969,11 @@ class WMI:
         weight_bools = {b for b in get_boolean_variables(formula) 
             if self.variables.is_weight_bool(b) or b.symbol_name()[0] == "T"}
         boolean_variables = get_boolean_variables(formula) - weight_bools
+        #print("FORMULA", serialize(formula))
+        b1, w2 = list(boolean_variables), list(weight_bools)
+        #print("BOOLEANS", b1)
+        #print("WEIGHTS", w2)
+        #formula = And(formula, Or(Not(w2[1]),Not(w2[2]),Not(w2[3])))
         #print("BOOLVARS", boolean_variables)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []

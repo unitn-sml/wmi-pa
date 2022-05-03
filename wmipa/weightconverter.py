@@ -157,8 +157,10 @@ class WeightConverterSkeleton(WeightConverter):
         if self.is_atom(phi):
             #print("ISATOM")
             if branch_condition is not None:
-                l_cond = Or(branch_condition, Not(phi))
-                r_cond = Or(branch_condition, phi)
+                #l_cond = Or(branch_condition, Not(phi))
+                #r_cond = Or(branch_condition, phi)
+                l_cond = Not(phi)
+                r_cond = phi
             else:
                 l_cond = Not(phi)
                 r_cond = phi
@@ -170,14 +172,17 @@ class WeightConverterSkeleton(WeightConverter):
             w = self.new_label()
             #print("IS COMPLEX, WE ADD WEIGHT", w)
             if branch_condition is not None:
-                l_cond = Or(branch_condition, Not(w))
-                r_cond = Or(branch_condition, w)
+                #l_cond = Or(branch_condition, Not(w))
+                #r_cond = Or(branch_condition, w)
+                l_cond = Not(w)
+                r_cond = w
             else:
                 l_cond = Not(w)
                 r_cond = w
             #print("PHI", phi)
             #print("NNF(PHI)", nnf(phi))
             for clause in self.cnfizer.convert(nnf(phi)):
+                #conversion_list.append(Or(*clause))
                 conversion_list.append(Or(l_cond, *clause))
                 #print("Clause", serialize(Or(l_cond, *clause)))
                 #print("tYpe", Or(l_cond, *clause).get_type())
@@ -187,6 +192,7 @@ class WeightConverterSkeleton(WeightConverter):
             #print("NNF(Not(PHI))", nnf(Not(phi)))
             for clause in self.cnfizer.convert(nnf(Not(phi))):
                 conversion_list.append(Or(r_cond, *clause))
+                #conversion_list.append(Or(*clause))
                 #print("Clause", serialize(Or(r_cond, *clause)))
                 #print("tYpe", Or(r_cond, *clause).get_type())
             conversion_list.append(Or(branch_condition, w, Not(w)))
