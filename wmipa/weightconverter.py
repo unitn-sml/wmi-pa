@@ -157,10 +157,10 @@ class WeightConverterSkeleton(WeightConverter):
         if self.is_atom(phi):
             #print("ISATOM")
             if branch_condition is not None:
-                #l_cond = Or(branch_condition, Not(phi))
-                #r_cond = Or(branch_condition, phi)
-                l_cond = Not(phi)
-                r_cond = phi
+                l_cond = Or(branch_condition, Not(phi))
+                r_cond = Or(branch_condition, phi)
+                #l_cond = Not(phi)
+                #r_cond = phi
             else:
                 l_cond = Not(phi)
                 r_cond = phi
@@ -172,10 +172,10 @@ class WeightConverterSkeleton(WeightConverter):
             w = self.new_label()
             #print("IS COMPLEX, WE ADD WEIGHT", w)
             if branch_condition is not None:
-                #l_cond = Or(branch_condition, Not(w))
-                #r_cond = Or(branch_condition, w)
-                l_cond = Not(w)
-                r_cond = w
+                l_cond = Or(branch_condition, Not(w))
+                r_cond = Or(branch_condition, w)
+                #l_cond = Not(w)
+                #r_cond = w
             else:
                 l_cond = Not(w)
                 r_cond = w
