@@ -874,7 +874,7 @@ class WMI:
             for boolean_assignments in boolean_models:
                 atom_assignments = {}
                 # simplify the formula
-                #print("--", boolean_assignments)
+                print("--", boolean_assignments)
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
 
@@ -896,7 +896,7 @@ class WMI:
 
 
                 for residual_boolean_assignments in residual_boolean_models:
-                    #print("----", residual_boolean_assignments)
+                    print("----", residual_boolean_assignments)
                     curr_atom_assignments = dict(atom_assignments)
                     if len(residual_boolean_assignments) > 0:
                         curr_atom_assignments.update(residual_boolean_assignments)
@@ -906,14 +906,14 @@ class WMI:
                     #print("ACK", boolean_assignments, residual_boolean_assignments, over,  "\n\nSIMPLIFIED into\n", curr_lra_formula.serialize())
                     #print("ACK", boolean_assignments, residual_boolean_assignments)
                     b_not_assigned = len(boolean_variables) - len(boolean_assignments) - len(residual_boolean_assignments)
-                    #print("IS OVER?", over)
+                    print("IS OVER?", over)
                     if not over:
                         # predicate abstraction on LRA atoms with minimal models
                         for assignments in self._compute_WMI_PA_no_boolean_no_label(curr_lra_formula, curr_atom_assignments):
-                            #print("------")
-                            #for x in assignments:
-                            #    print(serialize(x), assignments[x])
-                            #print("------ END")
+                            print("------")
+                            for x in assignments:
+                                print(serialize(x), assignments[x])
+                            print("------ END")
                             count = 0
                             for x in assignments:
                                 if x not in boolean_assignments and x in boolean_variables:
@@ -930,7 +930,7 @@ class WMI:
                         problems.append(problem)
                         n_bool_not_assigned.append(b_not_assigned)
         results, cached = self.integrator.integrate_batch(problems, self.cache)
-        #print("N BOOL NOT ASSIGNED", n_bool_not_assigned)
+        print("N BOOL NOT ASSIGNED", n_bool_not_assigned)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
@@ -938,8 +938,9 @@ class WMI:
     
     def _compute_WMI_SA_PA_TA(self, formula, weights, options={}):
         problems = []
-        boolean_variables = {b for b in get_boolean_variables(formula) 
-            if not self.variables.is_weight_bool(b)}
+        weight_bools = {b for b in get_boolean_variables(formula) 
+            if self.variables.is_weight_bool(b) or b.symbol_name()[0] == "T"}
+        boolean_variables = get_boolean_variables(formula) - weight_bools
         lra_atoms = get_lra_atoms(formula)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
@@ -971,6 +972,7 @@ class WMI:
         boolean_variables = get_boolean_variables(formula) - weight_bools
         #print("FORMULA", serialize(formula))
         b1, w2 = list(boolean_variables), list(weight_bools)
+        lra_atoms = get_lra_atoms(formula)
         #print("BOOLEANS", b1)
         #print("WEIGHTS", w2)
         #formula = And(formula, Or(Not(w2[1]),Not(w2[2]),Not(w2[3])))
@@ -991,18 +993,18 @@ class WMI:
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
-                #print("ACK", boolean_assignments)
+                print("ACK", boolean_assignments)
                 over, res_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
-                #print("IS OVER?", over)
+                print("IS OVER?", over)
                 if not over:
                     residual_atoms = res_formula.get_atoms() - weight_bools
                     # boolean variables first
                     residual_atoms = sorted(residual_atoms, key=lambda x : not x.is_symbol(BOOL))
-                    for assignments in self._get_allsat(res_formula, use_ta=True, atoms=residual_atoms):
-                        #print("------")
-                        #for x in assignments:
-                        #    print(serialize(x), assignments[x])
-                        #print("------ END")
+                    for assignments in self._get_allsat(res_formula, use_ta=True, atoms=lra_atoms):
+                        print("------")
+                        for x in assignments:
+                            print(serialize(x), assignments[x])
+                        print("------ END")
                         count = 0
                         for x in assignments:
                             if x not in boolean_assignments and x in boolean_variables:
@@ -1025,7 +1027,7 @@ class WMI:
                     n_bool_not_assigned.append(b_not_assigned)
                 
         results, cached = self.integrator.integrate_batch(problems, self.cache)
-        #print("N BOOL NOT ASSIGNED TATA", n_bool_not_assigned)
+        print("N BOOL NOT ASSIGNED TATA", n_bool_not_assigned)
         assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
         volume = fsum(r * 2**i for i, r in zip(n_bool_not_assigned,results))
