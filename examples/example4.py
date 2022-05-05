@@ -25,7 +25,8 @@ chi = And(Or(a, b, c),
           GE(x, Real(-5)), LE(x, Real(5)),
           Implies(a, GE(x, Real(0))),
           Implies(b, GE(x, Real(2))),
-          Implies(c, LE(x, Real(3))))
+          Or(Not(c), LE(x, Real(3))))
+          #Implies(c, LE(x, Real(3))))
 
 print("Weight function:", serialize(w))
 print("Support:", serialize(chi))
