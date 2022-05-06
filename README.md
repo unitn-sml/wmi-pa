@@ -20,6 +20,25 @@ WMI-PA is now part of [pywmi](https://github.com/weighted-model-integration/pywm
 [LattE integrale](https://www.math.ucdavis.edu/~latte/) 
 LattE's binary folder must be present in the PATH environment variable.
 
+[VolEsti](https://github.com/masinag/volesti/) 
+LattE's binary folder must be present in the PATH environment variable.
+Installation:
+```[bash]
+git clone https://github.com/masinag/volesti/
+cd volesti/examples/integrate_polynomial
+mkdir build
+cd build
+cmake ..
+make
+echo export PATH=\$PATH:$(pwd) >> ~/.bashrc
+source ~/.bashrc
+```
+
+Check if the installation was successful by running the command
+```[bash]
+volesti_integrate_polynomial
+```
+
 [MathSAT5](http://mathsat.fbk.eu/)
 Run:
 

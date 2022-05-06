@@ -22,13 +22,12 @@ from sympy import sympify, solve
 from math import fsum
 from collections import defaultdict
 
-from wmipa.latte_integrator import Latte_Integrator
+from wmipa.latte_integrator import LatteIntegrator
 from wmipa.weights import Weights
 from wmipa import logger
 from wmipa.utils import get_boolean_variables, get_real_variables, get_lra_atoms
 from wmipa.wmiexception import WMIRuntimeException, WMIParsingException
 from wmipa.wmivariables import WMIVariables
-import math
 
 class WMI:
     """The class that has the purpose to calculate the Weighted Module Integration of
@@ -60,17 +59,16 @@ class WMI:
             chi (FNode): The support of the problem.
             weight (FNode, optional): The weight of the problem (default: 1).
             **options:
-                - n_threads: The number of threads to use when computing WMI.
-                - stub_integrate: If True the integrals will not be computed, just counted
+                - integrator: class used to integrate
+                - integrator options (see LatteIntegrator and VolestiIntegrator)
         
         """
         self.variables = WMIVariables()
         self.weights = Weights(weight, self.variables)
         self.chi = chi
-        
-        n_threads = options.get("n_threads")
-        stub_integrate = options.get("stub_integrate")
-        self.integrator = Latte_Integrator(n_threads = n_threads, stub_integrate = stub_integrate)
+
+        Integrator = options.get("integrator") or LatteIntegrator
+        self.integrator = Integrator(**options)
         self.list_norm = set()
         self.norm_aliases = dict()
 

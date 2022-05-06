@@ -2,6 +2,8 @@ import traceback
 import psutil
 from pysmt.shortcuts import Bool, reset_env, get_env
 from wmipa import WMI
+from wmipa.volesti_integrator import VolestiIntegrator
+from wmipa.latte_integrator import LatteIntegrator
 from multiprocessing import Process, Queue
 from queue import Empty as EmptyQueueError
 from pywmi import Density
@@ -18,10 +20,18 @@ import json
 from os import path
 
 
-def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
+def compute_wmi(domain, support, weight, mode, threads, stub, q):
     if "PA" in mode:
+        print("Mode:", mode)
+        cache = -1
+        if "cache" in mode:
+            mode, cache = mode.split("_cache_")
+            cache = int(cache)
+            
+        integrator = VolestiIntegrator if "approx" in mode else LatteIntegrator
+        mode = mode.split("_")[0]
         wmi = WMI(support, weight, stub_integrate=stub,
-                  n_threads=threads)
+                  n_threads=threads, integrator=integrator, error=0.1)
         res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
                              domA=set(domain.get_bool_symbols()),
                              domX=set(domain.get_real_symbols()))
@@ -92,11 +102,12 @@ def problems_from_densities(input_files):
             continue
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
-            print("\r"*300, end='')
-            print("Problem: {} (query {}/{})/{} ({})".format(i+1, j+1,
+            print("\r" * 300, end='')
+            print("Problem: {} (query {}/{})/{} ({})".format(i + 1, j + 1,
                   len(queries), len(input_files), filename), end='')
             support = density.support & query
-            yield filename, j+1, density.domain, support, density.weight
+            yield filename, j + 1, density.domain, support, density.weight
+
 
 def write_result(mode, res, output_file):
     if not os.path.exists(output_file):
@@ -115,14 +126,18 @@ def write_result(mode, res, output_file):
 
 def parse_args():
     modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
-        0, 4)] + WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
+        0, 4)] + ["{}_approx".format(m) for m in WMI.MODES] + \
+        WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .json files')
     # parser.add_argument('-i', '--input-type', required=True,
     #                     help='Input type', choices=input_types.keys())
-    parser.add_argument('-o', '--output', default=os.getcwd(),
-                        help='Output folder where to save the result (default: cwd)')
+    parser.add_argument(
+        '-o',
+        '--output',
+        default=os.getcwd(),
+        help='Output folder where to save the result (default: cwd)')
     parser.add_argument('-f', '--filename',
                         help='Name of the result file (optional)')
     parser.add_argument('-m', '--mode', choices=modes,
@@ -130,9 +145,13 @@ def parse_args():
     parser.add_argument('--threads', default=None, type=int,
                         help='Number of threads to use for WMIPA')
     # parser.add_argument('-e', '--equals', action='store_true',
-    #                     help='Set this flag if you want to compute wmi only on support and weight with same name')
-    parser.add_argument('-t', '--stub', action="store_true",
-                        help='Set this flag if you only want to count the number of integrals to be computed')
+    # help='Set this flag if you want to compute wmi only on support and
+    # weight with same name')
+    parser.add_argument(
+        '-t',
+        '--stub',
+        action="store_true",
+        help='Set this flag if you only want to count the number of integrals to be computed')
     parser.add_argument('--timeout', type=int, default=3600,
                         help='Max time (in seconds)')
 
@@ -157,17 +176,14 @@ def main():
     output_file = path.join(output_dir, output_file)
     print("Creating... {}".format(output_file))
 
-
     elements = [path.join(input_dir, f) for f in os.listdir(input_dir)]
     files = [e for e in elements if path.isfile(e)]
 
-    print("Started computing")
+    print("Started computing, mode: ", mode)
     time_start = time.time()
 
-    for i, (filename, query_n, domain, support, weight) in enumerate(problems_from_densities(files)):
-        cache = -1
-        if "cache" in mode:
-            cache = int(mode.split("_")[2])
+    for i, (filename, query_n, domain, support, weight) in enumerate(
+            problems_from_densities(files)):
 
         time_init = time.time()
         q = Queue()
@@ -176,8 +192,7 @@ def main():
             target=compute_wmi, args=(domain,
                                       support,
                                       weight,
-                                      mode.split("_")[0],
-                                      cache,
+                                      mode,
                                       threads,
                                       stub,
                                       q),
@@ -222,8 +237,6 @@ def main():
 
     print()
     print("Computed {} WMI".format(i + 1))
-
-    
 
     seconds = time.time() - time_start
     print("Done! {:.3f}s".format(seconds))
