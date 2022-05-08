@@ -3,7 +3,7 @@ __author__ = 'Paolo Morettin'
 
 from subprocess import call
 
-from wmipa.integrator import CacheIntegrator
+from wmipa.integrator import CommandLineIntegrator
 
 
 class LatteIntegrator(CommandLineIntegrator):

@@ -24,7 +24,7 @@ LattE's binary folder must be present in the PATH environment variable.
 LattE's binary folder must be present in the PATH environment variable.
 Installation:
 ```[bash]
-git clone https://github.com/masinag/volesti/
+git clone -b polynomial_integration https://github.com/masinag/volesti/
 cd volesti/examples/integrate_polynomial
 mkdir build
 cd build
