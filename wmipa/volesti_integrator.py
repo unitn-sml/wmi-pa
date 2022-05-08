@@ -5,7 +5,7 @@ __author__ = 'Paolo Morettin'
 
 from subprocess import call
 
-from wmipa.integrator import CacheIntegrator
+from wmipa.integrator import CommandLineIntegrator
 from wmipa.wmiexception import WMIRuntimeException
 
 
@@ -47,7 +47,7 @@ class VolestiIntegrator(CommandLineIntegrator):
                 - stub_integrate: If True the integrals will not be computed
 
         """
-        CacheIntegrator.__init__(self, **options)
+        CommandLineIntegrator.__init__(self, **options)
         self.error = options.get('error') or self.DEF_ERROR
         if not (0.0 < self.error < 1.0):
             err = '{}, error must be in (0.0, 1.0)'.format(self.error)
