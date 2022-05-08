@@ -20,40 +20,32 @@ import json
 from os import path
 
 
-def compute_wmi(domain, support, weight, mode, threads, stub, q):
-    if "PA" in mode:
-        print("Mode:", mode)
-        cache = -1
-        if "cache" in mode:
-            mode, cache = mode.split("_cache_")
-            cache = int(cache)
-            
-        integrator = VolestiIntegrator if "approx" in mode else LatteIntegrator
-        mode = mode.split("_")[0]
-        wmi = WMI(support, weight, stub_integrate=stub,
-                  n_threads=threads, integrator=integrator, error=0.1)
-        res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
+def compute_wmi(domain, support, weight, args, q):
+    if "PA" in args.mode:
+        integrator = LatteIntegrator if args.integration=="latte" else VolestiIntegrator
+        wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
+        res = wmi.computeWMI(Bool(True), mode=args.mode, cache=args.cache,
                              domA=set(domain.get_bool_symbols()),
                              domX=set(domain.get_real_symbols()))
         res = (*res, wmi.integrator.get_integration_time())
     else:
-        if mode == "XADD":
+        if args.mode == "XADD":
             wmi = PyXaddEngine(
                 support=support, weight=weight, domain=domain)
-        elif mode == "XSDD":
+        elif args.mode == "XSDD":
             wmi = XsddEngine(support=support, weight=weight,
                              domain=domain,
                              algebra=PyXaddAlgebra(
                                  symbolic_backend=SympyAlgebra()),
                              ordered=False)
-        elif mode == "FXSDD":
+        elif args.mode == "FXSDD":
             wmi = FXSDD(domain,
                         support,
                         weight,
                         vtree_strategy=balanced,
                         algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
                         ordered=False)
-        elif mode == "Rejection":
+        elif args.mode == "Rejection":
             wmi = RejectionEngine(domain,
                                   support,
                                   weight, sample_count=100000)
@@ -125,9 +117,7 @@ def write_result(mode, res, output_file):
 
 
 def parse_args():
-    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
-        0, 4)] + ["{}_approx".format(m) for m in WMI.MODES] + \
-        WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
+    modes = WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
     parser = argparse.ArgumentParser(description='Compute WMI on models')
     parser.add_argument('input', help='Folder with .json files')
@@ -144,42 +134,73 @@ def parse_args():
                         required=True, help='Mode to use')
     parser.add_argument('--threads', default=None, type=int,
                         help='Number of threads to use for WMIPA')
-    # parser.add_argument('-e', '--equals', action='store_true',
-    # help='Set this flag if you want to compute wmi only on support and
-    # weight with same name')
+    parser.add_argument('--timeout', type=int, default=3600,
+                        help='Max time (in seconds)')
+    parser.add_argument('-c', '--cache', choices=[-1, 0, 1, 2, 3], default=-1,
+                        help='Cache level for WMIPA methods')
     parser.add_argument(
         '-t',
         '--stub',
         action="store_true",
         help='Set this flag if you only want to count the number of integrals to be computed')
-    parser.add_argument('--timeout', type=int, default=3600,
-                        help='Max time (in seconds)')
+    integration_parsers = parser.add_subparsers(
+        title="integration",
+        description="Type of integration to use",
+        dest="integration")
+    latte_parser = integration_parsers.add_parser("latte")
+    volesti_parser = integration_parsers.add_parser("volesti")
+    volesti_parser.add_argument(
+        '-e',
+        '--error',
+        default=0.1,
+        type=float,
+        help='Relative error acceptable [in (0, 1)]')
+    volesti_parser.add_argument(
+        '--algorithm',
+        choices=VolestiIntegrator.ALGORITHMS,
+        default=VolestiIntegrator.DEF_ALGORITHM,
+        help="Volume computation method: SequenceOfBalls, CoolingBals, CoolingGaussians")
+    volesti_parser.add_argument(
+        '--walk_type',
+        choices=VolestiIntegrator.RANDOM_WALKS,
+        default=VolestiIntegrator.DEF_RANDOM_WALK,
+        help="Type of random walk: BilliardWalk, AcceleratedBilliardWalk")
+    volesti_parser.add_argument(
+        '-N',
+        type=int,
+        default=VolestiIntegrator.DEF_N,
+        help='Number of samples')
+    volesti_parser.add_argument(
+        '--walk_length',
+        type=int,
+        default=VolestiIntegrator.DEF_WALK_LENGTH,
+        help='Length of random walk')
 
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    input_dir = args.input
     # input_type = args.input_type
-    output_dir = args.output
     output_file = args.filename
-    mode = args.mode
+    long_mode = args.mode
+    if "PA" in args.mode:
+        long_mode += "_" + args.integration
+        if args.cache > -1:
+            long_mode += "_cache_" + str(args.cache)
     # equals = args.equals
-    timeout = args.timeout
-    threads = args.threads
-    stub = args.stub
+    integrator = LatteIntegrator if args.integration=="latte" else VolestiIntegrator
 
-    check_input_output(input_dir, output_dir, output_file)
+    check_input_output(args.input, args.output, args.filename)
     output_file = output_file or "{}_{}_{}.json".format(
-        os.path.split(input_dir.rstrip('/'))[1], mode, int(time.time()))
-    output_file = path.join(output_dir, output_file)
+        os.path.split(args.input.rstrip('/'))[1], long_mode, int(time.time()))
+    output_file = path.join(args.output, output_file)
     print("Creating... {}".format(output_file))
 
-    elements = [path.join(input_dir, f) for f in os.listdir(input_dir)]
+    elements = [path.join(args.input, f) for f in os.listdir(args.input)]
     files = [e for e in elements if path.isfile(e)]
 
-    print("Started computing, mode: ", mode)
+    print("Started computing, mode: ", long_mode)
     time_start = time.time()
 
     for i, (filename, query_n, domain, support, weight) in enumerate(
@@ -192,16 +213,14 @@ def main():
             target=compute_wmi, args=(domain,
                                       support,
                                       weight,
-                                      mode,
-                                      threads,
-                                      stub,
+                                      args,
                                       q),
         )
         timed_proc.start()
-        timed_proc.join(timeout)
+        timed_proc.join(args.timeout)
         if timed_proc.is_alive():
-            res = (None, None, timeout)
-            time_total = timeout
+            res = (None, None, args.timeout)
+            time_total = args.timeout
 
             # kill the process and its children
             pid = timed_proc.pid
@@ -221,8 +240,8 @@ def main():
                 time_total = time.time() - time_init
             except EmptyQueueError:
                 # killed because of exceeding resources
-                res = (None, None, timeout)
-                time_total = timeout
+                res = (None, None, args.timeout)
+                time_total = args.timeout
 
         value, n_integrations, integration_time = res
         res = {
@@ -233,7 +252,7 @@ def main():
             "time": time_total,
             "integration_time": integration_time
         }
-        write_result(mode, res, output_file)
+        write_result(long_mode, res, output_file)
 
     print()
     print("Computed {} WMI".format(i + 1))
