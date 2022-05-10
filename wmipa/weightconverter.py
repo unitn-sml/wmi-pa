@@ -32,6 +32,7 @@ class WeightConverterEUF(WeightConverter):
         self.conv_aliases = set()
         self.prod_fn = FreshSymbol(typename=FunctionType(
             REAL, (REAL, REAL)), template="PROD%s")
+        self.counter = 1
 
     def convert(self, weight_func):
         conversion_list = list()
@@ -43,13 +44,22 @@ class WeightConverterEUF(WeightConverter):
         return And(conversion_list)
 
     def convert_rec(self, formula, branch_condition, conversion_list):
-        if formula.is_ite():
+        #print("CHECKING", formula)
+        #print("PROPERTY", get_type(formula))
+        if get_type(formula) == REAL:
+            y = self.variables.new_weight_alias(len(self.conv_aliases))
+            e = Equals(y, Real(self.counter))
+            self.counter += 1
+            conversion_list.append(Or(branch_condition, e))
+            return y
+        elif formula.is_ite():
             return self._process_ite(formula, branch_condition, conversion_list)
         elif formula.is_times():
             return self._process_times(formula, branch_condition, conversion_list)
         elif is_pow(formula):
             return self._process_pow(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
+            #print("HERE WERE", formula)
             return formula
         else:
             new_children = (self.convert_rec(
@@ -64,6 +74,8 @@ class WeightConverterEUF(WeightConverter):
         r_cond = Or(branch_condition, phi)
         left = self.convert_rec(left, l_cond, conversion_list)
         right = self.convert_rec(right, r_cond, conversion_list)
+
+        #print("NOW DOING ITE", formula)
 
         # add (    branch_conditions) -> y = left
         # and (not branch_conditions) -> y = right
@@ -187,7 +199,7 @@ class WeightConverterSkeleton(WeightConverter):
                 #print("Clause", serialize(Or(l_cond, *clause)))
                 #print("tYpe", Or(l_cond, *clause).get_type())
             
-            # Probably error ere?
+            # Probably error here?
             #print("Not(PHI)", Not(phi))
             #print("NNF(Not(PHI))", nnf(Not(phi)))
             for clause in self.cnfizer.convert(nnf(Not(phi))):
@@ -199,14 +211,6 @@ class WeightConverterSkeleton(WeightConverter):
             #print("Clause final", serialize(Or(branch_condition, w, Not(w))))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
-        #for clause in self.cnfizer.convert(phi):
-        #    conversion_list.append(Or(l_cond, *clause))
-        #for clause in self.cnfizer.convert(Not(phi)):
-        #    conversion_list.append(Or(r_cond, *clause))
-        #for clause in self.cnfizer.convert(phi):
-        #    conversion_list.append(Or(l_cond, *clause))
-        #for clause in self.cnfizer.convert(Not(phi)):
-        #    conversion_list.append(Or(r_cond, *clause))
 
     def is_atom(self, node):
         return node.is_symbol(BOOL) or node.is_theory_relation()

@@ -649,7 +649,7 @@ class WMI:
                     "dpll.allsat_allow_duplicates" : "false",
                     "preprocessor.toplevel_propagation" : "false",
                     "preprocessor.simplification" : "0",
-                    #"debug.api_call_trace": "1"
+                    "debug.api_call_trace": "0"
                     }
         else:
             solver_options = {}
@@ -664,7 +664,6 @@ class WMI:
         solver = Solver(name="msat", solver_options=solver_options)
         converter = solver.converter
 
-        #print("FOMMULA", serialize(formula))
         #print("GETTYPE", formula.get_type())
         
         solver.add_assertion(formula)
@@ -675,8 +674,8 @@ class WMI:
             [converter.convert(v) for v in atoms],
             lambda model : WMI._callback(model, converter, models))
         
+        #print("LEN MODELS", len(models))
         for model in models:
-            #print("M", model)
             assignments = {}
             for atom, value in WMI._get_assignments(model).items():
                 if atom.is_symbol(BOOL):
@@ -858,12 +857,18 @@ class WMI:
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         print()
+        #print("FM", serialize(formula))
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
             for assignments in self._compute_WMI_PA_no_boolean_no_label(formula):
+                #print("LEN Assignemt",len(assignments))
                 problem = self._create_problem(assignments, weights, on_labels=False)
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
+                #print("------")
+                #for x in assignments:
+                #    print(serialize(x), assignments[x])
+                #print("------ END")
         else:
             boolean_models = self._get_allsat(formula, use_ta=use_ta, atoms=boolean_variables)
 
@@ -875,6 +880,9 @@ class WMI:
                 #print("--", boolean_assignments)
                 atom_assignments.update(boolean_assignments)
                 over, lra_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+                #print("BOOL ASS", boolean_assignments)
+                #print("ATOM ASS", atom_assignments)
+                #print("IS OVER?", over)
 
                 residual_booleans = get_boolean_variables(lra_formula) - weight_bools
 
@@ -977,13 +985,22 @@ class WMI:
         #print("BOOLVARS", boolean_variables)
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
+        checked_short_assignments = dict()
+
+        #print("BV", boolean_variables)
 
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
-            for assignments in self._compute_WMI_PA_no_boolean_no_label(formula):
+            for assignments in self._get_allsat(formula, use_ta=True, atoms=lra_atoms):
+                #print("LEN Assignemt",len(assignments))
                 problem = self._create_problem(assignments, weights, on_labels=False)
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
+                #print("------")
+                #for x in assignments:
+                #    print(serialize(x), assignments[x])
+                #print("------ END")
+            
         else:
             boolean_models = self._get_allsat(formula, use_ta=True, atoms=boolean_variables, options=options)
 
@@ -991,11 +1008,16 @@ class WMI:
                 atom_assignments = {}
                 # simplify the formula
                 atom_assignments.update(boolean_assignments)
+                #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 #print("ACK", boolean_assignments)
                 over, res_formula = WMI._simplify_formula(formula, boolean_assignments, atom_assignments)
+                #print("BOOL ASS", boolean_assignments)
+                #print("ATOM ASS", atom_assignments)
                 #print("IS OVER?", over)
                 if not over:
-                    residual_atoms = res_formula.get_atoms() - weight_bools
+                    residual_atoms = list(get_boolean_variables(res_formula) - weight_bools)
+                    residual_atoms = residual_atoms + list(get_lra_atoms(res_formula))
+                    # print("RESID", residual_atoms)
                     # boolean variables first
                     residual_atoms = sorted(residual_atoms, key=lambda x : not x.is_symbol(BOOL))
                     for assignments in self._get_allsat(res_formula, use_ta=True, atoms=residual_atoms):
@@ -1004,10 +1026,49 @@ class WMI:
                         #    print(serialize(x), assignments[x])
                         #print("------ END")
                         count = 0
+                        atom_assignments2 = {}
+                        short_boolean_assignment = {}
+                        short_boolean_assignment_list = set()
                         for x in assignments:
                             if x not in boolean_assignments and x in boolean_variables:
                                 count += 1
+
+                        for x in boolean_variables:
+                            if x in boolean_assignments:
+                                short_boolean_assignment[x] = boolean_assignments[x]
+                                atom_assignments2[x] = boolean_assignments[x]
+                                short_boolean_assignment_list.add((x, boolean_assignments[x]))
+
+                            if x not in boolean_assignments and x in assignments:
+                                short_boolean_assignment[x] = assignments[x]
+                                atom_assignments2[x] = assignments[x]
+                                short_boolean_assignment_list.add((x, assignments[x]))
+
                         b_not_assigned = len(boolean_variables) - len(boolean_assignments) - count
+
+                        short_boolean_assignment_list = frozenset(short_boolean_assignment_list)
+
+                        if short_boolean_assignment_list in checked_short_assignments and checked_short_assignments[short_boolean_assignment_list] == True:
+                            #print("SKIP BECAUSE", short_boolean_assignment_list)
+                            continue
+                        
+                        if short_boolean_assignment_list not in checked_short_assignments:
+                            over2, res_formula2 = WMI._simplify_formula(res_formula, short_boolean_assignment, atom_assignments2)
+                            #print("NEW CHECK SIMPLIFY")
+                            #print("BOOL ASS", short_boolean_assignment)
+                            #print("ATOM ASS", atom_assignments2)
+                            #print(serialize(res_formula2))
+                            if over2:
+                                problem = self._create_problem(atom_assignments2, weights, on_labels=False)
+                                problems.append(problem)
+                                n_bool_not_assigned.append(b_not_assigned)
+                                checked_short_assignments[short_boolean_assignment_list] = True
+                                #print("I CHECKED {} AND SET IT TO True".format(short_boolean_assignment_list))
+                                continue
+                            else:
+                                checked_short_assignments[short_boolean_assignment_list] = False
+                                #print("I CHECKED {} AND SET IT TO False".format(short_boolean_assignment_list))
+
 
                         assignments.update(atom_assignments)
                         assigned_bool = sum(a.is_symbol(BOOL) for a in assignments \
