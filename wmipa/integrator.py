@@ -120,7 +120,7 @@ class CommandLineIntegrator(Integrator):
         """
 
         if cache <= 0:
-            # return [1.0 for x in range(len(problems))], 0 
+            #return [1.0 for x in range(len(problems))], 0 
             # Convert the problems into (integrand, polytope)
             for index in range(len(problems)):
                 atom_assignments, weight, aliases, cond_assignments = problems[index]
