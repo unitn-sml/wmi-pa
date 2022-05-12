@@ -48,7 +48,8 @@ class WeightConverterEUF(WeightConverter):
         #print("PROPERTY", get_type(formula))
         if get_type(formula) == REAL:
             y = self.variables.new_weight_alias(len(self.conv_aliases))
-            e = Equals(y, Real(self.counter))
+            f = self.variables.new_EUF_alias(self.counter)
+            e = Equals(y, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))
             return y

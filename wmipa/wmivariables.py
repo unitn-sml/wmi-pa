@@ -8,6 +8,7 @@ WMI = "wmi"
 QUERY = "query"
 WEIGHT_ALIAS = "weight_alias"
 WEIGHT_BOOL = "weight_bool"
+EUF_ALIAS = "euf_alias"
 
 
 class WMIVariables:
@@ -72,6 +73,18 @@ class WMIVariables:
         """
         return self._new_label(WEIGHT_ALIAS, index, sym_type=REAL, template="FR%s")
 
+    def new_EUF_alias(self, index):
+        """Returns a symbol representing a weight label.
+
+        Args:
+            index (int): The index to associate to the label.
+
+        Returns:
+            FNode: The new label.
+
+        """
+        return self._new_label(EUF_ALIAS, index, sym_type=REAL, template="EUF%s")
+
     def new_weight_bool(self, index):
         """Returns a symbol representing a weight bool.
 
@@ -125,6 +138,22 @@ class WMIVariables:
 
         """
         return variable in self.variables and self.variables[variable][1] == WMI
+
+
+    def is_euf_alias(self, variable):
+        """Checks if the variable is a weight label.
+
+        To recognize if the label is a weight label, it first check if it is a weight variable and then it controls its label type.
+
+        Args:
+            variable (FNode): The variable to examine.
+
+        Returns:
+            bool: True if the variable is a weight label, False otherwise.
+
+        """
+        return variable in self.variables and self.variables[variable][1] == EUF_ALIAS
+
 
     def is_weight_alias(self, variable):
         """Checks if the variable is a weight label.

@@ -974,9 +974,9 @@ class WMI:
     def _compute_WMI_SA_PA_TA_TA(self, formula, weights, options={}):
         problems = []
         weight_bools = {b for b in get_boolean_variables(formula) 
-            if self.variables.is_weight_bool(b) or b.symbol_name()[0] == "T"}
+            if self.variables.is_weight_bool(b)}
         boolean_variables = get_boolean_variables(formula) - weight_bools
-        #print("FORMULA", serialize(formula))
+        # print("FORMULA", serialize(formula))
         b1, w2 = list(boolean_variables), list(weight_bools)
         lra_atoms = get_lra_atoms(formula)
         #print("BOOLEANS", b1)
