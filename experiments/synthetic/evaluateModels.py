@@ -22,7 +22,7 @@ from os import path
 
 def compute_wmi(domain, support, weight, args, q):
     if "PA" in args.mode:
-        integrator = LatteIntegrator if args.integration=="latte" else VolestiIntegrator
+        integrator = LatteIntegrator if args.integration == "latte" else VolestiIntegrator
         wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
         res = wmi.computeWMI(Bool(True), mode=args.mode, cache=args.cache,
                              domA=set(domain.get_bool_symbols()),
@@ -119,7 +119,9 @@ def write_result(mode, res, output_file):
 def parse_args():
     modes = WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
-    parser = argparse.ArgumentParser(description='Compute WMI on models')
+    parser = argparse.ArgumentParser(
+        description='Compute WMI on models',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('input', help='Folder with .json files')
     # parser.add_argument('-i', '--input-type', required=True,
     #                     help='Input type', choices=input_types.keys())
@@ -146,9 +148,12 @@ def parse_args():
     integration_parsers = parser.add_subparsers(
         title="integration",
         description="Type of integration to use",
-        dest="integration")
-    latte_parser = integration_parsers.add_parser("latte")
-    volesti_parser = integration_parsers.add_parser("volesti")
+        dest="integration",
+    )
+    latte_parser = integration_parsers.add_parser(
+        "latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    volesti_parser = integration_parsers.add_parser(
+        "volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     volesti_parser.add_argument(
         '-e',
         '--error',
@@ -189,7 +194,7 @@ def main():
         if args.cache > -1:
             long_mode += "_cache_" + str(args.cache)
     # equals = args.equals
-    integrator = LatteIntegrator if args.integration=="latte" else VolestiIntegrator
+    integrator = LatteIntegrator if args.integration == "latte" else VolestiIntegrator
 
     check_input_output(args.input, args.output, args.filename)
     output_file = output_file or "{}_{}_{}.json".format(

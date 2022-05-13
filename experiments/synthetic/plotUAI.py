@@ -22,13 +22,20 @@ COLORS = {
     "Rejection": "#FBC15E",
     "PA_cache_2": "#FFB5B8",
     "SA-WMI-PA-SK": "#8EBA42",
-    "SA-WMI-PA-SK-TA": "#502419",
+    "SA-WMI-PA-SK(VolEsti)": "#502419",
     "SA-WMI-PA-SK-TA-TA": "#7EA172",
 }
-ORDER = ["XADD", "XSDD", "FXSDD", "WMI-PA", "PA_cache_2", "SA-WMI-PA", "SA-WMI-PA-SK",  
-"SA-WMI-PA-SK-TA",
-"SA-WMI-PA-SK-TA-TA"]
-ERR_TOLERANCE = 5e-2  # absolute tolerance on value mismatch
+ORDER = [
+    "XADD",
+    "XSDD",
+    "FXSDD",
+    "WMI-PA",
+    "PA_cache_2",
+    "SA-WMI-PA",
+    "SA-WMI-PA-SK",
+    "SA-WMI-PA-SK(VolEsti)",
+    "SA-WMI-PA-SK-TA-TA"]
+ERR_TOLERANCE = 1e-1  # absolute tolerance on value mismatch
 
 
 def error(msg=""):
@@ -60,15 +67,18 @@ def parse_inputs(input_files, timeout):
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
+        if "SAPA" not in mode or "BOOL" in mode:
+            print("skipping ", filename)
+            continue
 
         if mode == "SAPA":
             mode = "SA-WMI-PA"
         if mode == "PA":
             mode = "WMI-PA"
-        if mode == "SAPASK":
+        if mode == "SAPASK_latte":
             mode = "SA-WMI-PA-SK"
-        if mode == "SAPASKTA":
-            mode = "SA-WMI-PA-SK-TA"
+        if mode == "SAPASK_volesti":
+            mode = "SA-WMI-PA-SK(VolEsti)"
         if mode == "SAPASKTATA":
             mode = "SA-WMI-PA-SK-TA-TA"
         if "cache" in mode:
@@ -94,7 +104,17 @@ def parse_inputs(input_files, timeout):
     return data
 
 
-def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filename="", legend_pos=6, title=None):
+def plot_data(
+        outdir,
+        data,
+        param,
+        xlabel,
+        timeout=0,
+        frm=None,
+        to=None,
+        filename="",
+        legend_pos=6,
+        title=None):
     total_problems = max(data.index) + 1
     # crop from:to if necessary
     sfx = ""
@@ -108,7 +128,7 @@ def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filenam
     plt.figure(figsize=figsize)
     # if ylim:
     #     plt.ylim(-ylim/25, ylim)
-    plt.xlim(-n_problems/25, n_problems + n_problems/25)
+    plt.xlim(-n_problems / 25, n_problems + n_problems / 25)
 
     # timeout line
     if timeout:
@@ -175,8 +195,10 @@ def check_values(data, ref="SA-WMI-PA"):
             count=("time", "count")) \
         .unstack()
 
-    # ensure we have at most one output foreach (filename, query, mode) combination
-    assert (data["count"] == 1).all().all(), "Some output are duplicated"
+    # ensure we have at most one output foreach (filename, query, mode)
+    # combination
+    assert (data["count"] == 1).all().all(
+    ), "Some output are missing or duplicated {}".format(data["count"])
 
     # print(data.reset_index()[["time", "value"]])
 
@@ -184,14 +206,16 @@ def check_values(data, ref="SA-WMI-PA"):
     ii = data["value", ref].notna()
     for mode in data.columns.get_level_values(1).unique():
         indexes = ii & data["value", mode].notna()
-        # check if results agree with SA-WMI-PA with an absolute tolerance of ERR_TOLERANCE
+        # check if results agree with SA-WMI-PA with a relative tolerance of
+        # ERR_TOLERANCE
         diff = ~np.isclose(data[indexes]["value", mode].values,
-                           data[indexes]["value", ref].values, atol=ERR_TOLERANCE)
+                           data[indexes]["value", ref].values, rtol=ERR_TOLERANCE)
         if diff.any():
             print("Error! {}/{} values of {} do not match with {}".format(
                 diff.sum(), indexes.sum(), mode, ref))
 
-            print(data[indexes][diff]["value"][["SA-WMI-PA", "XADD", "FXSDD"]])
+            print(data[indexes][diff]["value"])
+            # print(data[indexes][diff]["value"][["SA-WMI-PA", "XADD", "FXSDD"]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(
                 mode, indexes.sum()))
@@ -226,7 +250,8 @@ def group_data(data, cactus):
                 stdcol = "std{}".format(param)
                 cols = data[mode][[param, stdcol]].sort_values(
                     by=param, ignore_index=True)
-                cols.columns = pd.MultiIndex.from_tuples([(mode, param), (mode, stdcol)])
+                cols.columns = pd.MultiIndex.from_tuples(
+                    [(mode, param), (mode, stdcol)])
                 data[(mode, param)] = np.NaN
                 data[(mode, stdcol)] = np.NaN
                 data.update(cols)
@@ -236,6 +261,7 @@ def group_data(data, cactus):
     else:
         # sort by increasing time
         sort_by = [(mode, "time") for mode in modes]
+        print("Sorting by:", sort_by)
         data.sort_values(by=sort_by, inplace=True, ignore_index=True)
     return data
 
@@ -243,13 +269,24 @@ def group_data(data, cactus):
 def parse_args():
     parser = argparse.ArgumentParser(description="Plot WMI results")
     parser.add_argument(
-        "input", nargs="+", help="Folder and/or files containing result files as .json")
-    parser.add_argument("-o", "--output", default=os.getcwd(),
-                        help="Output folder where to put the plots (default: cwd)")
-    parser.add_argument("-f", "--filename", default="",
-                        help="String to add to the name of the plots (optional)")
-    parser.add_argument("--intervals", nargs="+", default=[],
-                        help="Sub-intervals to plot in the format from-to (optional)")
+        "input",
+        nargs="+",
+        help="Folder and/or files containing result files as .json")
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=os.getcwd(),
+        help="Output folder where to put the plots (default: cwd)")
+    parser.add_argument(
+        "-f",
+        "--filename",
+        default="",
+        help="String to add to the name of the plots (optional)")
+    parser.add_argument(
+        "--intervals",
+        nargs="+",
+        default=[],
+        help="Sub-intervals to plot in the format from-to (optional)")
     parser.add_argument("--timeout", type=int, default=0,
                         help="Timeout line (if 0 not plotted)")
     parser.add_argument("--cactus", action="store_true",
@@ -286,15 +323,38 @@ def main():
 
     for interval in intervals:
         frm, to = parse_interval(interval)
-        plot_data(output_dir, data, "time", xlabel,
-                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
-        plot_data(output_dir, data, "n_integrations", xlabel,
-                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
+        plot_data(
+            output_dir,
+            data,
+            "time",
+            xlabel,
+            frm=frm,
+            to=to,
+            filename=filename,
+            legend_pos=legend_pos,
+            title=title)
+        plot_data(
+            output_dir,
+            data,
+            "n_integrations",
+            xlabel,
+            frm=frm,
+            to=to,
+            filename=filename,
+            legend_pos=legend_pos,
+            title=title)
 
-    plot_data(output_dir, data, "time", xlabel,
-              timeout=timeout, filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(
+        output_dir,
+        data,
+        "time",
+        xlabel,
+        timeout=timeout,
+        filename=filename,
+        legend_pos=legend_pos,
+        title=title)
     plot_data(output_dir, data, "n_integrations",
-              xlabel,  filename=filename, legend_pos=legend_pos, title=title)
+              xlabel, filename=filename, legend_pos=legend_pos, title=title)
 
 
 if __name__ == "__main__":
