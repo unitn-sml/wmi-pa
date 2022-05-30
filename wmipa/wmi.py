@@ -67,8 +67,8 @@ class WMI:
         n_threads = options.get("n_threads")
         stub_integrate = options.get("stub_integrate")
         self.integrator = Latte_Integrator(n_threads = n_threads, stub_integrate = stub_integrate)
-        self.list_norm = set()
-        self.norm_aliases = dict()
+        self.canonical_list = set()
+        self.assignment_to_canonical = dict()
 
         
     def computeMI_batch(self, phis, **options):
@@ -122,7 +122,7 @@ class WMI:
         integrations = []
         
         for phi in phis:
-            self.norm_aliases = dict()
+            self.assignment_to_canonical = dict()
             volume, n_integrations = self.computeWMI(phi, **options)
             volumes.append(volume)
             integrations.append(n_integrations)
@@ -573,8 +573,6 @@ class WMI:
                 solver.msat_env(),
                 [converter.convert(v) for v in boolean_variables],
                 lambda model : WMI._callback(model, converter, boolean_models))
-            #print("TA")
-            #print(boolean_models)
             logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each boolean assignment mu^A of F        
             for model in boolean_models:
@@ -609,14 +607,10 @@ class WMI:
                         
                         problem = self._create_problem(assignments, weights)
                         problems.append(problem)
-                        #print("PROBLEM")
-                        #print(problem)
                 else:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
-                    #print("PROBLEM")
-                    #print(problem)
         results, cached = self.integrator.integrate_batch(problems, self.cache)
         volume = fsum(results)
         return volume, len(problems)-cached, cached
@@ -657,47 +651,66 @@ class WMI:
             yield WMI._get_assignments(model)
 
 
-    def normalize_coefficient(self, val, normalizing_coefficient):
-        midvalue = round(float(val)/abs(normalizing_coefficient), 10 )
-        if abs(midvalue - round(float(midvalue))) < 0.00000001:
-            return round(float(midvalue))
-        return midvalue
+    def normalize_coefficient(self, value, normalizing_coefficient):
+        """Get normalized coefficient with respect to its canonical form
+            
+        Args:
+            value (float): Float value to be normalized
+            normalizing_coefficient (float): coefficient we use to normalize value
+            
+        Yields:
+            coefficient_normalized (float): normalized value of variable value
+        
+        """
+        value_normalized = round(float(value)/abs(normalizing_coefficient), 10 )
+        if abs(value_normalized - round(float(value_normalized))) < 0.00000001:
+            return round(float(value_normalized))
+        return value_normalized
 
 
-    def normalize_assignment(self, assignment, add_to_norms_aliases):
-        self.list_norm.add(assignment)
+    def normalize_assignment(self, assignment, store_canonical):
+        """Rewrite the assignment into a canonical form, to easily check if the assignment has already appeared in the problem
+            
+        Args:
+            assignment (FNode): The LRA assignment to examine.
+            store_canonical (Bool): If True, then we store the normalization into a global map. Otherwise, we use the function to return its canonical form.
+            
+        Yields:
+            normalized_assignment (set()): the canonical form of assignment 
+        
+        """
+        self.canonical_list.add(assignment)
+
         if not assignment.is_lt():
-            list_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
+            list_of_terms = [(assignment.args()[0], 1), (assignment.args()[1],-1)]
         else:
-            list_terms = [(assignment.args()[0], -1), (assignment.args()[1],1)]
-        symbols = defaultdict(float)
-        normalizing_coefficient = 0.0
-        #print(">>>", assignment,"<<<")
-        for term, coeff in list_terms:
-            #print("CHECK TERM", term)
-            if term.is_real_constant():
-                #print("NORM COEFF", term.constant_value(), coeff)
-                normalizing_coefficient += (term.constant_value() * coeff)
-            elif term.is_plus():
-                list_terms.extend([(atom, coeff) for atom in term.args()])
-            elif term.is_minus():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
-                list_terms.append((child1, coeff))
-                list_terms.append((child2, -1.0*coeff))
-            elif term.is_times():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
+            list_of_terms = [(assignment.args()[0], -1), (assignment.args()[1],1)]
 
-                if child1.is_real_constant() and child2.is_real_constant():
+        term_to_coefficient = defaultdict(float)
+        normalizing_coefficient = 0.0
+        for term, coefficient in list_of_terms:
+            if term.is_real_constant():
+                normalizing_coefficient += (term.constant_value() * coefficient)
+            elif term.is_plus():
+                list_of_terms.extend([(atom, coefficient) for atom in term.args()])
+            elif term.is_minus():
+                left_child = term.args()[0]
+                right_child = term.args()[1]
+                list_of_terms.append((left_child, coefficient))
+                list_of_terms.append((right_child, -1.0*coefficient))
+            elif term.is_times():
+                left_child = term.args()[0]
+                right_child = term.args()[1]
+
+                if left_child.is_real_constant() and right_child.is_real_constant():
                     #constant += child1.constant_value() * child2.constant_value()
-                    list_terms.append(child1.constant_value() * child2.constant_value(), coeff)
-                elif child1.is_real_constant():
-                    list_terms.append((child2, coeff*child1.constant_value()))
-                elif child2.is_real_constant():
-                    list_terms.append((child1, coeff*child2.constant_value()))
+                    list_of_terms.append(left_child.constant_value() * right_child.constant_value(), coefficient)
+                elif left_child.is_real_constant():
+                    list_of_terms.append((right_child, coefficient*left_child.constant_value()))
+                elif right_child.is_real_constant():
+                    list_of_terms.append((left_child, coefficient*right_child.constant_value()))
             else:
-                symbols[term] += coeff
+                term_to_coefficient[term] += coefficient
 
         normalized_assignment = list()
         normalized_assignment2 = list()
@@ -718,24 +731,21 @@ class WMI:
             if assignment.is_equals():
                 normalized_assignment2.append((-normalizing_coefficient/abs(normalizing_coefficient)))
 
-        for term in symbols:
-            normalized_assignment.append((term,self.normalize_coefficient(symbols[term], normalizing_coefficient)))
+        for term in term_to_coefficient:
+            normalized_assignment.append((term,self.normalize_coefficient(term_to_coefficient[term], normalizing_coefficient)))
             if assignment.is_equals():
-                normalized_assignment2.append((term,self.normalize_coefficient(-symbols[term], normalizing_coefficient)))
+                normalized_assignment2.append((term,self.normalize_coefficient(-term_to_coefficient[term], normalizing_coefficient)))
 
-
-        if add_to_norms_aliases:
-            if frozenset(normalized_assignment) not in self.norm_aliases:
-                self.norm_aliases[frozenset(normalized_assignment)] = list()
-            self.norm_aliases[frozenset(normalized_assignment)].append(assignment)
-            #print("ADDING", frozenset(normalized_assignment), "for", assignment)
+        if store_canonical:
+            if frozenset(normalized_assignment) not in self.assignment_to_canonical:
+                self.assignment_to_canonical[frozenset(normalized_assignment)] = list()
+            self.assignment_to_canonical[frozenset(normalized_assignment)].append(assignment)
             if assignment.is_equals():
-                if frozenset(normalized_assignment2) not in self.norm_aliases:
-                    self.norm_aliases[frozenset(normalized_assignment2)] = list()
-                self.norm_aliases[frozenset(normalized_assignment2)].append(assignment)
-                #print("ADDING", frozenset(normalized_assignment2), "for", assignment)
+                if frozenset(normalized_assignment2) not in self.assignment_to_canonical:
+                    self.assignment_to_canonical[frozenset(normalized_assignment2)] = list()
+                self.assignment_to_canonical[frozenset(normalized_assignment2)].append(assignment)
 
-        return None if add_to_norms_aliases else normalized_assignment
+        return None if store_canonical else normalized_assignment
 
 
 
@@ -757,10 +767,10 @@ class WMI:
                     if not self.variables.is_weight_bool(a)}
         assert len(bools) == 0, bools
 
-        self.norm_aliases = dict()
-        self.list_norm = set()
+        self.assignment_to_canonical = dict()
+        self.canonical_list = set()
 
-        for assignment in [atom for atom in lra_atoms if atom not in self.list_norm]:
+        for assignment in [atom for atom in lra_atoms if atom not in self.canonical_list]:
             _ = self.normalize_assignment(assignment, True)
 
         lra_assignments = WMI._get_allsat(lra_formula, use_ta=True, atoms=lra_atoms)
@@ -768,21 +778,13 @@ class WMI:
         for mu_lra in lra_assignments:
             assignments = {}
             i = 1
-            #print("MULRA", WMI._get_assignments(mu_lra).items())
             for atom, value in mu_lra.items():
-                #print(atom, value)
                 subterms = self.normalize_assignment(atom, False)
-                if frozenset(subterms) in self.norm_aliases:
-                    for element_of_normalization in self.norm_aliases[frozenset(subterms)]:
+                if frozenset(subterms) in self.assignment_to_canonical:
+                    for element_of_normalization in self.assignment_to_canonical[frozenset(subterms)]:
                         assignments[element_of_normalization] = not value if element_of_normalization.is_lt() else value
                 else:
-                    print("I SEARCHED", serialize(atom))
-                    print("subterms", subterms)
-                    print("BUT IVE FOUND")
-                    print("\n".join([str(x) for x in self.norm_aliases.keys()]))
-                    print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-                    assert(False)
-                    assignments[atom] = value
+                    raise Exception("Atom {} was not correctly normalized. Report the bug to the authors!".format(serialize(atom)))
             assignments.update(other_assignments)
             yield assignments
 
