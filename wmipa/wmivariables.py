@@ -71,6 +71,18 @@ class WMIVariables:
         """
         return self._new_label(WEIGHT_ALIAS, index, sym_type=REAL, template="FR%s")
 
+    def new_EUF_alias(self, index):
+        """Returns a symbol representing a weight label.
+
+        Args:
+            index (int): The index to associate to the label.
+
+        Returns:
+            FNode: The new label.
+
+        """
+        return self._new_label(WEIGHT_ALIAS, index, sym_type=REAL, template="EUF%s")
+
     def new_weight_bool(self, index):
         """Returns a symbol representing a weight bool.
         

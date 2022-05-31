@@ -6,7 +6,7 @@ from pysmt.typing import BOOL, REAL
 
 from wmipa.utils import is_pow
 from wmipa.wmiexception import WMIParsingException
-from wmipa.weightconverter import WeightConverter
+from wmipa.weightconverter import WeightConverterEUF
 
 class Weights:
     """This class handles a FIUC weight function and provides a method that can evaluate the weight result
@@ -52,8 +52,8 @@ class Weights:
         self.labelling = And(labelling_list)
 
         # convert weights as formula for EUF
-        self.converter = WeightConverter(variables)
-        self.weights_as_formula_euf = self.converter.convert(weight_func, mode=WeightConverter.MODE_EUF)
+        self.converter = WeightConverterEUF(variables)
+        self.weights_as_formula_euf = self.converter.convert(weight_func)
         self.weights = weight_func
         
         # inizialize the cache (if requested)
@@ -165,20 +165,8 @@ class Weights:
             FNode: The result of the formula representing (part of) the weight function applied to the given assignment.
         
         """
-        #print("NODE", serialize(node), node.is_ite(), len(node.args()))
-        #print()
-        #print("CONDITIONS")
-        #for c in conditions:
-        #    print("KEY", serialize(c), "\nINDEX", conditions[c], "\nAssingment", assignment[conditions[c]])
-        #    print("*************************")
         if node.is_ite():
             cond, then, _else = node.args()
-            #print("COND", serialize(cond))
-            #print()
-            #print("THEN", serialize(then))
-            #print()
-            #print("ELSE", serialize(_else))
-            #print()
             # gets the index of the label to retrieve the truth value of that specific label
             index_cond = conditions[cond]
             # assert assignment[index_cond] is not None, cond
@@ -197,9 +185,6 @@ class Weights:
         # this condition contains, for example, the Times operator
         else:
             new_children = []
-            #for child in node.args():
-                #print("CHILD", serialize(child))
-                #print()
 
             for child in node.args():
                 new_children.append(self._evaluate_weight(child, assignment, conditions, atom_assignment))

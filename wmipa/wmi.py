@@ -840,6 +840,7 @@ class WMI:
         problems = []
         boolean_variables = get_boolean_variables(formula)
         weight_bools = {a for a in boolean_variables if self.variables.is_weight_bool(a)}
+        print("FM", serialize(formula))
         boolean_variables -= weight_bools
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
