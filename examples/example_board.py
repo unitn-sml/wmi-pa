@@ -1,4 +1,4 @@
-from pysmt.shortcuts import *
+from pysmt.shortcuts import GE, LE, And, Bool, Ite, Real, Symbol
 from pysmt.typing import REAL, BOOL
 from wmipa import WMI
 
@@ -7,6 +7,7 @@ x = Symbol("x", REAL)
 y = Symbol("y", REAL)
 A = Symbol("A", BOOL)
 
+# fmt: off
 phi = Bool(True)
 
 chi = And(
@@ -26,11 +27,12 @@ w = Ite(x >= 1,
             4*(x*y)
             ),
         )
+# fmt: off
 
-print("Formula:", serialize(phi))
+print("Formula:", phi.serialize())
 
-print("Weight function:", serialize(w))
-print("Support:", serialize(chi))
+print("Weight function:", w.serialize())
+print("Support:", chi.serialize())
 
 
 print()
