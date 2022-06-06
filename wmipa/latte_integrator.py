@@ -1,21 +1,19 @@
-__version__ = '0.999'
-__author__ = 'Paolo Morettin'
+__version__ = "0.999"
+__author__ = "Paolo Morettin"
 
 import re
 import time
 from fractions import Fraction
 from subprocess import call
-from os import makedirs, chdir, getcwd
-from os.path import isdir
-from shutil import rmtree
+from os import chdir, getcwd
 from multiprocessing import Pool, Manager
-from pysmt.typing import REAL
 from pysmt.shortcuts import LT, LE
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 
 from wmipa.integrator import Integrator
 from wmipa.polytope import Polynomial, Polytope
 from wmipa.wmiexception import WMIRuntimeException
+
 
 class Latte_Integrator(Integrator):
     """This class handles the integration of polynomial functions over (convex) polytopes.
@@ -57,20 +55,20 @@ class Latte_Integrator(Integrator):
 
         """
         # get algorithm
-        algorithm = options.get('algorithm')
+        algorithm = options.get("algorithm")
         self.algorithm = algorithm or Latte_Integrator.DEF_ALGORITHM
 
         # check that algorithm exists
-        if not self.algorithm in Latte_Integrator.ALGORITHMS:
-            err = '{}, choose one from: {}'.format(self.algorithm, ', '.join(Latte_Integrator.ALGORITHMS))
+        if self.algorithm not in Latte_Integrator.ALGORITHMS:
+            err = "{}, choose one from: {}".format(self.algorithm, ", ".join(Latte_Integrator.ALGORITHMS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
         # set threads
-        n_threads = options.get('n_threads')
+        n_threads = options.get("n_threads")
         self.n_threads = n_threads or Latte_Integrator.DEF_N_THREADS
 
         self.hashTable = HashTable()
-        stub_integrate = options.get('stub_integrate')
+        stub_integrate = options.get("stub_integrate")
         self.stub_integrate = stub_integrate or False
         self.integration_time = 0.0
 
@@ -84,13 +82,13 @@ class Latte_Integrator(Integrator):
             problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
 
         """
-        
+
         if cache <= 0:
             # Convert the problems into (integrand, polytope)
             for index in range(len(problems)):
                 atom_assignments, weight, aliases, cond_assignments = problems[index]
                 integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-                problems[index] = (integrand, polytope, cond_assignments, cache==0)
+                problems[index] = (integrand, polytope, cond_assignments, cache == 0)
 
             # Handle multithreading
             start_time = time.time()
@@ -126,12 +124,7 @@ class Latte_Integrator(Integrator):
 
                 # add to unique
                 if key not in unique_problems:
-                    unique_problems[key] = {
-                        "integrand": integrand,
-                        "polytope": polytope,
-                        "key": key,
-                        "count": 1
-                    }
+                    unique_problems[key] = {"integrand": integrand, "polytope": polytope, "key": key, "count": 1}
                 # else:
                 #     cached_before += 1
                 problems_to_integrate.append(unique_problems[key])
@@ -146,7 +139,7 @@ class Latte_Integrator(Integrator):
             pool.close()
             pool.join()
 
-            return values, cached+cached_before
+            return values, cached + cached_before
         else:
             raise Exception("Not implemented yet")
 
@@ -234,7 +227,7 @@ class Latte_Integrator(Integrator):
 
         value = self.hashTable.get(key)
         if value is not None:
-            return value*count, 1
+            return value * count, 1
 
         integrand = problem["integrand"]
         polytope = problem["polytope"]
@@ -268,7 +261,7 @@ class Latte_Integrator(Integrator):
 
             self.hashTable.set(key, result)
 
-            return result*count, 0
+            return result * count, 0
 
     def _convert_to_latte(self, atom_assignments, weight, aliases):
         """Transforms an assignment into a LattE problem, defined by:
@@ -287,7 +280,7 @@ class Latte_Integrator(Integrator):
         """
         bounds = []
         for atom, value in atom_assignments.items():
-            assert(isinstance(value,bool)), "Assignment value should be Boolean"
+            assert isinstance(value, bool), "Assignment value should be Boolean"
 
             # Skip atoms without variables
             if len(atom.get_free_variables()) == 0:
@@ -323,7 +316,7 @@ class Latte_Integrator(Integrator):
         """
         res = None
 
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             lines = f.readlines()
             for line in lines:
                 # Result in the "Answer" line may be written in fraction form
@@ -359,7 +352,7 @@ class Latte_Integrator(Integrator):
         latte_repr = "[" + ",".join(monomials_repr) + "]"
 
         # Write the string on the file
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             f.write(latte_repr)
 
     def _write_polytope_file(self, polytope, variables, path):
@@ -390,7 +383,7 @@ class Latte_Integrator(Integrator):
             bounds_key.append(tuple(bound_key))
 
         # Write the string on the file
-        with open(path,'w') as f:
+        with open(path, "w") as f:
             f.write(latte_repr)
 
         bounds_key = sorted(bounds_key)
@@ -418,7 +411,7 @@ class Latte_Integrator(Integrator):
             latte_repr += "\n"
 
         # Write the string on the file
-        with open(path,'w') as f:
+        with open(path, "w") as f:
             f.write(latte_repr)
 
     def _call_latte(self, polynomial_file, polytope_file, output_file):
@@ -431,12 +424,9 @@ class Latte_Integrator(Integrator):
             output_file (str): The file where to write the result of the computation.
 
         """
-        cmd = ["integrate",
-               "--valuation=integrate", self.algorithm,
-               "--monomials=" + polynomial_file,
-               polytope_file]
+        cmd = ["integrate", "--valuation=integrate", self.algorithm, "--monomials=" + polynomial_file, polytope_file]
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             if self.stub_integrate:
                 f.write("")
             else:
@@ -457,7 +447,7 @@ class Latte_Integrator(Integrator):
             return None
         non_redundant_index = []
         to_analyze = list(range(0, len(polytope.bounds)))
-        while (len(to_analyze) > 0):
+        while len(to_analyze) > 0:
             index = to_analyze[0]
             non_redundant, essential_index = self._clarkson(polytope, internal_point, non_redundant_index, index)
             if non_redundant:
@@ -469,22 +459,22 @@ class Latte_Integrator(Integrator):
 
     def _preprocess(self, polytope):
         """
-            maximize x_0
-            subject to:
-                Ax + 1x0 <= b
-                x_0 <= 1
+        maximize x_0
+        subject to:
+            Ax + 1x0 <= b
+            x_0 <= 1
 
-            x_0 is a new variable
-            Ax <= b is the polytope
+        x_0 is a new variable
+        Ax <= b is the polytope
         """
 
         variables = list(polytope.variables)
 
-        obj = [0]*len(variables) + [1]
+        obj = [0] * len(variables) + [1]
         A = []
         b = []
         for bound in polytope.bounds:
-            a = [0]*len(variables) + [1]
+            a = [0] * len(variables) + [1]
             for var_name in bound.coefficients:
                 var_index = variables.index(var_name)
                 a[var_index] = bound.coefficients[var_name]
@@ -492,7 +482,7 @@ class Latte_Integrator(Integrator):
             b.append(bound.constant)
 
         # x_0 <= 1
-        A.append([0]*len(variables) + [1])
+        A.append([0] * len(variables) + [1])
         b.append(1)
 
         optimal_value, optimal_solution = self._lp(A, b, obj, "maximize")
@@ -513,12 +503,12 @@ class Latte_Integrator(Integrator):
 
     def _clarkson(self, polytope, internal_point, non_redundant_index, index_to_check):
         """
-            maximize A_k*x
-            subject to:
-                A_i*x <= b_i        for all i in I - k
-                A_k*x <= b_k +1
+        maximize A_k*x
+        subject to:
+            A_i*x <= b_i        for all i in I - k
+            A_k*x <= b_k +1
 
-            non redundant if optimal solution > b_k
+        non redundant if optimal solution > b_k
         """
         variables = list(polytope.variables)
         obj = []
@@ -528,7 +518,7 @@ class Latte_Integrator(Integrator):
 
         for i, bound in enumerate(polytope.bounds):
             if i == index_to_check or i in non_redundant_index:
-                a = [0]*len(variables)
+                a = [0] * len(variables)
                 for var_name in bound.coefficients:
                     var_index = variables.index(var_name)
                     a[var_index] = bound.coefficients[var_name]
@@ -537,7 +527,7 @@ class Latte_Integrator(Integrator):
                 if i == index_to_check:
                     b_k = b_i
                     b_i += 1
-                    obj = [1*v for v in a]
+                    obj = [1 * v for v in a]
                 b.append(b_i)
         assert b_k is not None
 
@@ -561,18 +551,18 @@ class Latte_Integrator(Integrator):
             for var_name in bound.coefficients:
                 var_index = variables.index(var_name)
                 coefficients[var_index] = bound.coefficients[var_name]
-            polynomial = [point[i]*coefficients[i] for i in range(len(point))]
+            polynomial = [point[i] * coefficients[i] for i in range(len(point))]
             truth_value = sum(polynomial) <= bound.constant
             values.append(truth_value)
         return values
 
     def _ray_shoot(self, polytope, start_point, end_point, index):
         values = self._get_truth_values(polytope, end_point)
-        others = values[:index]+values[index+1:]
-        
+        others = values[:index] + values[index + 1 :]
+
         # if at the end point (optimal) there is only one disequalities falsified
         # then return that particular disequality (index)
-        if min(others) == max(others) == True:
+        if min(others) == max(others):
             return index
         try:
             return self._ray_shoot_iter(polytope, start_point, end_point)
@@ -584,12 +574,12 @@ class Latte_Integrator(Integrator):
         # start point is inside the polytope so every bound is respected
         # calculate middle point
         assert len(start_point) == len(end_point)
-        middle_point = [((end_point[i]+start_point[i])*Fraction(1, 2)) for i in range(len(start_point))]
+        middle_point = [((end_point[i] + start_point[i]) * Fraction(1, 2)) for i in range(len(start_point))]
 
         # check bounds
         intersected = None
         values = self._get_truth_values(polytope, middle_point)
-        
+
         for i, v in enumerate(values):
             if not v:
                 if intersected is None:
@@ -606,7 +596,7 @@ class Latte_Integrator(Integrator):
             return intersected
 
     def _lp(self, A, B, obj, type_="maximize"):
-        f = NamedTemporaryFile(mode='w+t', dir=("."))
+        f = NamedTemporaryFile(mode="w+t", dir=("."))
 
         assert len(A) == len(B)
 
@@ -664,21 +654,23 @@ class Latte_Integrator(Integrator):
 
         # read output
         values = []
-        out = NamedTemporaryFile(mode='w+t', dir=("."))
+        out = NamedTemporaryFile(mode="w+t", dir=("."))
         output = call(["optimathsat", f.name], stdout=out)
         out.seek(0)
         output = out.read()
-        for line in output.split('\n'):
+        for line in output.split("\n"):
             """
-                output can have these forms:
-                    ( (x_N DIGITS) )
-                    ( (x_N (- DIGITS)) )
-                    ( (x_N (/ DIGITS DIGITS)) )
-                    ( (x_N (- (/ DIGITS DIGITS))) )
+            output can have these forms:
+                ( (x_N DIGITS) )
+                ( (x_N (- DIGITS)) )
+                ( (x_N (/ DIGITS DIGITS)) )
+                ( (x_N (- (/ DIGITS DIGITS))) )
 
-                regex below is x_N + OR of the four different types
+            regex below is x_N + OR of the four different types
             """
-            r = re.search(r'\( \(x_(\d+) (?:(\d+)|(?:\(- (\d+)\))|(?:\(\/ (\d+) (\d+)\))|(?:\(- \(\/ (\d+) (\d+)\)\)))\) \)', line)
+            r = re.search(
+                r"\( \(x_(\d+) (?:(\d+)|(?:\(- (\d+)\))|(?:\(\/ (\d+) (\d+)\))|(?:\(- \(\/ (\d+) (\d+)\)\)))\) \)", line
+            )
             if r:
                 var_index = r.group(1)
                 if r.group(2):
@@ -688,15 +680,14 @@ class Latte_Integrator(Integrator):
                 elif r.group(4):
                     values.append(Fraction(int(r.group(4)), int(r.group(5))))
                 elif r.group(6):
-                    values.append(-1*Fraction(int(r.group(6)), int(r.group(7))))
+                    values.append(-1 * Fraction(int(r.group(6)), int(r.group(7))))
 
         assert len(values) == len(variable_names)
-        obj_value = sum([(obj[i]*values[i]) for i in range(len(values))])
+        obj_value = sum([(obj[i] * values[i]) for i in range(len(values))])
         return obj_value, values
 
 
 class HashTable:
-
     def __init__(self):
         manager = Manager()
         self.table = manager.dict()

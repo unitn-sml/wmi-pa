@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
-from pysmt.shortcuts import *
+
+from pysmt.shortcuts import REAL, And, Bool, Equals, FreshSymbol, FunctionType, Not, Or, Real, Times, get_env, get_type
+
 from wmipa.utils import is_pow
 
 
 class WeightConverter(ABC):
-
     def __init__(self, variables):
         self.variables = variables
 
@@ -25,8 +26,7 @@ class WeightConverterEUForiginal(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
         self.conv_aliases = set()
-        self.prod_fn = FreshSymbol(typename=FunctionType(
-            REAL, (REAL, REAL)), template="PROD%s")
+        self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
         self.counter = 1
 
     def convert(self, weight_func):
@@ -42,7 +42,7 @@ class WeightConverterEUForiginal(WeightConverter):
         if get_type(formula) == REAL:
             y = self.variables.new_weight_alias(len(self.conv_aliases))
             f = self.variables.new_EUF_alias(self.counter)
-            #e = Equals(y, Real(self.counter))
+            # e = Equals(y, Real(self.counter))
             e = Equals(y, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))
@@ -54,13 +54,10 @@ class WeightConverterEUForiginal(WeightConverter):
         elif is_pow(formula):
             return self._process_pow(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
-            #print("HERE WERE", formula)
             return formula
         else:
-            new_children = (self.convert_rec(
-                arg, branch_condition, conversion_list) for arg in formula.args())
-            return get_env().formula_manager.create_node(
-                node_type=formula.node_type(), args=tuple(new_children))
+            new_children = (self.convert_rec(arg, branch_condition, conversion_list) for arg in formula.args())
+            return get_env().formula_manager.create_node(node_type=formula.node_type(), args=tuple(new_children))
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
@@ -70,7 +67,7 @@ class WeightConverterEUForiginal(WeightConverter):
         left = self.convert_rec(left, l_cond, conversion_list)
         right = self.convert_rec(right, r_cond, conversion_list)
 
-        #print("NOW DOING ITE", formula)
+        # print("NOW DOING ITE", formula)
 
         # add (    branch_conditions) -> y = left
         # and (not branch_conditions) -> y = right
@@ -86,8 +83,7 @@ class WeightConverterEUForiginal(WeightConverter):
         return y
 
     def _process_times(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (self.convert_rec(arg, branch_condition, conversion_list) for arg in formula.args())
         const_val = 1
         others = []
         for arg in args:
@@ -103,14 +99,16 @@ class WeightConverterEUForiginal(WeightConverter):
             return Times(const_val, self._prod(others))
 
     def _process_pow(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (self.convert_rec(arg, branch_condition, conversion_list) for arg in formula.args())
         base, exponent = args
         if exponent.is_zero():
             return Real(1)
         else:
             # expand power into product and abstract it with EUF
-            n, d = exponent.constant_value().numerator, exponent.constant_value().denominator
+            n, d = (
+                exponent.constant_value().numerator,
+                exponent.constant_value().denominator,
+            )
             return self._prod([base for _ in range(n // d)])
 
     def _prod(self, args):
@@ -135,8 +133,7 @@ class WeightConverterEUF(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
         self.conv_aliases = set()
-        self.prod_fn = FreshSymbol(typename=FunctionType(
-            REAL, (REAL, REAL)), template="PROD%s")
+        self.prod_fn = FreshSymbol(typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s")
         self.counter = 1
 
     def convert(self, weight_func):
@@ -149,7 +146,7 @@ class WeightConverterEUF(WeightConverter):
         return And(conversion_list)
 
     def convert_rec(self, formula, branch_condition, conversion_list):
-        print("CONVERT", formula, get_type(formula))
+        # print("CONVERT", formula, get_type(formula))
         if formula.is_ite():
             return self._process_ite(formula, branch_condition, conversion_list)
         elif formula.is_times():
@@ -165,9 +162,10 @@ class WeightConverterEUF(WeightConverter):
                 child, cond = self.convert_rec(arg, branch_condition, conversion_list)
                 has_cond = has_cond or cond
                 new_children.append(child)
-            return get_env().formula_manager.create_node(
-                    node_type=formula.node_type(), args=tuple(new_children)), has_cond
-            
+            return (
+                get_env().formula_manager.create_node(node_type=formula.node_type(), args=tuple(new_children)),
+                has_cond,
+            )
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
@@ -204,8 +202,7 @@ class WeightConverterEUF(WeightConverter):
         return y, True
 
     def _process_times(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (self.convert_rec(arg, branch_condition, conversion_list) for arg in formula.args())
         const_val = 1
         others = []
         has_cond = False
@@ -223,14 +220,16 @@ class WeightConverterEUF(WeightConverter):
             return Times(const_val, self._prod(others)), has_cond
 
     def _process_pow(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (self.convert_rec(arg, branch_condition, conversion_list) for arg in formula.args())
         (base, _), (exponent, _) = args
         if exponent.is_zero():
             return Real(1), False
         else:
             # expand power into product and abstract it with EUF
-            n, d = exponent.constant_value().numerator, exponent.constant_value().denominator
+            n, d = (
+                exponent.constant_value().numerator,
+                exponent.constant_value().denominator,
+            )
             return self._prod([base for _ in range(n // d)]), False
 
     def _prod(self, args):
