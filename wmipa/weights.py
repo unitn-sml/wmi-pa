@@ -151,7 +151,7 @@ class Weights:
         for assignment in product([True, False], repeat=(self.n_conditions)):
 
             # evaluate the results for all assignments and save them in the chache
-            cond_w = self._evaluate_weight(self.weights, assignment, self.label_conditions, {})
+            cond_w = self._evaluate_weight(self.weights, assignment, self.labels, {})
             self.cache[assignment] = cond_w
 
     def _evaluate_weight(self, node, assignment, conditions, atom_assignment):

@@ -79,9 +79,7 @@ def parse_inputs(input_files, timeout):
 
     # do not plot n_integrations where mode times out or where not available
     data["n_integrations"] = data["n_integrations"].where(
-        (data["time"] < timeout)
-        & (data["time"].notna())
-        & (data["n_integrations"] > 0),
+        (data["time"] < timeout) & (data["time"].notna()) & (data["n_integrations"] > 0),
         pd.NA,
     )
 
@@ -127,9 +125,7 @@ def plot_data(
     modes = [mode for mode in ORDER if mode in modes]
     modes = [mode for mode in modes if param == "time" or "WMI-PA" in mode]
     for mode in modes:
-        plt.plot(
-            data[mode][param], color=COLORS[mode], label=mode, linewidth=lw, marker="x"
-        )
+        plt.plot(data[mode][param], color=COLORS[mode], label=mode, linewidth=lw, marker="x")
         # stddev
         # stdcol = "std{}".format(param)
         # sup = data[mode][param] + data[mode][stdcol]
@@ -172,9 +168,7 @@ def check_values(data, ref="SA-WMI-PA"):
 
     data = (
         data.groupby(["filename", "query", "mode"])
-        .aggregate(
-            time=("time", "min"), value=("value", "min"), count=("time", "count")
-        )
+        .aggregate(time=("time", "min"), value=("value", "min"), count=("time", "count"))
         .unstack()
     )
 
@@ -195,11 +189,7 @@ def check_values(data, ref="SA-WMI-PA"):
             atol=ERR_TOLERANCE,
         )
         if diff.any():
-            print(
-                "Error! {}/{} values of {} do not match with {}".format(
-                    diff.sum(), indexes.sum(), mode, ref
-                )
-            )
+            print("Error! {}/{} values of {} do not match with {}".format(diff.sum(), indexes.sum(), mode, ref))
 
             print(data[indexes][diff]["value"][["SA-WMI-PA", "XADD", "FXSDD"]])
         else:
@@ -264,9 +254,7 @@ def group_data(data: pd.DataFrame, cactus, timeout):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Plot WMI results")
-    parser.add_argument(
-        "input", nargs="+", help="Folder and/or files containing result files as .json"
-    )
+    parser.add_argument("input", nargs="+", help="Folder and/or files containing result files as .json")
     parser.add_argument(
         "-o",
         "--output",
@@ -285,9 +273,7 @@ def parse_args():
         default=[],
         help="Sub-intervals to plot in the format from-to (optional)",
     )
-    parser.add_argument(
-        "--timeout", type=int, default=0, help="Timeout line (if 0 not plotted)"
-    )
+    parser.add_argument("--timeout", type=int, default=0, help="Timeout line (if 0 not plotted)")
     parser.add_argument("--cactus", action="store_true", help="If true use cactus plot")
     parser.add_argument("--legend-pos", type=int, default=6, help="Legend position")
     parser.add_argument("--title", type=str, default=None, help="Title to plot")
