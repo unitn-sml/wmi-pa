@@ -1,7 +1,5 @@
-__version__ = '0.999'
-__author__ = 'Gabriele Masina'
-__version__ = '0.999'
-__author__ = 'Paolo Morettin'
+__version__ = "0.999"
+__author__ = "Gabriele Masina"
 
 from subprocess import call
 
@@ -30,24 +28,32 @@ class VolestiIntegrator(CommandLineIntegrator):
     ALG_SEQUENCE_OF_BALLS = "SOB"
     ALG_COOLING_BALLS = "CB"
     ALG_COOLING_GAUSSIANS = "CG"
-    DEF_ALGORITHM = ALG_COOLING_GAUSSIANS
+    DEF_ALGORITHM = ALG_COOLING_BALLS
 
     ALGORITHMS = [
         ALG_SEQUENCE_OF_BALLS,
         ALG_COOLING_BALLS,
-        ALG_COOLING_GAUSSIANS]
+        ALG_COOLING_GAUSSIANS,
+    ]
 
-    RW_BILLIARD_WALK = "BW"
-    RW_ACCELERATED_BILLIARD_WALK = "ABW"
-    DEF_RANDOM_WALK = RW_ACCELERATED_BILLIARD_WALK
+    RW_BALL_WALK = "Ba"
+    RW_RDHR = "RDHR"
+    RW_CDHR = "CDHR"
+    RW_BILLIARD_WALK = "Bi"
+    RW_ACCELERATED_BILLIARD_WALK = "ABi"
+    DEF_RANDOM_WALK = RW_CDHR
 
     RANDOM_WALKS = [
+        RW_BALL_WALK,
+        RW_RDHR,
+        RW_CDHR,
         RW_BILLIARD_WALK,
-        RW_ACCELERATED_BILLIARD_WALK]
+        RW_ACCELERATED_BILLIARD_WALK,
+    ]
 
-    DEF_ERROR = 1e-4
+    DEF_ERROR = 1e-1
     DEF_N = 1000
-    DEF_WALK_LENGTH = 10
+    DEF_WALK_LENGTH = 0
 
     def __init__(self, **options):
         """Default constructor.
@@ -64,23 +70,21 @@ class VolestiIntegrator(CommandLineIntegrator):
 
         """
         CommandLineIntegrator.__init__(self, **options)
-        self.error = options.get('error') or self.DEF_ERROR
+        self.error = options.get("error") or self.DEF_ERROR
         if not (0.0 < self.error < 1.0):
-            err = '{}, error must be in (0.0, 1.0)'.format(self.error)
+            err = "{}, error must be in (0.0, 1.0)".format(self.error)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
-        self.walk_type = options.get('walk_type') or self.DEF_RANDOM_WALK
+        self.walk_type = options.get("walk_type") or self.DEF_RANDOM_WALK
         if self.walk_type not in self.RANDOM_WALKS:
-            err = '{}, choose one from: {}'.format(
-                self.walk_type, ', '.join(self.RANDOM_WALKS))
+            err = "{}, choose one from: {}".format(self.walk_type, ", ".join(self.RANDOM_WALKS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
-        self.N = options.get('N') or self.DEF_N
+        self.N = options.get("N") or self.DEF_N
         if self.N <= 0:
-            err = '{}, N must be a positive number'.format(self.N)
+            err = "{}, N must be a positive number".format(self.N)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
-        self.walk_length = options.get('walk_length') or self.DEF_WALK_LENGTH
-        if self.walk_length <= 0:
-            err = '{}, walk_length must be a positive number'.format(
-                self.walk_length)
+        self.walk_length = options.get("walk_length") or self.DEF_WALK_LENGTH
+        if self.walk_length < 0:
+            err = "{}, walk_length must be a non-negative number".format(self.walk_length)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
     def _call_integrator(self, polynomial_file, polytope_file, output_file):
@@ -93,17 +97,23 @@ class VolestiIntegrator(CommandLineIntegrator):
             output_file (str): The file where to write the result of the computation.
 
         """
-        cmd = ["volesti_integrate_polynomial",
-               polytope_file,
-               polynomial_file,
-               str(self.error),
-               self.algorithm,
-               self.walk_type,
-               str(self.N),
-               str(self.walk_length)
-               ]
+        cmd = [
+            "volesti_integrate_polynomial",
+            polytope_file,
+            polynomial_file,
+            str(self.error),
+            "--volume",
+            self.algorithm,
+            "--walk",
+            self.walk_type,
+            "--N",
+            str(self.N),
+            "--wlength",
+            str(self.walk_length),
+        ]
+        print(" ".join(cmd))
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             if self.stub_integrate:
                 f.write("")
             else:

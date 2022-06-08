@@ -1,4 +1,3 @@
-import traceback
 import psutil
 from pysmt.shortcuts import Bool, reset_env, get_env
 from wmipa import WMI
@@ -24,31 +23,38 @@ def compute_wmi(domain, support, weight, args, q):
     if "PA" in args.mode:
         integrator = LatteIntegrator if args.integration == "latte" else VolestiIntegrator
         wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
-        res = wmi.computeWMI(Bool(True), mode=args.mode, cache=args.cache,
-                             domA=set(domain.get_bool_symbols()),
-                             domX=set(domain.get_real_symbols()))
+        res = wmi.computeWMI(
+            Bool(True),
+            mode=args.mode,
+            cache=args.cache,
+            domA=set(domain.get_bool_symbols()),
+            domX=set(domain.get_real_symbols()),
+        )
         res = (*res, wmi.integrator.get_integration_time())
     else:
         if args.mode == "XADD":
-            wmi = PyXaddEngine(
-                support=support, weight=weight, domain=domain)
+            wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
         elif args.mode == "XSDD":
-            wmi = XsddEngine(support=support, weight=weight,
-                             domain=domain,
-                             algebra=PyXaddAlgebra(
-                                 symbolic_backend=SympyAlgebra()),
-                             ordered=False)
+            wmi = XsddEngine(
+                support=support,
+                weight=weight,
+                domain=domain,
+                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                ordered=False,
+            )
         elif args.mode == "FXSDD":
-            wmi = FXSDD(domain,
-                        support,
-                        weight,
-                        vtree_strategy=balanced,
-                        algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
-                        ordered=False)
+            wmi = FXSDD(
+                domain,
+                support,
+                weight,
+                vtree_strategy=balanced,
+                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                ordered=False,
+            )
         elif args.mode == "Rejection":
-            wmi = RejectionEngine(domain,
-                                  support,
-                                  weight, sample_count=100000)
+            wmi = RejectionEngine(domain, support, weight, sample_count=100000)
+        else:
+            raise ValueError(f"Invalid mode {args.mode}")
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
@@ -94,25 +100,24 @@ def problems_from_densities(input_files):
             continue
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
-            print("\r" * 300, end='')
-            print("Problem: {} (query {}/{})/{} ({})".format(i + 1, j + 1,
-                  len(queries), len(input_files), filename), end='')
+            print("\r" * 300, end="")
+            print(
+                "Problem: {} (query {}/{})/{} ({})".format(i + 1, j + 1, len(queries), len(input_files), filename),
+                end="",
+            )
             support = density.support & query
             yield filename, j + 1, density.domain, support, density.weight
 
 
 def write_result(mode, res, output_file):
     if not os.path.exists(output_file):
-        info = {
-            "mode": mode,
-            "results": [res]
-        }
+        info = {"mode": mode, "results": [res]}
     else:
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             info = json.load(f)
         info["results"].append(res)
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(info, f, indent=4)
 
 
@@ -120,66 +125,52 @@ def parse_args():
     modes = WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
     parser = argparse.ArgumentParser(
-        description='Compute WMI on models',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('input', help='Folder with .json files')
+        description="Compute WMI on models", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("input", help="Folder with .json files")
     # parser.add_argument('-i', '--input-type', required=True,
     #                     help='Input type', choices=input_types.keys())
     parser.add_argument(
-        '-o',
-        '--output',
-        default=os.getcwd(),
-        help='Output folder where to save the result (default: cwd)')
-    parser.add_argument('-f', '--filename',
-                        help='Name of the result file (optional)')
-    parser.add_argument('-m', '--mode', choices=modes,
-                        required=True, help='Mode to use')
-    parser.add_argument('--threads', default=None, type=int,
-                        help='Number of threads to use for WMIPA')
-    parser.add_argument('--timeout', type=int, default=3600,
-                        help='Max time (in seconds)')
-    parser.add_argument('-c', '--cache', choices=[-1, 0, 1, 2, 3], default=-1,
-                        help='Cache level for WMIPA methods')
+        "-o", "--output", default=os.getcwd(), help="Output folder where to save the result (default: cwd)"
+    )
+    parser.add_argument("-f", "--filename", help="Name of the result file (optional)")
+    parser.add_argument("-m", "--mode", choices=modes, required=True, help="Mode to use")
+    parser.add_argument("--threads", default=None, type=int, help="Number of threads to use for WMIPA")
+    parser.add_argument("--timeout", type=int, default=3600, help="Max time (in seconds)")
+    parser.add_argument("-c", "--cache", choices=[-1, 0, 1, 2, 3], default=-1, help="Cache level for WMIPA methods")
     parser.add_argument(
-        '-t',
-        '--stub',
+        "-t",
+        "--stub",
         action="store_true",
-        help='Set this flag if you only want to count the number of integrals to be computed')
+        help="Set this flag if you only want to count the number of integrals to be computed",
+    )
     integration_parsers = parser.add_subparsers(
         title="integration",
         description="Type of integration to use",
         dest="integration",
     )
-    latte_parser = integration_parsers.add_parser(
-        "latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    volesti_parser = integration_parsers.add_parser(
-        "volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    latte_parser = integration_parsers.add_parser("latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    volesti_parser = integration_parsers.add_parser("volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    volesti_parser.add_argument("-e", "--error", default=0.1, type=float, help="Relative error acceptable [in (0, 1)]")
     volesti_parser.add_argument(
-        '-e',
-        '--error',
-        default=0.1,
-        type=float,
-        help='Relative error acceptable [in (0, 1)]')
-    volesti_parser.add_argument(
-        '--algorithm',
+        "--algorithm",
         choices=VolestiIntegrator.ALGORITHMS,
         default=VolestiIntegrator.DEF_ALGORITHM,
-        help="Volume computation method: SequenceOfBalls, CoolingBals, CoolingGaussians")
+        help=f"Volume computation method: {', '.join(VolestiIntegrator.ALGORITHMS)}",
+    )
     volesti_parser.add_argument(
-        '--walk_type',
+        "--walk_type",
         choices=VolestiIntegrator.RANDOM_WALKS,
         default=VolestiIntegrator.DEF_RANDOM_WALK,
-        help="Type of random walk: BilliardWalk, AcceleratedBilliardWalk")
+        help="Type of random walk: {', '.join(VolestiIntegrator.RANDOM_WALKS)}",
+    )
+    volesti_parser.add_argument("-N", type=int, default=VolestiIntegrator.DEF_N, help="Number of samples")
     volesti_parser.add_argument(
-        '-N',
-        type=int,
-        default=VolestiIntegrator.DEF_N,
-        help='Number of samples')
-    volesti_parser.add_argument(
-        '--walk_length',
+        "--walk_length",
         type=int,
         default=VolestiIntegrator.DEF_WALK_LENGTH,
-        help='Length of random walk')
+        help="Length of random walk (0 for default value)",
+    )
 
     return parser.parse_args()
 
@@ -194,11 +185,11 @@ def main():
         if args.cache > -1:
             long_mode += "_cache_" + str(args.cache)
     # equals = args.equals
-    integrator = LatteIntegrator if args.integration == "latte" else VolestiIntegrator
 
     check_input_output(args.input, args.output, args.filename)
     output_file = output_file or "{}_{}_{}.json".format(
-        os.path.split(args.input.rstrip('/'))[1], long_mode, int(time.time()))
+        os.path.split(args.input.rstrip("/"))[1], long_mode, int(time.time())
+    )
     output_file = path.join(args.output, output_file)
     print("Creating... {}".format(output_file))
 
@@ -208,18 +199,14 @@ def main():
     print("Started computing, mode: ", long_mode)
     time_start = time.time()
 
-    for i, (filename, query_n, domain, support, weight) in enumerate(
-            problems_from_densities(files)):
+    for i, (filename, query_n, domain, support, weight) in enumerate(problems_from_densities(files)):
 
         time_init = time.time()
         q = Queue()
 
         timed_proc = Process(
-            target=compute_wmi, args=(domain,
-                                      support,
-                                      weight,
-                                      args,
-                                      q),
+            target=compute_wmi,
+            args=(domain, support, weight, args, q),
         )
         timed_proc.start()
         timed_proc.join(args.timeout)
@@ -255,7 +242,7 @@ def main():
             "value": value,
             "n_integrations": n_integrations,
             "time": time_total,
-            "integration_time": integration_time
+            "integration_time": integration_time,
         }
         write_result(long_mode, res, output_file)
 
@@ -266,5 +253,5 @@ def main():
     print("Done! {:.3f}s".format(seconds))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

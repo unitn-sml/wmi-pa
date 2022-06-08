@@ -1,5 +1,5 @@
-__version__ = '0.999'
-__author__ = 'Paolo Morettin'
+__version__ = "0.999"
+__author__ = "Paolo Morettin"
 
 from subprocess import call
 
@@ -35,12 +35,9 @@ class LatteIntegrator(CommandLineIntegrator):
             output_file (str): The file where to write the result of the computation.
 
         """
-        cmd = ["integrate",
-               "--valuation=integrate", self.algorithm,
-               "--monomials=" + polynomial_file,
-               polytope_file]
+        cmd = ["integrate", "--valuation=integrate", self.algorithm, "--monomials=" + polynomial_file, polytope_file]
 
-        with open(output_file, 'w') as f:
+        with open(output_file, "w") as f:
             if self.stub_integrate:
                 f.write("")
             else:

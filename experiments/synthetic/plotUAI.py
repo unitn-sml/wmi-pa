@@ -34,7 +34,8 @@ ORDER = [
     "SA-WMI-PA",
     "SA-WMI-PA-SK",
     "SA-WMI-PA-SK(VolEsti)",
-    "SA-WMI-PA-SK-TA-TA"]
+    "SA-WMI-PA-SK-TA-TA",
+]
 ERR_TOLERANCE = 1e-1  # absolute tolerance on value mismatch
 
 
@@ -67,9 +68,11 @@ def parse_inputs(input_files, timeout):
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
-        if "SAPA" not in mode or "BOOL" in mode:
-            print("skipping ", filename)
+        if "volesti" in mode or "SK" in mode:
             continue
+        # if "SAPA" not in mode or "BOOL" in mode:
+        #     print("skipping ", filename)
+        #     continue
 
         if mode == "SAPA":
             mode = "SA-WMI-PA"
@@ -97,24 +100,13 @@ def parse_inputs(input_files, timeout):
 
     # do not plot n_integrations where mode times out or where not available
     data["n_integrations"] = data["n_integrations"].where(
-        (data["time"] < timeout) & (data["time"].notna()) &
-        (data["n_integrations"] > 0),
-        pd.NA)
+        (data["time"] < timeout) & (data["time"].notna()) & (data["n_integrations"] > 0), pd.NA
+    )
 
     return data
 
 
-def plot_data(
-        outdir,
-        data,
-        param,
-        xlabel,
-        timeout=0,
-        frm=None,
-        to=None,
-        filename="",
-        legend_pos=6,
-        title=None):
+def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filename="", legend_pos=6, title=None):
     total_problems = max(data.index) + 1
     # crop from:to if necessary
     sfx = ""
@@ -134,28 +126,22 @@ def plot_data(
     if timeout:
         x = list(range(n_problems))
         y = [timeout] * n_problems
-        plt.plot(x, y,
-                 linestyle="dashed",
-                 linewidth=lw,
-                 label="timeout",
-                 color="r")
+        plt.plot(x, y, linestyle="dashed", linewidth=lw, label="timeout", color="r")
 
     # plot time for all modes, n_integrations only for *PA*
     modes = data.columns.get_level_values(0).unique()
     modes = [mode for mode in ORDER if mode in modes]
     modes = [mode for mode in modes if param == "time" or "WMI-PA" in mode]
     for mode in modes:
-        plt.plot(data[mode][param], color=COLORS[mode],
-                 label=mode, linewidth=lw, marker="x")
+        plt.plot(data[mode][param], color=COLORS[mode], label=mode, linewidth=lw, marker="x")
         # stddev
         stdcol = "std{}".format(param)
-        sup = (data[mode][param] + data[mode][stdcol])
+        sup = data[mode][param] + data[mode][stdcol]
         if timeout:
             sup.clip(upper=timeout, inplace=True)
 
         inf = (data[mode][param] - data[mode][stdcol]).clip(lower=0)
-        plt.fill_between(data.index, sup, inf,
-                         color=COLORS[mode], alpha=0.1)
+        plt.fill_between(data.index, sup, inf, color=COLORS[mode], alpha=0.1)
 
     if param == "time":
         ylabel = "Query execution time (seconds)"
@@ -177,9 +163,8 @@ def plot_data(
     if title:
         plt.title(title, fontsize=fs)
 
-    outfile = os.path.join(
-        outdir, "{}_uai{}{}.png".format(param, sfx, filename))
-    plt.savefig(outfile, bbox_inches='tight')
+    outfile = os.path.join(outdir, "{}_uai{}{}.png".format(param, sfx, filename))
+    plt.savefig(outfile, bbox_inches="tight")
     print("created {}".format(outfile))
     plt.clf()
 
@@ -187,18 +172,15 @@ def plot_data(
 def check_values(data, ref="SA-WMI-PA"):
     data["filename"] = data["filename"].apply(os.path.basename)
 
-    data = data \
-        .groupby(["filename", "query", "mode"]) \
-        .aggregate(
-            time=("time", "min"),
-            value=("value", "min"),
-            count=("time", "count")) \
+    data = (
+        data.groupby(["filename", "query", "mode"])
+        .aggregate(time=("time", "min"), value=("value", "min"), count=("time", "count"))
         .unstack()
+    )
 
     # ensure we have at most one output foreach (filename, query, mode)
     # combination
-    assert (data["count"] == 1).all().all(
-    ), "Some output are missing or duplicated {}".format(data["count"])
+    assert (data["count"] == 1).all().all(), "Some output are missing or duplicated {}".format(data["count"])
 
     # print(data.reset_index()[["time", "value"]])
 
@@ -208,17 +190,14 @@ def check_values(data, ref="SA-WMI-PA"):
         indexes = ii & data["value", mode].notna()
         # check if results agree with SA-WMI-PA with a relative tolerance of
         # ERR_TOLERANCE
-        diff = ~np.isclose(data[indexes]["value", mode].values,
-                           data[indexes]["value", ref].values, rtol=ERR_TOLERANCE)
+        diff = ~np.isclose(data[indexes]["value", mode].values, data[indexes]["value", ref].values, rtol=ERR_TOLERANCE)
         if diff.any():
-            print("Error! {}/{} values of {} do not match with {}".format(
-                diff.sum(), indexes.sum(), mode, ref))
+            print("Error! {}/{} values of {} do not match with {}".format(diff.sum(), indexes.sum(), mode, ref))
 
             print(data[indexes][diff]["value"])
             # print(data[indexes][diff]["value"][["SA-WMI-PA", "XADD", "FXSDD"]])
         else:
-            print("Mode {:10s}: {:4d} values OK".format(
-                mode, indexes.sum()))
+            print("Mode {:10s}: {:4d} values OK".format(mode, indexes.sum()))
 
 
 def parse_interval(interval):
@@ -230,16 +209,20 @@ def parse_interval(interval):
 
 def group_data(data, cactus):
     # aggregate and compute the mean for each query
-    data = data \
-        .groupby(["filename", "mode"]) \
+    data = (
+        data.groupby(["filename", "mode"])
         .aggregate(
             time=("time", "mean"),
             stdtime=("time", "std"),
             n_integrations=("n_integrations", "mean"),
-            stdn_integrations=("n_integrations", "std")) \
-        .stack(dropna=False)\
-        .unstack(level=(1, 2)) \
-        .reset_index(drop=True, )
+            stdn_integrations=("n_integrations", "std"),
+        )
+        .stack(dropna=False)
+        .unstack(level=(1, 2))
+        .reset_index(
+            drop=True,
+        )
+    )
 
     modes = data.columns.get_level_values(0).unique()
     modes = [mode for mode in ORDER if mode in modes]
@@ -248,10 +231,8 @@ def group_data(data, cactus):
         for param in ("time", "n_integrations"):
             for mode in modes:
                 stdcol = "std{}".format(param)
-                cols = data[mode][[param, stdcol]].sort_values(
-                    by=param, ignore_index=True)
-                cols.columns = pd.MultiIndex.from_tuples(
-                    [(mode, param), (mode, stdcol)])
+                cols = data[mode][[param, stdcol]].sort_values(by=param, ignore_index=True)
+                cols.columns = pd.MultiIndex.from_tuples([(mode, param), (mode, stdcol)])
                 data[(mode, param)] = np.NaN
                 data[(mode, stdcol)] = np.NaN
                 data.update(cols)
@@ -268,33 +249,18 @@ def group_data(data, cactus):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Plot WMI results")
+    parser.add_argument("input", nargs="+", help="Folder and/or files containing result files as .json")
     parser.add_argument(
-        "input",
-        nargs="+",
-        help="Folder and/or files containing result files as .json")
+        "-o", "--output", default=os.getcwd(), help="Output folder where to put the plots (default: cwd)"
+    )
+    parser.add_argument("-f", "--filename", default="", help="String to add to the name of the plots (optional)")
     parser.add_argument(
-        "-o",
-        "--output",
-        default=os.getcwd(),
-        help="Output folder where to put the plots (default: cwd)")
-    parser.add_argument(
-        "-f",
-        "--filename",
-        default="",
-        help="String to add to the name of the plots (optional)")
-    parser.add_argument(
-        "--intervals",
-        nargs="+",
-        default=[],
-        help="Sub-intervals to plot in the format from-to (optional)")
-    parser.add_argument("--timeout", type=int, default=0,
-                        help="Timeout line (if 0 not plotted)")
-    parser.add_argument("--cactus", action="store_true",
-                        help="If true use cactus plot")
-    parser.add_argument("--legend-pos", type=int, default=6,
-                        help="Legend position")
-    parser.add_argument("--title", type=str, default=None,
-                        help="Title to plot")
+        "--intervals", nargs="+", default=[], help="Sub-intervals to plot in the format from-to (optional)"
+    )
+    parser.add_argument("--timeout", type=int, default=0, help="Timeout line (if 0 not plotted)")
+    parser.add_argument("--cactus", action="store_true", help="If true use cactus plot")
+    parser.add_argument("--legend-pos", type=int, default=6, help="Legend position")
+    parser.add_argument("--title", type=str, default=None, help="Title to plot")
     return parser.parse_args()
 
 
@@ -324,15 +290,8 @@ def main():
     for interval in intervals:
         frm, to = parse_interval(interval)
         plot_data(
-            output_dir,
-            data,
-            "time",
-            xlabel,
-            frm=frm,
-            to=to,
-            filename=filename,
-            legend_pos=legend_pos,
-            title=title)
+            output_dir, data, "time", xlabel, frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title
+        )
         plot_data(
             output_dir,
             data,
@@ -342,19 +301,11 @@ def main():
             to=to,
             filename=filename,
             legend_pos=legend_pos,
-            title=title)
+            title=title,
+        )
 
-    plot_data(
-        output_dir,
-        data,
-        "time",
-        xlabel,
-        timeout=timeout,
-        filename=filename,
-        legend_pos=legend_pos,
-        title=title)
-    plot_data(output_dir, data, "n_integrations",
-              xlabel, filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "time", xlabel, timeout=timeout, filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "n_integrations", xlabel, filename=filename, legend_pos=legend_pos, title=title)
 
 
 if __name__ == "__main__":
