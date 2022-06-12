@@ -97,7 +97,6 @@ def plot_data(
     filename="",
     legend_pos=6,
     title=None,
-    logscale=False,
 ):
     total_problems = max(data.index) + 1
     # crop from:to if necessary
@@ -313,7 +312,6 @@ def main():
             filename=filename,
             legend_pos=legend_pos,
             title=title,
-            logscale=args.cactus,
         )
         plot_data(
             output_dir,
@@ -325,7 +323,6 @@ def main():
             filename=filename,
             legend_pos=legend_pos,
             title=title,
-            logscale=args.cactus,
         )
 
     plot_data(
@@ -337,7 +334,6 @@ def main():
         filename=filename,
         legend_pos=legend_pos,
         title=title,
-        logscale=args.cactus,
     )
     plot_data(
         output_dir,
@@ -347,7 +343,6 @@ def main():
         filename=filename,
         legend_pos=legend_pos,
         title=title,
-        logscale=args.cactus,
     )
 
 
