@@ -20,33 +20,33 @@ from os import path
 
 def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
     if "PA" in mode:
-        wmi = WMI(support, weight, stub_integrate=stub,
-                  n_threads=threads)
-        res = wmi.computeWMI(Bool(True), mode=mode, cache=cache,
-                             domA=set(domain.get_bool_symbols()),
-                             domX=set(domain.get_real_symbols()))
+        wmi = WMI(support, weight, stub_integrate=stub, n_threads=threads)
+        res = wmi.computeWMI(
+            Bool(True), mode=mode, cache=cache, domA=set(domain.get_bool_symbols()), domX=set(domain.get_real_symbols())
+        )
         res = (*res, wmi.integrator.get_integration_time())
     else:
         if mode == "XADD":
-            wmi = PyXaddEngine(
-                support=support, weight=weight, domain=domain)
+            wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
         elif mode == "XSDD":
-            wmi = XsddEngine(support=support, weight=weight,
-                             domain=domain,
-                             algebra=PyXaddAlgebra(
-                                 symbolic_backend=SympyAlgebra()),
-                             ordered=False)
+            wmi = XsddEngine(
+                support=support,
+                weight=weight,
+                domain=domain,
+                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                ordered=False,
+            )
         elif mode == "FXSDD":
-            wmi = FXSDD(domain,
-                        support,
-                        weight,
-                        vtree_strategy=balanced,
-                        algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
-                        ordered=False)
+            wmi = FXSDD(
+                domain,
+                support,
+                weight,
+                vtree_strategy=balanced,
+                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
+                ordered=False,
+            )
         elif mode == "Rejection":
-            wmi = RejectionEngine(domain,
-                                  support,
-                                  weight, sample_count=100000)
+            wmi = RejectionEngine(domain, support, weight, sample_count=100000)
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
@@ -92,49 +92,53 @@ def problems_from_densities(input_files):
             continue
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
-            print("\r"*300, end='')
-            print("Problem: {} (query {}/{})/{} ({})".format(i+1, j+1,
-                  len(queries), len(input_files), filename), end='')
+            print("\r" * 300, end="")
+            print(
+                "Problem: {} (query {}/{})/{} ({})".format(i + 1, j + 1, len(queries), len(input_files), filename),
+                end="",
+            )
             support = density.support & query
-            yield filename, j+1, density.domain, support, density.weight
+            yield filename, j + 1, density.domain, support, density.weight
+
 
 def write_result(mode, res, output_file):
     if not os.path.exists(output_file):
-        info = {
-            "mode": mode,
-            "results": [res]
-        }
+        info = {"mode": mode, "results": [res]}
     else:
-        with open(output_file, 'r') as f:
+        with open(output_file, "r") as f:
             info = json.load(f)
         info["results"].append(res)
 
-    with open(output_file, 'w') as f:
+    with open(output_file, "w") as f:
         json.dump(info, f, indent=4)
 
 
 def parse_args():
-    modes = ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(
-        0, 4)] + WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
+    modes = (
+        ["{}_cache_{}".format(m, i) for m in WMI.MODES for i in range(0, 4)]
+        + WMI.MODES
+        + ["XADD", "XSDD", "FXSDD", "Rejection"]
+    )
 
-    parser = argparse.ArgumentParser(description='Compute WMI on models')
-    parser.add_argument('input', help='Folder with .json files')
+    parser = argparse.ArgumentParser(description="Compute WMI on models")
+    parser.add_argument("input", help="Folder with .json files")
     # parser.add_argument('-i', '--input-type', required=True,
     #                     help='Input type', choices=input_types.keys())
-    parser.add_argument('-o', '--output', default=os.getcwd(),
-                        help='Output folder where to save the result (default: cwd)')
-    parser.add_argument('-f', '--filename',
-                        help='Name of the result file (optional)')
-    parser.add_argument('-m', '--mode', choices=modes,
-                        required=True, help='Mode to use')
-    parser.add_argument('--threads', default=None, type=int,
-                        help='Number of threads to use for WMIPA')
+    parser.add_argument(
+        "-o", "--output", default=os.getcwd(), help="Output folder where to save the result (default: cwd)"
+    )
+    parser.add_argument("-f", "--filename", help="Name of the result file (optional)")
+    parser.add_argument("-m", "--mode", choices=modes, required=True, help="Mode to use")
+    parser.add_argument("--threads", default=None, type=int, help="Number of threads to use for WMIPA")
     # parser.add_argument('-e', '--equals', action='store_true',
     #                     help='Set this flag if you want to compute wmi only on support and weight with same name')
-    parser.add_argument('-t', '--stub', action="store_true",
-                        help='Set this flag if you only want to count the number of integrals to be computed')
-    parser.add_argument('--timeout', type=int, default=3600,
-                        help='Max time (in seconds)')
+    parser.add_argument(
+        "-t",
+        "--stub",
+        action="store_true",
+        help="Set this flag if you only want to count the number of integrals to be computed",
+    )
+    parser.add_argument("--timeout", type=int, default=3600, help="Max time (in seconds)")
 
     return parser.parse_args()
 
@@ -152,11 +156,9 @@ def main():
     stub = args.stub
 
     check_input_output(input_dir, output_dir, output_file)
-    output_file = output_file or "{}_{}_{}.json".format(
-        os.path.split(input_dir.rstrip('/'))[1], mode, int(time.time()))
+    output_file = output_file or "{}_{}_{}.json".format(os.path.split(input_dir.rstrip("/"))[1], mode, int(time.time()))
     output_file = path.join(output_dir, output_file)
     print("Creating... {}".format(output_file))
-
 
     elements = [path.join(input_dir, f) for f in os.listdir(input_dir)]
     files = [e for e in elements if path.isfile(e)]
@@ -173,14 +175,8 @@ def main():
         q = Queue()
 
         timed_proc = Process(
-            target=compute_wmi, args=(domain,
-                                      support,
-                                      weight,
-                                      mode.split("_")[0],
-                                      cache,
-                                      threads,
-                                      stub,
-                                      q),
+            target=compute_wmi,
+            args=(domain, support, weight, mode.split("_")[0], cache, threads, stub, q),
         )
         timed_proc.start()
         timed_proc.join(timeout)
@@ -216,18 +212,16 @@ def main():
             "value": value,
             "n_integrations": n_integrations,
             "time": time_total,
-            "integration_time": integration_time
+            "integration_time": integration_time,
         }
         write_result(mode, res, output_file)
 
     print()
     print("Computed {} WMI".format(i + 1))
 
-    
-
     seconds = time.time() - time_start
     print("Done! {:.3f}s".format(seconds))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

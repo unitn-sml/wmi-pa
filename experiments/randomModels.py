@@ -6,8 +6,7 @@ from math import log10
 from os import path
 from random import choice, randint, random, sample, seed, uniform
 
-from pysmt.shortcuts import (BOOL, LT, REAL, And, Bool, Ite, Not, Or, Plus,
-                             Pow, Real, Symbol, Times, is_sat)
+from pysmt.shortcuts import BOOL, LT, REAL, And, Bool, Ite, Not, Or, Plus, Pow, Real, Symbol, Times, is_sat
 from pywmi import Density, Domain
 
 
@@ -28,11 +27,16 @@ class ModelGenerator:
     # non-negative polynomials
     MAX_SRF = 4
 
-    def __init__(self, n_reals, n_bools, seedn=None,
-                 templ_bools=TEMPL_BOOLS,
-                 templ_reals=TEMPL_REALS,
-                 initial_bounds=DOMAIN_BOUNDS):
-        assert(n_reals + n_bools > 0)
+    def __init__(
+        self,
+        n_reals,
+        n_bools,
+        seedn=None,
+        templ_bools=TEMPL_BOOLS,
+        templ_reals=TEMPL_REALS,
+        initial_bounds=DOMAIN_BOUNDS,
+    ):
+        assert n_reals + n_bools > 0
 
         # initialize the real/boolean variables
         self.reals = []
@@ -45,7 +49,7 @@ class ModelGenerator:
         self.domain_bounds = dict()
         self.initial_bounds = initial_bounds
         # set the seed number, if specified
-        if seedn != None:
+        if seedn is not None:
             self.seedn = seedn
             seed(seedn)
 
@@ -128,8 +132,7 @@ class ModelGenerator:
                 return Not(self._random_formula(depth, theta))
             else:
                 breadth = randint(2, self.MAX_BREADTH)
-                children = [self._random_formula(depth - 1, theta)
-                            for _ in range(breadth)]
+                children = [self._random_formula(depth - 1, theta) for _ in range(breadth)]
                 return op(children)
 
     def _random_atom(self, theta=0.5):
@@ -170,42 +173,37 @@ def parse_args():
     def positive_0(value):
         ivalue = int(value)
         if ivalue < 0:
-            raise argparse.ArgumentTypeError(
-                'Expected positive integer, found {}'.format(value))
+            raise argparse.ArgumentTypeError("Expected positive integer, found {}".format(value))
         return ivalue
 
     def positive(value):
         ivalue = int(value)
         if ivalue <= 0:
-            raise argparse.ArgumentTypeError(
-                'Expected positive integer (no 0), found {}'.format(value))
+            raise argparse.ArgumentTypeError("Expected positive integer (no 0), found {}".format(value))
         return ivalue
 
-    parser = argparse.ArgumentParser(
-        description='Generates random support and models.')
-    parser.add_argument('-o', '--output', default=os.getcwd(),
-                        help='Folder where all models will be created (default: cwd)')
-    parser.add_argument('-r', '--reals', default=3, type=positive,
-                        help='Maximum number of real variables (default: 3)')
-    parser.add_argument('-b', '--booleans', default=3, type=positive_0,
-                        help='Maximum number of bool variables (default: 3)')
-    parser.add_argument('-d', '--depth', default=3, type=positive,
-                        help='Depth of the formula tree (default: 3)')
-    parser.add_argument('-m', '--models', default=20, type=positive,
-                        help='Number of model files (default: 20)')
-    parser.add_argument('-s', '--seed', type=positive_0,
-                        help='Random seed (optional)')
+    parser = argparse.ArgumentParser(description="Generates random support and models.")
+    parser.add_argument(
+        "-o", "--output", default=os.getcwd(), help="Folder where all models will be created (default: cwd)"
+    )
+    parser.add_argument("-r", "--reals", default=3, type=positive, help="Maximum number of real variables (default: 3)")
+    parser.add_argument(
+        "-b", "--booleans", default=3, type=positive_0, help="Maximum number of bool variables (default: 3)"
+    )
+    parser.add_argument("-d", "--depth", default=3, type=positive, help="Depth of the formula tree (default: 3)")
+    parser.add_argument("-m", "--models", default=20, type=positive, help="Number of model files (default: 20)")
+    parser.add_argument("-s", "--seed", type=positive_0, help="Random seed (optional)")
 
     return parser.parse_args()
 
 
 def check_input_output(output_path, output_dir):
     # check if dir exists
-    if (not path.exists(output_path)):
+    if not path.exists(output_path):
         print("Folder '{}' does not exists".format(output_path))
         sys.exit(1)
     # check if this model is already created
-    if (path.exists(output_dir)):
+    if path.exists(output_dir):
         print("A dataset of models with this parameters already exists in the output folder. Remove it and retry")
         sys.exit(1)
     # create dir
@@ -226,8 +224,7 @@ def main():
     if seedn is None:
         seedn = int(time.time())
 
-    output_dir = 'models_r{}_b{}_d{}_m{}_s{}'.format(
-        n_reals, n_bools, depth, n_models, seedn)
+    output_dir = "models_r{}_b{}_d{}_m{}_s{}".format(n_reals, n_bools, depth, n_models, seedn)
     output_dir = path.join(output, output_dir)
 
     check_input_output(output, output_dir)
@@ -235,25 +232,23 @@ def main():
     # init generator
     templ_bools = ModelGenerator.TEMPL_BOOLS
     templ_reals = ModelGenerator.TEMPL_REALS
-    gen = ModelGenerator(n_reals, n_bools, seedn=seedn,
-                         templ_bools=templ_bools, templ_reals=templ_reals)
+    gen = ModelGenerator(n_reals, n_bools, seedn=seedn, templ_bools=templ_bools, templ_reals=templ_reals)
 
     # generate models
     bools = [templ_bools.format(i) for i in range(n_bools)]
     print("Starting creating models")
     time_start = time.time()
     digits = int(log10(n_models)) + 1
-    template = "r{r}_b{b}_d{d}_s{s}_{templ}.json".format(
-        r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
+    template = "r{r}_b{b}_d{d}_s{s}_{templ}.json".format(r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
         weight = gen.generate_weights_tree(depth, nonnegative=True)
         domain = Domain.make(bools, bounds)
         density = Density(domain, support, weight)
-        density_file = path.join(output_dir, template.format(n=i+1, d=digits))
+        density_file = path.join(output_dir, template.format(n=i + 1, d=digits))
         density.to_file(density_file)
-        print("\r"*100, end='')
-        print("Model {}/{}".format(i+1, n_models), end='')
+        print("\r" * 100, end="")
+        print("Model {}/{}".format(i + 1, n_models), end="")
 
     print()
     time_end = time.time()
@@ -261,5 +256,5 @@ def main():
     print("Done! {:.3f}s".format(seconds))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
