@@ -8,9 +8,11 @@ __version__ = "0.99"
 __author__ = "Paolo Morettin"
 
 from fractions import Fraction
+from functools import reduce
 
 import networkx as nx
-from pysmt.shortcuts import Plus, Real, Times
+from pysmt.shortcuts import LT, And, Bool, Plus, Pow, Real, Symbol, Times
+from pysmt.typing import REAL
 
 from wmipa.integration.sympy2pysmt import get_canonical_form
 from wmipa.utils import is_pow, lcmm
@@ -153,6 +155,20 @@ class Monomial:
         else:
             raise WMIParsingException(WMIParsingException.NOT_A_MONOMIAL, expression)
 
+    def to_pysmt(self):
+        if not self.exponents:
+            return Real(self.coefficient)
+        return Times(
+            Real(self.coefficient),
+            reduce(
+                Times,
+                map(
+                    lambda i: Pow(Symbol(i[0], REAL), Real(i[1])),
+                    self.exponents.items(),
+                ),
+            ),
+        )
+
 
 class Polynomial:
     """Intermediate representation of a polynomial.
@@ -277,6 +293,11 @@ class Polynomial:
             expression = expression.substitute(constant_subs)
 
         return get_canonical_form(expression)
+
+    def to_pysmt(self):
+        if not self.monomials:
+            return Real(0)
+        return reduce(Plus, map(lambda x: x.to_pysmt(), self.monomials))
 
 
 class Bound:
@@ -410,6 +431,15 @@ class Bound:
     def __hash__(self):
         return hash(self.constant)
 
+    def to_pysmt(self):
+        if not self.coefficients:
+            return Bool(True)
+        polynomial = reduce(
+            Plus,
+            (Times(Real(c), Symbol(x, REAL)) for x, c in self.coefficients.items()),
+        )
+        return LT(polynomial, Real(self.constant))
+
 
 class Polytope:
     """Intermediate representation of a polytope.
@@ -473,3 +503,8 @@ class Polytope:
                             return True
 
         return False
+
+    def to_pysmt(self):
+        if not self.bounds:
+            return Bool(True)
+        return reduce(And, map(lambda x: x.to_pysmt(), self.bounds))

@@ -1,27 +1,30 @@
-import psutil
-from pysmt.shortcuts import Bool, reset_env, get_env
-from wmipa import WMI
-from wmipa.volesti_integrator import VolestiIntegrator
-from wmipa.latte_integrator import LatteIntegrator
+import argparse
+import json
+import os
+import sys
+import time
 from multiprocessing import Process, Queue
+from os import path
 from queue import Empty as EmptyQueueError
+
+import psutil
+from pysmt.shortcuts import Bool, get_env, reset_env
 from pywmi import Density
-from pywmi.engines import PyXaddEngine, XsddEngine, PyXaddAlgebra, RejectionEngine
+from pywmi.engines import PyXaddAlgebra, PyXaddEngine, RejectionEngine, XsddEngine
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
 from pywmi.engines.xsdd.vtrees.vtree import balanced
 
-import argparse
-import sys
-import os
-import time
-import json
-from os import path
+from wmipa import WMI
+from wmipa.integration.latte_integrator import LatteIntegrator
+from wmipa.integration.volesti_integrator import VolestiIntegrator
 
 
 def compute_wmi(domain, support, weight, args, q):
     if "PA" in args.mode:
-        integrator = LatteIntegrator if args.integration == "latte" else VolestiIntegrator
+        integrator = (
+            LatteIntegrator if args.integration == "latte" else VolestiIntegrator
+        )
         wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
         res = wmi.computeWMI(
             Bool(True),
@@ -102,7 +105,9 @@ def problems_from_densities(input_files):
         for j, query in enumerate(queries):
             print("\r" * 300, end="")
             print(
-                "Problem: {} (query {}/{})/{} ({})".format(i + 1, j + 1, len(queries), len(input_files), filename),
+                "Problem: {} (query {}/{})/{} ({})".format(
+                    i + 1, j + 1, len(queries), len(input_files), filename
+                ),
                 end="",
             )
             support = density.support & query
@@ -125,19 +130,35 @@ def parse_args():
     modes = WMI.MODES + ["XADD", "XSDD", "FXSDD", "Rejection"]
 
     parser = argparse.ArgumentParser(
-        description="Compute WMI on models", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Compute WMI on models",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("input", help="Folder with .json files")
     # parser.add_argument('-i', '--input-type', required=True,
     #                     help='Input type', choices=input_types.keys())
     parser.add_argument(
-        "-o", "--output", default=os.getcwd(), help="Output folder where to save the result (default: cwd)"
+        "-o",
+        "--output",
+        default=os.getcwd(),
+        help="Output folder where to save the result (default: cwd)",
     )
     parser.add_argument("-f", "--filename", help="Name of the result file (optional)")
-    parser.add_argument("-m", "--mode", choices=modes, required=True, help="Mode to use")
-    parser.add_argument("--threads", default=None, type=int, help="Number of threads to use for WMIPA")
-    parser.add_argument("--timeout", type=int, default=3600, help="Max time (in seconds)")
-    parser.add_argument("-c", "--cache", choices=[-1, 0, 1, 2, 3], default=-1, help="Cache level for WMIPA methods")
+    parser.add_argument(
+        "-m", "--mode", choices=modes, required=True, help="Mode to use"
+    )
+    parser.add_argument(
+        "--threads", default=None, type=int, help="Number of threads to use for WMIPA"
+    )
+    parser.add_argument(
+        "--timeout", type=int, default=3600, help="Max time (in seconds)"
+    )
+    parser.add_argument(
+        "-c",
+        "--cache",
+        choices=[-1, 0, 1, 2, 3],
+        default=-1,
+        help="Cache level for WMIPA methods",
+    )
     parser.add_argument(
         "-t",
         "--stub",
@@ -149,9 +170,19 @@ def parse_args():
         description="Type of integration to use",
         dest="integration",
     )
-    latte_parser = integration_parsers.add_parser("latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    volesti_parser = integration_parsers.add_parser("volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    volesti_parser.add_argument("-e", "--error", default=0.1, type=float, help="Relative error acceptable [in (0, 1)]")
+    latte_parser = integration_parsers.add_parser(
+        "latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    volesti_parser = integration_parsers.add_parser(
+        "volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    volesti_parser.add_argument(
+        "-e",
+        "--error",
+        default=0.1,
+        type=float,
+        help="Relative error acceptable [in (0, 1)]",
+    )
     volesti_parser.add_argument(
         "--algorithm",
         choices=VolestiIntegrator.ALGORITHMS,
@@ -164,7 +195,9 @@ def parse_args():
         default=VolestiIntegrator.DEF_RANDOM_WALK,
         help="Type of random walk: {', '.join(VolestiIntegrator.RANDOM_WALKS)}",
     )
-    volesti_parser.add_argument("-N", type=int, default=VolestiIntegrator.DEF_N, help="Number of samples")
+    volesti_parser.add_argument(
+        "-N", type=int, default=VolestiIntegrator.DEF_N, help="Number of samples"
+    )
     volesti_parser.add_argument(
         "--walk_length",
         type=int,
@@ -199,7 +232,9 @@ def main():
     print("Started computing, mode: ", long_mode)
     time_start = time.time()
 
-    for i, (filename, query_n, domain, support, weight) in enumerate(problems_from_densities(files)):
+    for i, (filename, query_n, domain, support, weight) in enumerate(
+        problems_from_densities(files)
+    ):
 
         time_init = time.time()
         q = Queue()

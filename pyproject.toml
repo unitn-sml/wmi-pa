@@ -8,4 +8,3 @@ readme = "README.md"
 profile = "black"
 
 [tool.pyright]
-line-lenght = 88

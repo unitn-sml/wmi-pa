@@ -7,6 +7,11 @@ from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
 from wmipa import WMI
+from wmipa.integration.latte_integrator import LatteIntegrator
+from wmipa.integration.symbolic_integrator import SymbolicIntegrator
+from wmipa.integration.volesti_integrator import VolestiIntegrator
+
+# from wmipa.integration.symbolic_integrator import SymbolicIntegrator
 
 # variables definition
 a = Symbol("A", BOOL)
@@ -32,10 +37,12 @@ print("Support:", chi.serialize())
 
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
-    wmi = WMI(chi, w)
-    result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print(
-        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
-            mode, result, n_integrations
+    for integrator in (LatteIntegrator, VolestiIntegrator, SymbolicIntegrator):
+        wmi = WMI(chi, w, integrator=integrator)
+        result, n_integrations = wmi.computeWMI(phi, mode=mode)
+        print(
+            "WMI with mode {} (integrator: {})\t "
+            "result = {}, \t # integrations = {}".format(
+                mode, integrator.__name__, result, n_integrations
+            )
         )
-    )

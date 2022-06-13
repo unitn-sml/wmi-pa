@@ -117,7 +117,6 @@ class VolestiIntegrator(CommandLineIntegrator):
             "--wlength",
             str(self.walk_length),
         ]
-        print(" ".join(cmd))
 
         with open(output_file, "w") as f:
             if self.stub_integrate:
