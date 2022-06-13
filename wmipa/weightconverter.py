@@ -1,15 +1,28 @@
 from abc import ABC, abstractmethod
-from itertools import islice, product
-from pprint import pprint
-from pysmt.shortcuts import *
-from wmipa.utils import is_pow
-from pysmt.walkers import IdentityDagWalker
-from pysmt.rewritings import nnf
+from itertools import product
+
 from pysmt.fnode import FNode
-from pysmt.rewritings import CNFizer
+from pysmt.rewritings import CNFizer, nnf
+from pysmt.shortcuts import (
+    And,
+    Bool,
+    Equals,
+    FreshSymbol,
+    FunctionType,
+    Not,
+    Or,
+    Real,
+    Times,
+    get_env,
+    get_type,
+)
+from pysmt.typing import BOOL, REAL
+from pysmt.walkers import IdentityDagWalker
+
+from wmipa.utils import is_pow
+
 
 class WeightConverter(ABC):
-
     def __init__(self, variables):
         self.variables = variables
 
@@ -30,8 +43,9 @@ class WeightConverterEUF(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
         self.conv_aliases = set()
-        self.prod_fn = FreshSymbol(typename=FunctionType(
-            REAL, (REAL, REAL)), template="PROD%s")
+        self.prod_fn = FreshSymbol(
+            typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s"
+        )
         self.counter = 1
 
     def convert(self, weight_func):
@@ -44,8 +58,8 @@ class WeightConverterEUF(WeightConverter):
         return And(conversion_list)
 
     def convert_rec(self, formula, branch_condition, conversion_list):
-        #print("CHECKING", formula)
-        #print("PROPERTY", get_type(formula))
+        # print("CHECKING", formula)
+        # print("PROPERTY", get_type(formula))
         if get_type(formula) == REAL:
             y = self.variables.new_weight_alias(len(self.conv_aliases))
             f = self.variables.new_EUF_alias(self.counter)
@@ -60,13 +74,16 @@ class WeightConverterEUF(WeightConverter):
         elif is_pow(formula):
             return self._process_pow(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
-            #print("HERE WERE", formula)
+            # print("HERE WERE", formula)
             return formula
         else:
-            new_children = (self.convert_rec(
-                arg, branch_condition, conversion_list) for arg in formula.args())
+            new_children = (
+                self.convert_rec(arg, branch_condition, conversion_list)
+                for arg in formula.args()
+            )
             return get_env().formula_manager.create_node(
-                node_type=formula.node_type(), args=tuple(new_children))
+                node_type=formula.node_type(), args=tuple(new_children)
+            )
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
@@ -76,7 +93,7 @@ class WeightConverterEUF(WeightConverter):
         left = self.convert_rec(left, l_cond, conversion_list)
         right = self.convert_rec(right, r_cond, conversion_list)
 
-        #print("NOW DOING ITE", formula)
+        # print("NOW DOING ITE", formula)
 
         # add (    branch_conditions) -> y = left
         # and (not branch_conditions) -> y = right
@@ -92,8 +109,10 @@ class WeightConverterEUF(WeightConverter):
         return y
 
     def _process_times(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (
+            self.convert_rec(arg, branch_condition, conversion_list)
+            for arg in formula.args()
+        )
         const_val = 1
         others = []
         for arg in args:
@@ -109,14 +128,19 @@ class WeightConverterEUF(WeightConverter):
             return Times(const_val, self._prod(others))
 
     def _process_pow(self, formula, branch_condition, conversion_list):
-        args = (self.convert_rec(arg, branch_condition, conversion_list)
-                for arg in formula.args())
+        args = (
+            self.convert_rec(arg, branch_condition, conversion_list)
+            for arg in formula.args()
+        )
         base, exponent = args
         if exponent.is_zero():
             return Real(1)
         else:
             # expand power into product and abstract it with EUF
-            n, d = exponent.constant_value().numerator, exponent.constant_value().denominator
+            n, d = (
+                exponent.constant_value().numerator,
+                exponent.constant_value().denominator,
+            )
             return self._prod([base for _ in range(n // d)])
 
     def _prod(self, args):
@@ -166,50 +190,50 @@ class WeightConverterSkeleton(WeightConverter):
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
-        #print("MIPHI", serialize(phi), branch_condition)
+        # print("MIPHI", serialize(phi), branch_condition)
         if self.is_atom(phi):
-            #print("ISATOM")
+            # print("ISATOM")
             if branch_condition is not None:
                 l_cond = Or(branch_condition, Not(phi))
                 r_cond = Or(branch_condition, phi)
-                #l_cond = Not(phi)
-                #r_cond = phi
+                # l_cond = Not(phi)
+                # r_cond = phi
             else:
                 l_cond = Not(phi)
                 r_cond = phi
             conversion_list.append(Or(branch_condition, phi, Not(phi)))
-            #print("Clause", Or(branch_condition, phi, Not(phi)))
+            # print("Clause", Or(branch_condition, phi, Not(phi)))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
         else:
             w = self.new_label()
-            #print("IS COMPLEX, WE ADD WEIGHT", w)
+            # print("IS COMPLEX, WE ADD WEIGHT", w)
             if branch_condition is not None:
                 l_cond = Or(branch_condition, Not(w))
                 r_cond = Or(branch_condition, w)
-                #l_cond = Not(w)
-                #r_cond = w
+                # l_cond = Not(w)
+                # r_cond = w
             else:
                 l_cond = Not(w)
                 r_cond = w
-            #print("PHI", phi)
-            #print("NNF(PHI)", nnf(phi))
+            # print("PHI", phi)
+            # print("NNF(PHI)", nnf(phi))
             for clause in self.cnfizer.convert(nnf(phi)):
-                #conversion_list.append(Or(*clause))
+                # conversion_list.append(Or(*clause))
                 conversion_list.append(Or(l_cond, *clause))
-                #print("Clause", serialize(Or(l_cond, *clause)))
-                #print("tYpe", Or(l_cond, *clause).get_type())
-            
+                # print("Clause", serialize(Or(l_cond, *clause)))
+                # print("tYpe", Or(l_cond, *clause).get_type())
+
             # Probably error here?
-            #print("Not(PHI)", Not(phi))
-            #print("NNF(Not(PHI))", nnf(Not(phi)))
+            # print("Not(PHI)", Not(phi))
+            # print("NNF(Not(PHI))", nnf(Not(phi)))
             for clause in self.cnfizer.convert(nnf(Not(phi))):
                 conversion_list.append(Or(r_cond, *clause))
-                #conversion_list.append(Or(*clause))
-                #print("Clause", serialize(Or(r_cond, *clause)))
-                #print("tYpe", Or(r_cond, *clause).get_type())
+                # conversion_list.append(Or(*clause))
+                # print("Clause", serialize(Or(r_cond, *clause)))
+                # print("tYpe", Or(r_cond, *clause).get_type())
             conversion_list.append(Or(branch_condition, w, Not(w)))
-            #print("Clause final", serialize(Or(branch_condition, w, Not(w))))
+            # print("Clause final", serialize(Or(branch_condition, w, Not(w))))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
 
@@ -220,11 +244,12 @@ class WeightConverterSkeleton(WeightConverter):
         if formula.is_ite():
             return self._process_ite_sk(formula)
         elif formula.is_theory_op():
-            results = (s for a in formula.args() if not (
-                s := self.convert_sk(a)).is_true())
+            results = (
+                s for a in formula.args() if not (s := self.convert_sk(a)).is_true()
+            )
             return And(results)
         else:
-            return TRUE()
+            return Bool(True)
 
     def _process_ite_sk(self, formula):
         phi, left, right = formula.args()
@@ -244,7 +269,7 @@ class CNFPreprocessor(IdentityDagWalker):
         children = []
         for arg in args:
             if arg.is_true():
-                return TRUE()
+                return Bool(True)
             elif arg.is_false():
                 continue
             elif arg.is_or():
@@ -254,13 +279,12 @@ class CNFPreprocessor(IdentityDagWalker):
             else:
                 children.append(arg)
         return Or(children)
-        
-    
+
     def walk_and(self, formula, args, **kwargs):
         children = []
         for arg in args:
             if arg.is_false():
-                return FALSE()
+                return Bool(False)
             elif arg.is_true():
                 continue
             elif arg.is_and():
@@ -269,8 +293,8 @@ class CNFPreprocessor(IdentityDagWalker):
                 children.extend(map(Not, arg.arg(0).args()))
             else:
                 children.append(arg)
-        return And(children) 
-    
+        return And(children)
+
     def walk_implies(self, formula, args, **kwargs):
         left, right = formula.args()
         left_a, right_a = args
@@ -296,14 +320,14 @@ class TseitinCNFizer(CNFizer):
 
         Returns a set of clauses: a set of set of literals.
         """
-        #print("Preprocessing", formula.serialize())
-        formula = simplify(formula)
+        # print("Preprocessing", formula.serialize())
+        formula = formula.simplify()
         formula = self.preprocessor.walk(formula)
-        #print("Done:", formula.serialize())
-        #if is_cnf(formula):
+        # print("Done:", formula.serialize())
+        # if is_cnf(formula):
         #    return frozenset([frozenset(x.args()) for x in formula.args()])
         tl, _cnf = self.walk(formula)
-        #print("END PREVIOUS CONVERSION")
+        # print("END PREVIOUS CONVERSION")
         if not _cnf:
             return [frozenset([tl])]
         res = []
@@ -322,76 +346,74 @@ class TseitinCNFizer(CNFizer):
                     simp.append(lit)
             if simp:
                 res.append(frozenset(simp))
-        #print("CNF:", And(map(Or, res))) 
-        #print("Res", res)
-        #return frozenset([frozenset({WB4}), frozenset({(! WB5), A, C}), frozenset({WB4, (! D)}), frozenset({A, (! WB4), B, D}), frozenset({WB4, (! B)}), frozenset({WB4, (! A)}), frozenset({WB5, (! C)}), frozenset({WB5, (! A)}), frozenset({WB5})])
+        # print("CNF:", And(map(Or, res)))
+        # print("Res", res)
         return frozenset(res)
 
     def walk_not(self, formula, args, **kwargs):
-        #print("WALK NOT", formula, args)
+        # print("WALK NOT", formula, args)
         a, _cnf = args[0]
         if a.is_true():
-            return self.mgr.FALSE(), CNFizer.TRUE_CNF
+            return self.mgr.Bool(False), CNFizer.TRUE_CNF
         elif a.is_false():
-            return self.mgr.TRUE(), CNFizer.TRUE_CNF
+            return self.mgr.Bool(True), CNFizer.TRUE_CNF
         else:
             return Not(a), _cnf
 
     def walk_and(self, formula, args, **kwargs):
-        #print("WALK AND", formula, args)
+        # print("WALK AND", formula, args)
         if len(args) == 1:
             return args[0]
 
         k = self._key_var(formula)
-        #print("KKK", k)
-        #_cnf = [frozenset([k] + [self.mgr.Not(a).simplify() for a,_ in args])]
+        # print("KKK", k)
+        # _cnf = [frozenset([k] + [self.mgr.Not(a).simplify() for a,_ in args])]
         _cnf = []
-        for a,c in args:
+        for a, c in args:
             _cnf.append(frozenset([a, self.mgr.Not(k)]))
             for clause in c:
                 _cnf.append(clause)
-        #print("_CNF", _cnf)
+        # print("_CNF", _cnf)
         return k, frozenset(_cnf)
 
     def walk_or(self, formula, args, **kwargs):
-        #print("WALK OR", formula, args)
+        # print("WALK OR", formula, args)
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
-        #print("KKK", k)
-        _cnf = [frozenset([self.mgr.Not(k)] + [a for a,_ in args])]
-        for a,c in args:
-        #    _cnf.append(frozenset([k, self.mgr.Not(a)]))
+        # print("KKK", k)
+        _cnf = [frozenset([self.mgr.Not(k)] + [a for a, _ in args])]
+        for a, c in args:
+            #    _cnf.append(frozenset([k, self.mgr.Not(a)]))
             for clause in c:
                 _cnf.append(clause)
-        #print("_CNF", _cnf)
+        # print("_CNF", _cnf)
         return k, frozenset(_cnf)
 
 
 class DeMorganCNFizer(IdentityDagWalker):
     def convert(self, formula):
         # convert in Negative Normal Form
-        #print("FFF", serialize(formula))
+        # print("FFF", serialize(formula))
         formula = nnf(formula)
-        #print("NNF:", formula.serialize())
+        # print("NNF:", formula.serialize())
         formula = self.walk(formula)
         assert self.is_cnf(formula), formula.serialize()
-        #print("CONVERTED INTO (and check {})".format(formula.is_or()))
+        # print("CONVERTED INTO (and check {})".format(formula.is_or()))
         res = []
         if formula.is_or():
-            #print("ATOMS by clause!", frozenset([x for x in formula.args()]))
+            # print("ATOMS by clause!", frozenset([x for x in formula.args()]))
             return frozenset([frozenset([x for x in formula.args()])])
         for c in formula.args():
-            #print("ANALYZING", c, c.get_type(), is_atom(c) or c.is_not() and is_atom(c.arg(0)))
+            # print("ANALYZING", c, c.get_type(), is_atom(c) or c.is_not() and is_atom(c.arg(0)))
             if is_atom(c) or c.is_not() and is_atom(c.arg(0)):
                 res.append(frozenset([c]))
             else:
                 res.append(frozenset([x for x in c.args()]))
-            #print("TEMP", res)
-        #res = [frozenset([x for x in c.args()]) for c in formula.args()]
-        #print("ATOMS", res)
+            # print("TEMP", res)
+        # res = [frozenset([x for x in c.args()]) for c in formula.args()]
+        # print("ATOMS", res)
         return frozenset(res)
-
 
     def walk_and(self, formula, args, **kwargs):
         # print("Walking and: ", formula.serialize(), "args: ", args)
@@ -401,7 +423,7 @@ class DeMorganCNFizer(IdentityDagWalker):
             if a.is_true():
                 continue
             elif a.is_false():
-                return FALSE()
+                return Bool(False)
             elif self.is_literal(a) or a.is_or():
                 and_args.add(a)
             else:
@@ -420,7 +442,7 @@ class DeMorganCNFizer(IdentityDagWalker):
             if a.is_false():
                 continue
             elif a.is_true():
-                return TRUE()
+                return Bool(True)
             elif self.is_literal(a):
                 or_literals.add(a)
             elif a.is_or():
@@ -449,7 +471,6 @@ class DeMorganCNFizer(IdentityDagWalker):
 
         return And(and_args)
 
-
     def is_atom(self, node):
         return node.is_symbol(BOOL) or node.is_theory_relation()
 
@@ -457,20 +478,31 @@ class DeMorganCNFizer(IdentityDagWalker):
         return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
 
     def is_clause(self, formula):
-        return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
+        return is_literal(formula) or (
+            formula.is_or() and all(is_literal(l) for l in formula.args())
+        )
 
     def is_cnf(self, formula):
-        return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))
+        return is_clause(formula) or (
+            formula.is_and() and all(is_clause(c) for c in formula.args())
+        )
 
 
 def is_atom(node):
     return node.is_symbol(BOOL) or node.is_theory_relation()
 
+
 def is_literal(node):
     return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
 
+
 def is_clause(formula):
-    return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
+    return is_literal(formula) or (
+        formula.is_or() and all(is_literal(l) for l in formula.args())
+    )
+
 
 def is_cnf(formula):
-    return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))
+    return is_clause(formula) or (
+        formula.is_and() and all(is_clause(c) for c in formula.args())
+    )

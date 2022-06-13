@@ -1,11 +1,11 @@
-
 """
 This example corresponds to Ex.4 in the paper.
 
 """
 
-from pysmt.shortcuts import *
-from pysmt.typing import REAL, BOOL
+from pysmt.shortcuts import GE, LE, LT, And, Bool, Iff, Ite, Real, Symbol, Times
+from pysmt.typing import BOOL, REAL
+
 from wmipa import WMI
 
 # variables definition
@@ -18,9 +18,8 @@ x1 = Symbol("x1", REAL)
 x2 = Symbol("x2", REAL)
 
 # formula definition
+# fmt: off
 phi = Bool(True)
-
-print("Formula:", serialize(phi))
 
 # weight function definition
 w = Ite(a,
@@ -49,13 +48,18 @@ w = Ite(a,
 chi = And(LE(Real(0), x1), LT(x1, Real(1)),
           LE(Real(0), x2), LT(x2, Real(2)),
           Iff(a, GE(x2, Real(1))))
+# fmt: on
 
-print("Weight function:", serialize(w))
-print("Support:", serialize(chi))
+print("Formula:", phi.serialize())
+print("Weight function:", w.serialize())
+print("Support:", chi.serialize())
 
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(
-        mode, result, n_integrations))
+    print(
+        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
+            mode, result, n_integrations
+        )
+    )

@@ -1,7 +1,7 @@
 from pysmt.shortcuts import FreshSymbol
 from pysmt.typing import BOOL, REAL
-from wmipa.utils import get_boolean_variables
 
+from wmipa.utils import get_boolean_variables
 
 COND = "cond"
 WMI = "wmi"
@@ -20,9 +20,7 @@ class WMIVariables:
     """
 
     def __init__(self):
-        """Default constructor
-
-        """
+        """Default constructor"""
         self.variables = {}
 
     def new_cond_label(self, index):
@@ -139,7 +137,6 @@ class WMIVariables:
         """
         return variable in self.variables and self.variables[variable][1] == WMI
 
-
     def is_euf_alias(self, variable):
         """Checks if the variable is a weight label.
 
@@ -154,7 +151,6 @@ class WMIVariables:
         """
         return variable in self.variables and self.variables[variable][1] == EUF_ALIAS
 
-
     def is_weight_alias(self, variable):
         """Checks if the variable is a weight label.
 
@@ -167,7 +163,9 @@ class WMIVariables:
             bool: True if the variable is a weight label, False otherwise.
 
         """
-        return variable in self.variables and self.variables[variable][1] == WEIGHT_ALIAS
+        return (
+            variable in self.variables and self.variables[variable][1] == WEIGHT_ALIAS
+        )
 
     def is_weight_bool(self, variable):
         """Checks if the variable is a weight bool.
@@ -226,7 +224,7 @@ class WMIVariables:
 
         """
         symbol = FreshSymbol(typename=sym_type, template=template)
-        assert(symbol not in self.variables)
+        assert symbol not in self.variables
         self.variables[symbol] = [index, type_]
         return symbol
 
@@ -240,5 +238,5 @@ class WMIVariables:
             int: The index associated to the variable.
 
         """
-        assert (variable in self.variables)
+        assert variable in self.variables
         return self.variables[variable][0]
