@@ -1,62 +1,18 @@
-from abc import ABC, abstractmethod
+import re
+import time
+from abc import abstractmethod
 from fractions import Fraction
 from multiprocessing import Manager, Pool
-from os import chdir, getcwd
-import re
 from subprocess import call
-from tempfile import NamedTemporaryFile, TemporaryDirectory
-from pysmt.shortcuts import LT, LE
-import time
+from tempfile import NamedTemporaryFile
 
-from wmipa.polytope import Polynomial, Polytope
-from wmipa.wmiexception import WMIRuntimeException
+from pysmt.shortcuts import LE, LT
 
-
-class Integrator(ABC):
-    """This class represents the general integrator with which to compute integrals.
-
-    For the moment there is only one integrator that uses LattE Integrale.
-
-    """
-
-    """Default constructor.
-
-        Args:
-            **options: whatever option is needed for the integrator
-
-    """
-
-    @abstractmethod
-    def __init__(self, **options):
-        pass
-
-    """Integrates a problem of the type {atom_assignments, weight, aliases}
-
-        Args:
-            problem (atom_assignments, weight, aliases): The problem to integrate.
-
-        Returns:
-            real: The integration result.
-
-    """
-
-    @abstractmethod
-    def integrate(self, atom_assignments, weight, aliases):
-        pass
-
-    """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
-
-        Args:
-            problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
-
-    """
-
-    @abstractmethod
-    def integrate_batch(self, problems):
-        pass
+from wmipa.integration.integrator import Integrator
+from wmipa.integration.polytope import Polynomial, Polytope
 
 
-class CommandLineIntegrator(Integrator):
+class CacheIntegrator(Integrator):
     """This class handles the integration of polynomial functions over (convex) polytopes.
     It is a wrapper for an integrator that reads (writes) input (output) from (to) file.
     It implements different levels of caching (-1, 0, 1, 2, 3).
@@ -69,18 +25,7 @@ class CommandLineIntegrator(Integrator):
         stub_integrate (bool): If True, the values will not be computed (0 is returned)
     """
 
-    DEF_ALGORITHM = None
-    ALGORITHMS = []
-
     DEF_N_THREADS = 7
-
-    # Template name for the temporary folder
-    FOLDER_TEMPLATE = "tmp_{}"
-
-    # Temporary files
-    POLYTOPE_TEMPLATE = "polytope.hrep.latte"
-    POLYNOMIAL_TEMPLATE = "polynomial.latte"
-    OUTPUT_TEMPLATE = "output.txt"
 
     def __init__(self, **options):
         """Default constructor.
@@ -92,14 +37,6 @@ class CommandLineIntegrator(Integrator):
                 - stub_integrate: If True the integrals will not be computed
 
         """
-        # get algorithm
-        algorithm = options.get("algorithm")
-        self.algorithm = algorithm or self.DEF_ALGORITHM
-
-        # check that algorithm exists
-        if self.algorithm not in self.ALGORITHMS:
-            err = "{}, choose one from: {}".format(self.algorithm, ", ".join(self.ALGORITHMS))
-            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
         # set threads
         n_threads = options.get("n_threads")
@@ -113,79 +50,101 @@ class CommandLineIntegrator(Integrator):
     def get_integration_time(self):
         return self.integration_time
 
+    def _integrate_problem_or_cached(self, integrand, polytope, key, cache):
+        value = self.hashTable.get(key)
+        if value is not None:
+            return value, True
+        value = self._integrate_problem(integrand, polytope)
+        if cache:
+            self.hashTable.set(key, value)
+        return value, False
+
+    @abstractmethod
+    def _integrate_problem(self, integrand, polytope) -> float:
+        pass
+
+    def cache_1(self, polytope, integrand, cond_assignments):
+        variables = list(integrand.variables.union(polytope.variables))
+        return self.hashTable.key(polytope, cond_assignments, variables), polytope
+
+    def cache_2(self, polytope, integrand, _):
+        return self.hashTable.key_2(polytope, integrand), polytope
+
+    def cache_3(self, polytope, integrand, _):
+        polytope = self._remove_redundancy(polytope)
+        if polytope is None:
+            return None, None
+        return self.cache_2(polytope, integrand, _)
+
     def integrate_batch(self, problems, cache):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
 
         Args:
-            problems (list(atom_assignments, weight, aliases)): The list of problems to integrate.
+            problems (list(atom_assignments, weight, aliases)): The list of problems to
+                integrate.
 
         """
 
-        if cache <= 0:
-            # return [1.0 for x in range(len(problems))], 0
-            # Convert the problems into (integrand, polytope)
-            for index in range(len(problems)):
-                atom_assignments, weight, aliases, cond_assignments = problems[index]
-                integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
-                problems[index] = (integrand, polytope, cond_assignments, cache == 0)
+        CACHE_FN = {
+            -1: self.cache_1,
+            0: self.cache_1,
+            1: self.cache_1,
+            2: self.cache_2,
+            3: self.cache_3,
+        }
+        if cache not in CACHE_FN:
+            modes = map(str, CACHE_FN.keys())
+            raise Exception(
+                f"Usupported cache mode. Supported modes are ({', '.join(modes)})"
+            )
+        cache_fn = CACHE_FN[cache]
 
-            # Handle multithreading
-            start_time = time.time()
-            pool = Pool(self.n_threads)
-            results = pool.map(self.integrate_wrapper, problems)
-            values = [r[0] for r in results]
-            cached = len([r[1] for r in results if r[1] > 0])
-            pool.close()
-            pool.join()
-            self.integration_time = time.time() - start_time
-            return values, cached
-        elif cache == 1 or cache == 2 or cache == 3:
-            unique_problems = {}
-            cached_before = 0
-            problems_to_integrate = []
-            for index in range(len(problems)):
-                # get problem
-                atom_assignments, weight, aliases, cond_assignments = problems[index]
-
-                # convert to integrator format
-                integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
-
-                # get hash key
-                variables = list(integrand.variables.union(polytope.variables))
-                if cache == 3:
-                    polytope = self._remove_redundancy(polytope)
-                    if polytope is None:
-                        continue
-                if cache == 2 or cache == 3:
-                    key = self.hashTable.key_2(polytope, integrand)
+        problems_to_integrate = {}
+        problem_id = []
+        cached = 0
+        for index, (atom_assignments, weight, aliases, cond_assignments) in enumerate(
+            problems
+        ):
+            integrand, polytope = self._convert_to_problem(
+                atom_assignments, weight, aliases
+            )
+            key, polytope = cache_fn(polytope, integrand, cond_assignments)
+            if polytope is not None:
+                # cache >= 1 recognize duplicates before calling the integrator
+                pid = key if cache >= 1 else index
+                if pid not in problems_to_integrate:
+                    problem = (
+                        len(problems_to_integrate),
+                        integrand,
+                        polytope,
+                        key,
+                        cache >= 0,
+                    )
+                    problems_to_integrate[pid] = problem
                 else:
-                    key = self.hashTable.key(polytope, cond_assignments, variables)
+                    # duplicate found
+                    cached += 1
+                problem_id.append(problems_to_integrate[pid][0])
 
-                # add to unique
-                if key not in unique_problems:
-                    unique_problems[key] = {"integrand": integrand, "polytope": polytope, "key": key, "count": 1}
-                # else:
-                #     cached_before += 1
-                problems_to_integrate.append(unique_problems[key])
+        problems_to_integrate = problems_to_integrate.values()
+        assert len(problem_id) == len(problems)
+        # Handle multithreading
+        start_time = time.time()
+        pool = Pool(self.n_threads)
+        results = pool.map(self._integrate_wrapper, problems_to_integrate)
+        pool.close()
+        pool.join()
+        values = [results[pid][0] for pid in problem_id]
+        cached += len([results[pid][1] for pid in problem_id if results[pid][1]])
+        assert len(values) == len(problems)
 
-            # unique_problems = list(unique_problems.values())
+        self.integration_time = time.time() - start_time
+        return values, cached
 
-            # Handle multithreading
-            pool = Pool(self.n_threads)
-            results = pool.map(self._integrate_problem_2, problems_to_integrate)
-            values = [r[0] for r in results]
-            cached = len([r[1] for r in results if r[1] > 0])
-            pool.close()
-            pool.join()
-
-            return values, cached + cached_before
-        else:
-            raise Exception("Not implemented yet")
-
-    def integrate_wrapper(self, problem):
+    def _integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
-        integrand, polytope, cond_assignments, cache = problem
-        return self._integrate_problem(integrand, polytope, cond_assignments, cache)
+        _, integrand, polytope, key, cache = problem
+        return self._integrate_problem_or_cached(integrand, polytope, key, cache)
 
     def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
@@ -197,8 +156,12 @@ class CommandLineIntegrator(Integrator):
             real: The integration result.
 
         """
-        integrand, polytope = self._convert_to_latte(atom_assignments, weight, aliases)
-        return self._integrate_problem(integrand, polytope, cond_assignments, cache)
+        integrand, polytope = self._convert_to_problem(
+            atom_assignments, weight, aliases
+        )
+        return self._integrate_problem_or_cached(
+            integrand, polytope, cond_assignments, cache
+        )
 
     def _convert_to_problem(self, atom_assignments, weight, aliases):
         """Transforms an assignment into a problem, defined by:
@@ -242,220 +205,6 @@ class CommandLineIntegrator(Integrator):
 
         return integrand, polytope
 
-    def _integrate_problem(self, integrand, polytope, cond_assignments, cache):
-        """Generates the input files and calls integrator executable
-            to calculate the integral. Then, reads back the result and returns it
-            as a float.
-
-        Args:
-            integrand (Polynomial): The integrand of the integration.
-            polytope (Polytope): The polytope of the integration.
-
-        Returns:
-            real: The integration result.
-
-        """
-        # Create a temporary folder containing the input and output files
-        # possibly removing an older one
-        with TemporaryDirectory(dir=".") as folder:
-            polynomial_file = self.POLYNOMIAL_TEMPLATE
-            polytope_file = self.POLYTOPE_TEMPLATE
-            output_file = self.OUTPUT_TEMPLATE
-
-            # Change the CWD
-            original_cwd = getcwd()
-            chdir(folder)
-
-            # Variable ordering is relevant in LattE files
-            variables = sorted(integrand.variables.union(polytope.variables))
-
-            # Write integrand and polytope to file
-            self._write_polynomial_file(integrand, variables, polynomial_file)
-            polytope_key = self._write_polytope_file(polytope, variables, polytope_file)
-            key = tuple([polytope_key, cond_assignments])
-
-            if cache:
-                value = self.hashTable.get(key)
-                if value is not None:
-                    chdir(original_cwd)
-                    return value, 1
-
-            # Integrate and dump the result on file
-            self._call_integrator(polynomial_file, polytope_file, output_file)
-
-            # Read back the result and return to the original CWD
-            result = self._read_output_file(output_file)
-            chdir(original_cwd)
-
-            if cache:
-                self.hashTable.set(key, result)
-
-            return result, 0
-
-    def _integrate_problem_2(self, problem):
-        """
-        {
-            "integrand":integrand,
-            "polytope":polytope,
-            "key":key,
-            "count":0
-        }
-        """
-
-        key = problem["key"]
-        count = problem["count"]
-
-        value = self.hashTable.get(key)
-        if value is not None:
-            return value * count, 1
-
-        integrand = problem["integrand"]
-        polytope = problem["polytope"]
-
-        # Create a temporary folder containing the input and output files
-        # possibly removing an older one
-        with TemporaryDirectory(dir=".") as folder:
-
-            polynomial_file = self.POLYNOMIAL_TEMPLATE
-            polytope_file = self.POLYTOPE_TEMPLATE
-            output_file = self.OUTPUT_TEMPLATE
-
-            # Change the CWD
-            original_cwd = getcwd()
-            chdir(folder)
-
-            # Variable ordering is relevant in LattE files
-            variables = sorted(integrand.variables.union(polytope.variables))
-
-            # Write integrand and polytope to file
-            self._write_polynomial_file(integrand, variables, polynomial_file)
-            self._write_polytope_file_2(polytope, variables, polytope_file)
-
-            # Integrate and dump the result on file
-            self._call_integrator(polynomial_file, polytope_file, output_file)
-
-            # Read back the result and return to the original CWD
-            result = self._read_output_file(output_file)
-            chdir(original_cwd)
-
-            self.hashTable.set(key, result)
-
-            return result * count, 0
-
-    def _read_output_file(self, path):
-        """Reads the output file generated by the computation of the integrator.
-
-        Args:
-            path (str): The path of the file to read.
-
-        Returns:
-            real: The result of the computation written in the file.
-
-        """
-        res = None
-
-        with open(path, "r") as f:
-            lines = f.readlines()
-            for line in lines:
-                # Result in the "Answer" line may be written in fraction form
-                if "Decimal" in line:
-                    return float(line.partition(": ")[-1].strip())
-
-            # empty polytope
-            res = 0.0
-
-        return res
-
-    def _write_polynomial_file(self, integrand, variables, path):
-        """Writes the polynomial into a file from where the integrator will read.
-
-        Args:
-            integrand (Polynomial): The integrand of the integration.
-            variables (list): The sorted list of all the variables involved in the integration.
-            path (str): The path of the file to write.
-
-        """
-        # Create the string representation of the integrand (LattE format)
-        monomials_repr = []
-        for monomial in integrand.monomials:
-            monomial_repr = "[" + str(monomial.coefficient) + ",["
-            exponents = []
-            for var in variables:
-                if var in monomial.exponents:
-                    exponents.append(str(monomial.exponents[var]))
-                else:
-                    exponents.append("0")
-            monomial_repr += ",".join(exponents) + "]]"
-            monomials_repr.append(monomial_repr)
-        latte_repr = "[" + ",".join(monomials_repr) + "]"
-
-        # Write the string on the file
-        with open(path, "w") as f:
-            f.write(latte_repr)
-
-    def _write_polytope_file(self, polytope, variables, path):
-        """Writes the polytope into a file from where the integrator will read.
-
-        Args:
-            polytope (Polytope): The polytope of the integration.
-            variables (list): The sorted list of all the variables involved in the integration.
-            path (str): The path of the file to write.
-
-        """
-        # Create the string representation of the polytope (LattE format)
-        n_ineq = str(len(polytope.bounds))
-        n_vars = str(len(variables) + 1)
-        bounds_key = []
-        latte_repr = "{} {}\n".format(n_ineq, n_vars)
-        for index, bound in enumerate(polytope.bounds):
-            bound_key = [bound.constant]
-            latte_repr += str(bound.constant) + " "
-            for var in variables:
-                if var in bound.coefficients:
-                    latte_repr += str(-bound.coefficients[var]) + " "
-                    bound_key.append(-bound.coefficients[var])
-                else:
-                    latte_repr += "0 "
-                    bound_key.append(0)
-            latte_repr += "\n"
-            bounds_key.append(tuple(bound_key))
-
-        # Write the string on the file
-        with open(path, "w") as f:
-            f.write(latte_repr)
-
-        bounds_key = sorted(bounds_key)
-        return tuple(bounds_key)
-
-    def _write_polytope_file_2(self, polytope, variables, path):
-        """Writes the polytope into a file from where the integrator will read.
-
-        Args:
-            polytope (Polytope): The polytope of the integration.
-            variables (list): The sorted list of all the variables involved in the integration.
-            path (str): The path of the file to write.
-        """
-        # Create the string representation of the polytope (LattE format)
-        n_ineq = str(len(polytope.bounds))
-        n_vars = str(len(variables) + 1)
-        latte_repr = "{} {}\n".format(n_ineq, n_vars)
-        for index, bound in enumerate(polytope.bounds):
-            latte_repr += str(bound.constant) + " "
-            for var in variables:
-                if var in bound.coefficients:
-                    latte_repr += str(-bound.coefficients[var]) + " "
-                else:
-                    latte_repr += "0 "
-            latte_repr += "\n"
-
-        # Write the string on the file
-        with open(path, "w") as f:
-            f.write(latte_repr)
-
-    @abstractmethod
-    def _call_integrator(self, polynomial_file, polytope_file, output_file):
-        pass
-
     def _remove_redundancy(self, polytope):
         polytope.bounds = list(set(polytope.bounds))
         polytope, internal_point = self._preprocess(polytope)
@@ -465,7 +214,9 @@ class CommandLineIntegrator(Integrator):
         to_analyze = list(range(0, len(polytope.bounds)))
         while len(to_analyze) > 0:
             index = to_analyze[0]
-            non_redundant, essential_index = self._clarkson(polytope, internal_point, non_redundant_index, index)
+            non_redundant, essential_index = self._clarkson(
+                polytope, internal_point, non_redundant_index, index
+            )
             if non_redundant:
                 non_redundant_index.append(essential_index)
             to_analyze.remove(essential_index)
@@ -552,7 +303,9 @@ class CommandLineIntegrator(Integrator):
         non_redundant = optimal_value > b_k
 
         if non_redundant:
-            return True, self._ray_shoot(polytope, internal_point, optimal_solution, index_to_check)
+            return True, self._ray_shoot(
+                polytope, internal_point, optimal_solution, index_to_check
+            )
         else:
             return False, index_to_check
 
@@ -590,7 +343,10 @@ class CommandLineIntegrator(Integrator):
         # start point is inside the polytope so every bound is respected
         # calculate middle point
         assert len(start_point) == len(end_point)
-        middle_point = [((end_point[i] + start_point[i]) * Fraction(1, 2)) for i in range(len(start_point))]
+        middle_point = [
+            ((end_point[i] + start_point[i]) * Fraction(1, 2))
+            for i in range(len(start_point))
+        ]
 
         # check bounds
         intersected = None
@@ -639,7 +395,10 @@ class CommandLineIntegrator(Integrator):
                     coeffs += [str(c)]
             assert len(a) == len(coeffs)
             b = str(b) if b >= 0 else "(- {})".format(abs(b))
-            monomials = [("(* {} {})".format(coeffs[j], variable_names[j])) for j in range(len(a))]
+            monomials = [
+                ("(* {} {})".format(coeffs[j], variable_names[j]))
+                for j in range(len(a))
+            ]
             if len(monomials) > 1:
                 constraint = "(<= (+ {}) {})".format(" ".join(monomials), b)
             else:
@@ -654,7 +413,9 @@ class CommandLineIntegrator(Integrator):
                 coeffs += ["(- {})".format(abs(c))]
             else:
                 coeffs += [str(c)]
-        monomials = [("(* {} {})".format(coeffs[j], variable_names[j])) for j in range(len(obj))]
+        monomials = [
+            ("(* {} {})".format(coeffs[j], variable_names[j])) for j in range(len(obj))
+        ]
         if len(monomials) > 1:
             f.writelines("({} (+ {}))".format(type_, " ".join(monomials)))
         else:
@@ -685,7 +446,8 @@ class CommandLineIntegrator(Integrator):
             regex below is x_N + OR of the four different types
             """
             r = re.search(
-                r"\( \(x_(\d+) (?:(\d+)|(?:\(- (\d+)\))|(?:\(\/ (\d+) (\d+)\))|(?:\(- \(\/ (\d+) (\d+)\)\)))\) \)", line
+                r"\( \(x_(\d+) (?:(\d+)|(?:\(- (\d+)\))|(?:\(\/ (\d+) (\d+)\))|(?:\(- \(\/ (\d+) (\d+)\)\)))\) \)",
+                line,
             )
             if r:
                 var_index = r.group(1)

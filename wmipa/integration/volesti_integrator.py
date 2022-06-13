@@ -3,7 +3,7 @@ __author__ = "Gabriele Masina"
 
 from subprocess import call
 
-from wmipa.integrator import CommandLineIntegrator
+from wmipa.integration.command_line_integrator import CommandLineIntegrator
 from wmipa.wmiexception import WMIRuntimeException
 
 
@@ -76,7 +76,9 @@ class VolestiIntegrator(CommandLineIntegrator):
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
         self.walk_type = options.get("walk_type") or self.DEF_RANDOM_WALK
         if self.walk_type not in self.RANDOM_WALKS:
-            err = "{}, choose one from: {}".format(self.walk_type, ", ".join(self.RANDOM_WALKS))
+            err = "{}, choose one from: {}".format(
+                self.walk_type, ", ".join(self.RANDOM_WALKS)
+            )
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
         self.N = options.get("N") or self.DEF_N
         if self.N <= 0:
@@ -84,7 +86,9 @@ class VolestiIntegrator(CommandLineIntegrator):
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
         self.walk_length = options.get("walk_length") or self.DEF_WALK_LENGTH
         if self.walk_length < 0:
-            err = "{}, walk_length must be a non-negative number".format(self.walk_length)
+            err = "{}, walk_length must be a non-negative number".format(
+                self.walk_length
+            )
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
     def _call_integrator(self, polynomial_file, polytope_file, output_file):
@@ -92,8 +96,10 @@ class VolestiIntegrator(CommandLineIntegrator):
             represented by the given files.
 
         Args:
-            polynomial_file (str): The path where to find the file with the representation of the polynomial.
-            polytope_file (str): The path where to find the file with representation of the polytope.
+            polynomial_file (str): The path where to find the file with the
+                representation of the polynomial.
+            polytope_file (str): The path where to find the file with representation
+                of the polytope.
             output_file (str): The file where to write the result of the computation.
 
         """

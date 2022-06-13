@@ -124,7 +124,8 @@ def lcmm(args):
         60
 
     Args:
-        args (list(int)): The list of numbers on which to compute the lowest common multiple.
+        args (list(int)): The list of numbers on which to compute the
+            lowest common multiple.
 
     Returns:
         int: The lowest common multiple of all the numbers in the list.
