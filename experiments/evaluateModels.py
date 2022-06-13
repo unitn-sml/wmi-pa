@@ -1,4 +1,3 @@
-import traceback
 import psutil
 from pysmt.shortcuts import Bool, reset_env, get_env
 from wmipa import WMI
@@ -16,6 +15,8 @@ import os
 import time
 import json
 from os import path
+
+from wmipa.wmiexception import WMIRuntimeException
 
 
 def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
@@ -47,6 +48,8 @@ def compute_wmi(domain, support, weight, mode, cache, threads, stub, q):
             )
         elif mode == "Rejection":
             wmi = RejectionEngine(domain, support, weight, sample_count=100000)
+        else:
+            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, mode)
 
         res = (wmi.compute_volume(add_bounds=False), 0, 0)
 
