@@ -15,6 +15,7 @@ from pysmt.shortcuts import (
     Times,
     get_env,
 )
+from pysmt.simplifier import Simplifier
 from pysmt.typing import BOOL, REAL
 from pysmt.walkers import IdentityDagWalker
 
@@ -329,7 +330,7 @@ class TseitinCNFizer(CNFizer):
         Returns a set of clauses: a set of set of literals.
         """
         # print("Preprocessing", formula.serialize())
-        formula = formula.simplify()
+        # formula = SkeletonSimplifier().simplify(formula)
         formula = self.preprocessor.walk(formula)
         # print("Done:", formula.serialize())
         # if is_cnf(formula):
@@ -514,3 +515,30 @@ def is_cnf(formula):
     return is_clause(formula) or (
         formula.is_and() and all(is_clause(c) for c in formula.args())
     )
+
+
+class SkeletonSimplifier(Simplifier):
+    """Simplifier that does not simplify formulas like Or(phi, Not(phi))"""
+
+    def walk_or(self, formula, args, **kwargs):
+        if len(args) == 2 and args[0] == args[1]:
+            return args[0]
+
+        new_args = set()
+        for a in args:
+            if a.is_false():
+                continue
+            if a.is_true():
+                return self.manager.TRUE()
+            if a.is_or():
+                for s in a.args():
+                    new_args.add(s)
+            else:
+                new_args.add(a)
+
+        if len(new_args) == 0:
+            return self.manager.FALSE()
+        elif len(new_args) == 1:
+            return next(iter(new_args))
+        else:
+            return self.manager.Or(new_args)

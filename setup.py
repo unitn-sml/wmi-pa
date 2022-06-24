@@ -12,7 +12,7 @@ REQUIRES_PYTHON = ">=3.5.0"
 VERSION = "0.1.5"
 
 # What packages are required for this module to be executed?
-REQUIRED = ["pysmt", "numpy", "sympy", "networkx"]
+REQUIRED = ["pysmt>=0.9.6.dev11", "numpy", "sympy", "networkx"]
 
 # What packages are optional?
 EXTRAS = {

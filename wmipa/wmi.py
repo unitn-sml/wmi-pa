@@ -37,6 +37,7 @@ from sympy import solve, sympify
 from wmipa import logger
 from wmipa.integration import LatteIntegrator
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables
+from wmipa.weightconverter import SkeletonSimplifier
 from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
@@ -84,6 +85,7 @@ class WMI:
         self.integrator = Integrator(**options)
         self.list_norm = set()
         self.norm_aliases = dict()
+        self.skeleton_simplifier = SkeletonSimplifier()
 
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.
@@ -228,10 +230,12 @@ class WMI:
         print()
         # print("FORMULA: ", serialize(formula))
         logger.debug("Computing WMI with mode: {}".format(mode))
+        self.variables: WMIVariables
         x = {
             x
             for x in get_real_variables(formula)
             if not self.variables.is_weight_alias(x)
+            and not self.variables.is_euf_alias(x)
         }
         A = {
             x for x in get_boolean_variables(formula) if not self.variables.is_label(x)
@@ -905,8 +909,7 @@ class WMI:
             mu_lra.update(other_assignments)
             yield mu_lra
 
-    @staticmethod
-    def _simplify_formula(formula, subs, atom_assignments):
+    def _simplify_formula(self, formula, subs, atom_assignments):
         """Substitute the subs in the formula and iteratively simplify it.
         atom_assignments is updated with unit-propagated atoms.
 
@@ -927,7 +930,7 @@ class WMI:
         while True:
             f_before = f_next
             # print("Substituting", subs)
-            f_next = simplify(substitute(f_before, subs))
+            f_next = self.skeleton_simplifier.simplify(substitute(f_before, subs))
             # print("Simplifies into:", f_next.serialize())
             lra_assignments, over = WMI._parse_lra_formula(f_next)
             # print("fnext", f_next)
@@ -998,7 +1001,7 @@ class WMI:
                 # simplify the formula
                 # print("--", boolean_assignments)
                 atom_assignments.update(boolean_assignments)
-                over, lra_formula = WMI._simplify_formula(
+                over, lra_formula = self._simplify_formula(
                     formula, boolean_assignments, atom_assignments
                 )
                 # print("BOOL ASS", boolean_assignments)
@@ -1025,7 +1028,7 @@ class WMI:
                     curr_atom_assignments = dict(atom_assignments)
                     if len(residual_boolean_assignments) > 0:
                         curr_atom_assignments.update(residual_boolean_assignments)
-                        over, curr_lra_formula = WMI._simplify_formula(
+                        over, curr_lra_formula = self._simplify_formula(
                             lra_formula,
                             residual_boolean_assignments,
                             curr_atom_assignments,
@@ -1160,7 +1163,7 @@ class WMI:
                 atom_assignments.update(boolean_assignments)
                 # print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
                 # print("ACK", boolean_assignments)
-                over, res_formula = WMI._simplify_formula(
+                over, res_formula = self._simplify_formula(
                     formula, boolean_assignments, atom_assignments
                 )
                 # print("BOOL ASS", boolean_assignments)
@@ -1223,7 +1226,7 @@ class WMI:
                             short_boolean_assignment_list
                             not in checked_short_assignments
                         ):
-                            over2, res_formula2 = WMI._simplify_formula(
+                            over2, res_formula2 = self._simplify_formula(
                                 res_formula, short_boolean_assignment, atom_assignments2
                             )
                             # print("NEW CHECK SIMPLIFY")
