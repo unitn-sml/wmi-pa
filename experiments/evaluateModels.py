@@ -17,14 +17,21 @@ from pywmi.engines.xsdd.vtrees.vtree import balanced
 
 from wmipa import WMI
 from wmipa.integration.latte_integrator import LatteIntegrator
+from wmipa.integration.symbolic_integrator import SymbolicIntegrator
 from wmipa.integration.volesti_integrator import VolestiIntegrator
 
 
 def compute_wmi(domain, support, weight, args, q):
     if "PA" in args.mode:
-        integrator = (
-            LatteIntegrator if args.integration == "latte" else VolestiIntegrator
-        )
+        if args.integration == "latte":
+            integrator = LatteIntegrator
+        elif args.integration == "volesti":
+            integrator = VolestiIntegrator
+        elif args.integration == "symbolic":
+            integrator = SymbolicIntegrator
+        else:
+            raise ValueError(f"Invalid integrator {args.integrator}")
+
         wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
         res = wmi.computeWMI(
             Bool(True),
@@ -92,15 +99,15 @@ def problems_from_densities(input_files):
         sys.exit(1)
 
     for i, filename in enumerate(input_files):
-        try:
-            # reset pysmt environment
-            reset_env()
-            get_env().enable_infix_notation = True
-            density = Density.from_file(filename)
-        except Exception as ex:
-            print("Error on parsing", filename)
-            # traceback.print_exception(type(ex), ex, ex.__traceback__)
-            continue
+        # try:
+        # reset pysmt environment
+        reset_env()
+        get_env().enable_infix_notation = True
+        density = Density.from_file(filename)
+        # except :
+        #     print("Error on parsing", filename)
+        #     # traceback.print_exception(type(ex), ex, ex.__traceback__)
+        #     continue
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
             print("\r" * 300, end="")
@@ -172,6 +179,9 @@ def parse_args():
     )
     latte_parser = integration_parsers.add_parser(
         "latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    symbolic_parser = integration_parsers.add_parser(
+        "symbolic", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     volesti_parser = integration_parsers.add_parser(
         "volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter

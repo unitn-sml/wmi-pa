@@ -8,7 +8,6 @@ __version__ = "0.99"
 __author__ = "Paolo Morettin"
 
 from fractions import Fraction
-from functools import reduce
 
 import networkx as nx
 from pysmt.shortcuts import LT, And, Bool, Plus, Pow, Real, Symbol, Times
@@ -160,12 +159,9 @@ class Monomial:
             return Real(self.coefficient)
         return Times(
             Real(self.coefficient),
-            reduce(
-                Times,
-                map(
-                    lambda i: Pow(Symbol(i[0], REAL), Real(i[1])),
-                    self.exponents.items(),
-                ),
+            *map(
+                lambda i: Pow(Symbol(i[0], REAL), Real(i[1])),
+                self.exponents.items(),
             ),
         )
 
@@ -297,7 +293,7 @@ class Polynomial:
     def to_pysmt(self):
         if not self.monomials:
             return Real(0)
-        return reduce(Plus, map(lambda x: x.to_pysmt(), self.monomials))
+        return Plus(*map(lambda x: x.to_pysmt(), self.monomials))
 
 
 class Bound:
@@ -434,9 +430,8 @@ class Bound:
     def to_pysmt(self):
         if not self.coefficients:
             return Bool(True)
-        polynomial = reduce(
-            Plus,
-            (Times(Real(c), Symbol(x, REAL)) for x, c in self.coefficients.items()),
+        polynomial = Plus(
+            *(Times(Real(c), Symbol(x, REAL)) for x, c in self.coefficients.items()),
         )
         return LT(polynomial, Real(self.constant))
 
@@ -507,4 +502,4 @@ class Polytope:
     def to_pysmt(self):
         if not self.bounds:
             return Bool(True)
-        return reduce(And, map(lambda x: x.to_pysmt(), self.bounds))
+        return And(*map(lambda x: x.to_pysmt(), self.bounds))
