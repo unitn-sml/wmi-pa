@@ -1,8 +1,3 @@
-"""
-This example corresponds to Ex.4 in the paper.
-
-"""
-
 from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times, LT, Plus
 from pysmt.typing import REAL, BOOL
 from wmipa import WMI

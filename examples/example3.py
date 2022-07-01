@@ -1,7 +1,4 @@
-"""This example corresponds to the motivating example in the IJCAI poster.
-It shows a simple case in which WMI-AllSMT performs more integrations
-than necessary.
-
+"""
 Intuitively, two mutually exclusive cases are encoded:
 
 1) W(x,y) = x + y, x in [0,2], y in [0,2]
