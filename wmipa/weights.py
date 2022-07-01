@@ -1,5 +1,8 @@
 from itertools import product
 
+__version__ = "0.999"
+__author__ = "Giuseppe Spallitta, Gabriele Masina, Paolo Morettin"
+
 from pysmt.shortcuts import And, Bool, Iff, get_env, serialize, simplify, substitute
 from pysmt.typing import REAL
 

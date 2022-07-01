@@ -9,11 +9,13 @@ Currently, three algorithms are supported:
     "AllSMT" -- Improves BC by leveraging the AllSAT feature of the SMT Solver.
     "PA" -- WMI with Predicate Abstraction, may reduce drastically the number of
         integrals computed.
+    "SAPA" -- WMI with Predicate Abstraction and Structure Awareness, further reduction
+        of coputed integrals.
 
 """
 
 __version__ = "0.999"
-__author__ = "Paolo Morettin"
+__author__ = "Giuseppe Spallitta, Gabriele Masina, Paolo Morettin"
 
 from collections import defaultdict
 from math import fsum
