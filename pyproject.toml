@@ -1,0 +1,13 @@
+[project]
+name = "WMI"
+version = "0.0.1"
+description = "WMI"
+readme = "README.md"
+
+[tool.isort]
+line-length = 120
+
+[tool.black]
+line-length = 120
+
+[tool.pyright]
