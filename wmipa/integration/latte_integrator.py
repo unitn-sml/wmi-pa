@@ -4,6 +4,7 @@ __author__ = "Paolo Morettin"
 from subprocess import call
 
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
+from wmipa.integration.polytope import Polynomial, Polytope
 
 
 class LatteIntegrator(CommandLineIntegrator):
@@ -24,6 +25,49 @@ class LatteIntegrator(CommandLineIntegrator):
     DEF_ALGORITHM = ALG_CONE_DECOMPOSE
 
     ALGORITHMS = [ALG_TRIANGULATE, ALG_CONE_DECOMPOSE]
+
+    @classmethod
+    def _make_problem(cls, weight, bounds, aliases):
+        """Makes the problem to be solved by LattE.
+        Args:
+            weight (FNode): The weight function.
+            bounds (list): The polytope.
+            aliases (dict): The aliases of the variables.
+        Returns:
+            integrand (Polynomial): The integrand.
+            polytope (Polytope): The polytope.
+        """
+        integrand = Polynomial(weight, aliases)
+        polytope = Polytope(bounds, aliases)
+
+        return integrand, polytope
+
+    def _write_integrand_file(self, integrand, variables, path):
+        """Writes the integrand to the given file.
+
+        Args:
+            integrand (Polynomial): The integrand.
+            variables (list): The list of variables.
+            path (str): The path where to write the file.
+
+        """
+        # Create the string representation of the integrand (LattE format)
+        monomials_repr = []
+        for monomial in integrand.monomials:
+            monomial_repr = "[" + str(monomial.coefficient) + ",["
+            exponents = []
+            for var in variables:
+                if var in monomial.exponents:
+                    exponents.append(str(monomial.exponents[var]))
+                else:
+                    exponents.append("0")
+            monomial_repr += ",".join(exponents) + "]]"
+            monomials_repr.append(monomial_repr)
+        latte_repr = "[" + ",".join(monomials_repr) + "]"
+
+        # Write the string on the file
+        with open(path, "w") as f:
+            f.write(latte_repr)
 
     def _call_integrator(self, polynomial_file, polytope_file, output_file):
         """Calls LattE executable to calculate the integrand of the problem

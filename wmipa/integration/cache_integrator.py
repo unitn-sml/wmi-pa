@@ -9,7 +9,7 @@ from tempfile import NamedTemporaryFile
 from pysmt.shortcuts import LE, LT
 
 from wmipa.integration.integrator import Integrator
-from wmipa.integration.polytope import Polynomial, Polytope
+from wmipa.integration.polytope import Polynomial
 
 
 class CacheIntegrator(Integrator):
@@ -103,7 +103,7 @@ class CacheIntegrator(Integrator):
         problem_id = []
         cached = 0
         for index, (atom_assignments, weight, aliases, cond_assignments) in enumerate(
-            problems
+                problems
         ):
             integrand, polytope = self._convert_to_problem(
                 atom_assignments, weight, aliases
@@ -163,7 +163,23 @@ class CacheIntegrator(Integrator):
             integrand, polytope, cond_assignments, cache
         )
 
-    def _convert_to_problem(self, atom_assignments, weight, aliases):
+    @classmethod
+    @abstractmethod
+    def _make_problem(cls, weight, bounds, aliases):
+        """Creates a problem of the type (integrand, polytope) from the given arguments.
+        Args:
+            weight (FNode): The weight of the integrand.
+            bounds (list): The bounds of the polytope.
+            aliases (dict): The aliases of the variables.
+
+        Returns:
+            integrand (Integrand): The problem to integrate.
+            polytope (Polytope): The polytope to integrate over.
+        """
+        pass
+
+    @classmethod
+    def _convert_to_problem(cls, atom_assignments, weight, aliases):
         """Transforms an assignment into a problem, defined by:
             - a polynomial integrand
             - a convex polytope.
@@ -174,7 +190,7 @@ class CacheIntegrator(Integrator):
             aliases (dict): The list of all the alias variables (like PI=3.14)
 
         Returns:
-            integrand (Polynomial): The polynomial representing the weight.
+            integrand (Integrand): A representation of the weight.
             polytope (Polytope): The polytope representing the list of inequalities.
 
         """
@@ -200,10 +216,7 @@ class CacheIntegrator(Integrator):
             if atom.is_le() or atom.is_lt():
                 bounds.append(atom)
 
-        integrand = Polynomial(weight, aliases)
-        polytope = Polytope(bounds, aliases)
-
-        return integrand, polytope
+        return cls._make_problem(weight, bounds, aliases)
 
     def _remove_redundancy(self, polytope):
         polytope.bounds = list(set(polytope.bounds))
@@ -327,7 +340,7 @@ class CacheIntegrator(Integrator):
 
     def _ray_shoot(self, polytope, start_point, end_point, index):
         values = self._get_truth_values(polytope, end_point)
-        others = values[:index] + values[index + 1 :]
+        others = values[:index] + values[index + 1:]
 
         # if at the end point (optimal) there is only one disequalities falsified
         # then return that particular disequality (index)
@@ -517,6 +530,8 @@ class HashTable:
         # integrand key
         integrand_key = []
 
+        if not isinstance(integrand, Polynomial):
+            return integrand
         monomials = integrand.monomials
 
         for mon in monomials:

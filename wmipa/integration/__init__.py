@@ -7,7 +7,7 @@ if IMPORT_ERR_MSG is None and which("integrate") is None:
     IMPORT_ERR_MSG = """LattE integrale is not installed or its binaries are not included in PATH"""
 
 # check whether VolEsti is installed or not
-if IMPORT_ERR_MSG is None and which("volesti_integrate_polynomial") is None:
+if IMPORT_ERR_MSG is None and which("volesti_integrate") is None:
     IMPORT_ERR_MSG = """VolEsti is not installed or its binaries are not included in PATH"""
 
 if IMPORT_ERR_MSG:

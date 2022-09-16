@@ -24,19 +24,20 @@ LattE's binary folder must be present in the PATH environment variable.
 LattE's binary folder must be present in the PATH environment variable.
 Installation:
 ```[bash]
-git clone -b polynomial_integration https://github.com/masinag/volesti/
-cd volesti/examples/integrate_polynomial
+git clone https://github.com/masinag/approximate-integration
+cd approximate-integration
 mkdir build
 cd build
 cmake ..
 make
-echo export PATH=\$PATH:$(pwd) >> ~/.bashrc
+cd ..
+echo export PATH=\$PATH:$(pwd)/bin >> ~/.bashrc
 source ~/.bashrc
 ```
 
 Check if the installation was successful by running the command
 ```[bash]
-volesti_integrate_polynomial
+volesti_integrate
 ```
 
 [MathSAT5](http://mathsat.fbk.eu/)

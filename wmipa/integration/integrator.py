@@ -32,7 +32,7 @@ class Integrator(ABC):
         pass
 
     @abstractmethod
-    def integrate_batch(self, problems):
+    def integrate_batch(self, problems, *args, **kwargs):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
 
         Args:

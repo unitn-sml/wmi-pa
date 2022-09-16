@@ -4,6 +4,8 @@ __author__ = "Gabriele Masina"
 from subprocess import call
 
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
+from wmipa.integration.expression import Expression
+from wmipa.integration.polytope import Polytope
 from wmipa.wmiexception import WMIRuntimeException
 
 
@@ -91,6 +93,34 @@ class VolestiIntegrator(CommandLineIntegrator):
             )
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
+    def _write_integrand_file(self, integrand, variables, path):
+        """Writes the integrand to the given file.
+
+        Args:
+            integrand (Expression): The integrand.
+            variables (list): The list of variables.
+            path (str): The path where to write the integrand.
+
+        """
+        with open(path, "w") as f:
+            print("Writing {}\n{}".format(" ".join(variables), str(integrand)))
+            f.write("{} \n {} \n".format(" ".join(variables), str(integrand)))
+
+    @classmethod
+    def _make_problem(cls, weight, bounds, aliases):
+        """Makes the problem to be solved by VolEsti.
+        Args:
+            weight (FNode): The weight function.
+            bounds (list): The polytope.
+            aliases (dict): The aliases of the variables.
+        Returns:
+            integrand (Expression): The integrand.
+            polytope (Polytope): The polytope.
+        """
+        integrand = Expression(weight, aliases)
+        polytope = Polytope(bounds, aliases)
+        return integrand, polytope
+
     def _call_integrator(self, polynomial_file, polytope_file, output_file):
         """Calls VolEsti executable to calculate the integrand of the problem
             represented by the given files.
@@ -104,7 +134,7 @@ class VolestiIntegrator(CommandLineIntegrator):
 
         """
         cmd = [
-            "volesti_integrate_polynomial",
+            "volesti_integrate",
             polytope_file,
             polynomial_file,
             str(self.error),

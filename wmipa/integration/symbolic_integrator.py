@@ -1,19 +1,14 @@
 # from pysmt.shortcuts import Bool
-import math
 import sys
-from functools import partial
 
-from pysmt.shortcuts import Real
 from pywmi.domain import Domain
-from pywmi.engines import PyXaddAlgebra, PyXaddEngine, XaddEngine, XsddEngine
-from pywmi.engines.algebraic_backend import SympyAlgebra
-from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
-from pywmi.engines.xsdd.vtrees.vtree import balanced
+from pywmi.engines import PyXaddEngine
 
 from wmipa.integration.cache_integrator import CacheIntegrator
+from wmipa.integration.expression import Expression
 from wmipa.integration.polytope import Polynomial, Polytope
 
-sys.setrecursionlimit(10**5)
+sys.setrecursionlimit(10 ** 5)
 
 
 class SymbolicIntegrator(CacheIntegrator):
@@ -37,6 +32,23 @@ class SymbolicIntegrator(CacheIntegrator):
         # )
         # return XaddEngine
 
+    @classmethod
+    def _make_problem(cls, weight, bounds, aliases):
+        """Makes the problem to be solved by a symbolic solver.
+
+        Args:
+            weight (FNode): The weight function.
+            bounds (list): The polytope.
+            aliases (dict): The aliases of the variables.
+        Returns:
+            integrand (Expression): The integrand.
+            polytope (Polytope): The polytope.
+        """
+        integrand = Expression(weight, aliases)
+        polytope = Polytope(bounds, aliases)
+
+        return integrand, polytope
+
     def _integrate_problem(self, integrand: Polynomial, polytope: Polytope):
         """Computes the integral of `integrand` over `polytope` using symbolic
             integration methods
@@ -55,7 +67,6 @@ class SymbolicIntegrator(CacheIntegrator):
             v: (None, None) for v in integrand.variables.union(polytope.variables)
         }
         domain = Domain.make(real_variables=variables)
-        # print("Rec limit: ", sys.getrecursionlimit())
         return SymbolicIntegrator._integrator()(
             domain=domain, support=support, weight=weight
         ).compute_volume(add_bounds=False)

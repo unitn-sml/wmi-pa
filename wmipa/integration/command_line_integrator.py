@@ -13,8 +13,8 @@ class CommandLineIntegrator(CacheIntegrator):
     FOLDER_TEMPLATE = "tmp_{}"
 
     # Temporary files
-    POLYTOPE_TEMPLATE = "polytope.hrep.latte"
-    POLYNOMIAL_TEMPLATE = "polynomial.latte"
+    POLYTOPE_TEMPLATE = "polytope.hrep"
+    INTEGRAND_TEMPLATE = "integrand.txt"
     OUTPUT_TEMPLATE = "output.txt"
 
     def __init__(self, **options):
@@ -36,7 +36,7 @@ class CommandLineIntegrator(CacheIntegrator):
             as a float.
 
         Args:
-            integrand (Polynomial): The integrand of the integration.
+            integrand (Integrand): The integrand of the integration.
             polytope (Polytope): The polytope of the integration.
 
         Returns:
@@ -46,7 +46,7 @@ class CommandLineIntegrator(CacheIntegrator):
         # Create a temporary folder containing the input and output files
         # possibly removing an older one
         with TemporaryDirectory(dir=".") as folder:
-            polynomial_file = self.POLYNOMIAL_TEMPLATE
+            integrand_file = self.INTEGRAND_TEMPLATE
             polytope_file = self.POLYTOPE_TEMPLATE
             output_file = self.OUTPUT_TEMPLATE
 
@@ -58,7 +58,7 @@ class CommandLineIntegrator(CacheIntegrator):
             variables = sorted(integrand.variables.union(polytope.variables))
 
             # Write integrand and polytope to file
-            self._write_polynomial_file(integrand, variables, polynomial_file)
+            self._write_integrand_file(integrand, variables, integrand_file)
             self._write_polytope_file(polytope, variables, polytope_file)
             # key = tuple([polytope_key, cond_assignments])
 
@@ -69,7 +69,7 @@ class CommandLineIntegrator(CacheIntegrator):
             #         return value, 1
 
             # Integrate and dump the result on file
-            self._call_integrator(polynomial_file, polytope_file, output_file)
+            self._call_integrator(integrand_file, polytope_file, output_file)
 
             # Read back the result and return to the original CWD
             result = self._read_output_file(output_file)
@@ -101,33 +101,17 @@ class CommandLineIntegrator(CacheIntegrator):
 
         return res
 
-    def _write_polynomial_file(self, integrand, variables, path):
-        """Writes the polynomial into a file from where the integrator will read.
+    @abstractmethod
+    def _write_integrand_file(self, integrand, variables, path):
+        """Writes the integrand into a file from where the integrator will read.
 
         Args:
-            integrand (Polynomial): The integrand of the integration.
+            integrand (Integrand): The integrand of the integration.
             variables (list): The sorted list of all the variables involved in the
                 integration.
             path (str): The path of the file to write.
-
         """
-        # Create the string representation of the integrand (LattE format)
-        monomials_repr = []
-        for monomial in integrand.monomials:
-            monomial_repr = "[" + str(monomial.coefficient) + ",["
-            exponents = []
-            for var in variables:
-                if var in monomial.exponents:
-                    exponents.append(str(monomial.exponents[var]))
-                else:
-                    exponents.append("0")
-            monomial_repr += ",".join(exponents) + "]]"
-            monomials_repr.append(monomial_repr)
-        latte_repr = "[" + ",".join(monomials_repr) + "]"
-
-        # Write the string on the file
-        with open(path, "w") as f:
-            f.write(latte_repr)
+        pass
 
     def _write_polytope_file(self, polytope, variables, path):
         """Writes the polytope into a file from where the integrator will read.
