@@ -103,7 +103,6 @@ class VolestiIntegrator(CommandLineIntegrator):
 
         """
         with open(path, "w") as f:
-            print("Writing {}\n{}".format(" ".join(variables), str(integrand)))
             f.write("{} \n {} \n".format(" ".join(variables), str(integrand)))
 
     @classmethod

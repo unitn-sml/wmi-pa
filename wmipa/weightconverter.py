@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from functools import reduce
 from itertools import product
 
 from pysmt.fnode import FNode
@@ -13,8 +14,7 @@ from pysmt.shortcuts import (
     Or,
     Real,
     Times,
-    get_env,
-)
+    get_env, )
 from pysmt.simplifier import Simplifier
 from pysmt.typing import BOOL, REAL
 from pysmt.walkers import IdentityDagWalker
@@ -46,6 +46,12 @@ class WeightConverterEUF(WeightConverter):
         self.prod_fn = FreshSymbol(
             typename=FunctionType(REAL, (REAL, REAL)), template="PROD%s"
         )
+        self.pow_fn = FreshSymbol(
+            typename=FunctionType(REAL, (REAL, REAL)), template="POW%s"
+        )
+        self.exp_fn = FreshSymbol(
+            typename=FunctionType(REAL, (REAL,)), template="EXP%s"
+        )
         self.counter = 1
 
     def convert(self, weight_func):
@@ -63,8 +69,10 @@ class WeightConverterEUF(WeightConverter):
             return self._process_ite(formula, branch_condition, conversion_list)
         elif formula.is_times():
             return self._process_times(formula, branch_condition, conversion_list)
-        elif is_pow(formula):
+        elif formula.is_pow():
             return self._process_pow(formula, branch_condition, conversion_list)
+        elif formula.is_exp():
+            return self._process_exp(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
             return formula, False
         else:
@@ -134,40 +142,29 @@ class WeightConverterEUF(WeightConverter):
             return const_val, has_cond
         else:
             # abstract product between non-constant nodes with EUF
-            return Times(const_val, self._prod(others)), has_cond
+            return Times(const_val, reduce(self.prod_fn, others)), has_cond
 
     def _process_pow(self, formula, branch_condition, conversion_list):
         args = (
             self.convert_rec(arg, branch_condition, conversion_list)
             for arg in formula.args()
         )
-        (base, _), (exponent, _) = args
+        (base, bhas_cond), (exponent, ehas_cond) = args
+        has_cond = bhas_cond or ehas_cond
         if exponent.is_zero():
-            return Real(1), False
+            return Real(1), has_cond
         else:
             # expand power into product and abstract it with EUF
-            n, d = (
-                exponent.constant_value().numerator,
-                exponent.constant_value().denominator,
-            )
-            return self._prod([base for _ in range(n // d)]), False
+            return self.pow_fn(base, exponent), has_cond
 
-    def _prod(self, args):
-        """Abstract the product between args with EUF
+    def _process_exp(self, formula, branch_condition, conversion_list):
+        exponent, has_cond = self.convert_rec(formula.arg(0), branch_condition, conversion_list)
+        if exponent.is_zero():
+            return Real(1), has_cond
+        else:
+            # expand power into product and abstract it with EUF
+            return self.exp_fn(exponent), has_cond
 
-        Args:
-            args (list(FNode)): List of nodes to multiply. The list is emptied
-
-        Returns:
-            FNode: node representing abstracted product
-        """
-        assert isinstance(args, list)
-        if len(args) == 1:
-            return args.pop()
-        curr = args.pop()
-        while args:
-            curr = self.prod_fn(args.pop(), curr)
-        return curr
 
 
 class WeightConverterSkeleton(WeightConverter):
@@ -488,12 +485,12 @@ class DeMorganCNFizer(IdentityDagWalker):
 
     def is_clause(self, formula):
         return is_literal(formula) or (
-            formula.is_or() and all(is_literal(l) for l in formula.args())
+                formula.is_or() and all(is_literal(l) for l in formula.args())
         )
 
     def is_cnf(self, formula):
         return is_clause(formula) or (
-            formula.is_and() and all(is_clause(c) for c in formula.args())
+                formula.is_and() and all(is_clause(c) for c in formula.args())
         )
 
 
@@ -507,13 +504,13 @@ def is_literal(node):
 
 def is_clause(formula):
     return is_literal(formula) or (
-        formula.is_or() and all(is_literal(l) for l in formula.args())
+            formula.is_or() and all(is_literal(l) for l in formula.args())
     )
 
 
 def is_cnf(formula):
     return is_clause(formula) or (
-        formula.is_and() and all(is_clause(c) for c in formula.args())
+            formula.is_and() and all(is_clause(c) for c in formula.args())
     )
 
 

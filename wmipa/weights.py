@@ -1,5 +1,6 @@
 from itertools import product
 
+from pysmt.fnode import FNode
 from pysmt.shortcuts import And, Bool, Iff, get_env, serialize, simplify, substitute
 from pysmt.typing import REAL
 
@@ -264,7 +265,7 @@ class Weights:
             subs = self._find_conditions(then, subs)
             subs = self._find_conditions(_else, subs)
 
-        elif node.is_plus() or node.is_times() or is_pow(node):
+        elif node.is_ira_op():
             # recursively finds all the conditions in all the children of the formula
             # (i.e: PLUS, MINUS, TIMES, DIV, POW)
             for child in node.args():
