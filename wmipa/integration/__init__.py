@@ -1,16 +1,18 @@
 from shutil import which
 
-IMPORT_ERR_MSG = None
+IMPORT_ERR_MSG = "No integration backend installed."
+latte_installed = True
+volesti_installed = True
 
 # check whether LattE integrale is installed or not
-if IMPORT_ERR_MSG is None and which("integrate") is None:
-    IMPORT_ERR_MSG = """LattE integrale is not installed or its binaries are not included in PATH"""
+if which("integrate") is None:
+    latte_installed = False
 
 # check whether VolEsti is installed or not
-if IMPORT_ERR_MSG is None and which("volesti_integrate") is None:
-    IMPORT_ERR_MSG = """VolEsti is not installed or its binaries are not included in PATH"""
+if which("volesti_integrate") is None:
+    volesti_installed = False
 
-if IMPORT_ERR_MSG:
+if not any([latte_installed, volesti_installed]):
     raise ImportError(IMPORT_ERR_MSG)
 else:
     from .integrator import Integrator
