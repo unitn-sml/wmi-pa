@@ -227,7 +227,6 @@ class WMI:
         else:
             formula = And(formula, self.weights.labelling)
 
-        print()
         # print("FORMULA: ", serialize(formula))
         logger.debug("Computing WMI with mode: {}".format(mode))
         self.variables: WMIVariables
