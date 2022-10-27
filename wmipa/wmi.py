@@ -15,6 +15,7 @@ Currently, three algorithms are supported:
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
+import math
 from collections import defaultdict
 from math import fsum
 
@@ -798,9 +799,9 @@ class WMI:
             list_terms = [(assignment.args()[0], -1), (assignment.args()[1], 1)]
         symbols = defaultdict(float)
         normalizing_coefficient = 0.0
+        min_abs_coefficient = math.inf
         # print(">>>", assignment,"<<<")
         for term, coeff in list_terms:
-            # print("CHECK TERM", term)
             if term.is_real_constant():
                 # print("NORM COEFF", term.constant_value(), coeff)
                 normalizing_coefficient += term.constant_value() * coeff
@@ -826,6 +827,7 @@ class WMI:
                     list_terms.append((child1, coeff * child2.constant_value()))
             else:
                 symbols[term] += coeff
+                min_abs_coefficient = min(min_abs_coefficient, abs(coeff))
 
         normalized_assignment = list()
         normalized_assignment2 = list()
@@ -838,7 +840,7 @@ class WMI:
 
         if normalizing_coefficient == 0.0:
             normalized_assignment.append((0.0))
-            normalizing_coefficient = 1.0
+            normalizing_coefficient = min_abs_coefficient
             if assignment.is_equals():
                 normalized_assignment2.append((0.0))
         else:
