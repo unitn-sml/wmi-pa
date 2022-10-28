@@ -43,7 +43,7 @@ class VolestiIntegrator(CommandLineIntegrator):
     RW_CDHR = "CDHR"
     RW_BILLIARD_WALK = "Bi"
     RW_ACCELERATED_BILLIARD_WALK = "ABi"
-    DEF_RANDOM_WALK = RW_CDHR
+    DEF_RANDOM_WALK = RW_ACCELERATED_BILLIARD_WALK
 
     RANDOM_WALKS = [
         RW_BALL_WALK,
@@ -151,4 +151,4 @@ class VolestiIntegrator(CommandLineIntegrator):
             if self.stub_integrate:
                 f.write("")
             else:
-                return_value = call(cmd, stdout=f, stderr=f)
+                return_value = call(cmd, stdout=f)
