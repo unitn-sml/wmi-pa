@@ -5,6 +5,29 @@ from tempfile import TemporaryDirectory
 from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.wmiexception import WMIRuntimeException
 
+class WMICommandLineIntegratorException(WMIRuntimeException):
+    """
+    Exception raised when the command line integrator fails.
+    """
+
+    MEMORY_LIMIT = 0
+
+    messages = {
+        MEMORY_LIMIT: "Memory limit exceeded",
+    }
+
+    def __init__(self, code, value=None):
+        """
+        Default constructor.
+
+        It calls the init method of the parent.
+
+        Args:
+            code (int): The code of the exception.
+            value: Additional info about the value that raised the exception (default: None).
+
+        """
+        super().__init__(code, value)
 
 class CommandLineIntegrator(CacheIntegrator):
     DEF_ALGORITHM = None
@@ -96,9 +119,9 @@ class CommandLineIntegrator(CacheIntegrator):
                 if "Decimal" in line:
                     # print("Res: {}".format(line))
                     return float(line.partition(": ")[-1].strip())
-            print("Res: 0 with error")
-            # empty polytope
-            res = 0.0
+
+            # error (possibly interrupted due to memory limit)
+            raise WMICommandLineIntegratorException(WMICommandLineIntegratorException.MEMORY_LIMIT)
 
         return res
 
