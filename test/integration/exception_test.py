@@ -46,7 +46,7 @@ def test_invalid_weight_function():
     w = GE(x, Real(2))
 
     with pytest.raises(WMIParsingException) as ex:
-        wmi = WMI(chi, w)
+        _ = WMI(chi, w)
     assert ex.value.code == WMIParsingException.INVALID_WEIGHT_FUNCTION
 
 
@@ -78,7 +78,7 @@ def test_bound_not_inequality():
     assert 1 == 1
 
 
-def test_bound_polynome_degree_greater_than_one():
+def test_bound_polynomial_degree_greater_than_one():
     # don't know of a call to wmi that will raise this specific exception
     assert 1 == 1
 

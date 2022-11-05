@@ -5,7 +5,6 @@
 __version__ = "0.99"
 __author__ = "Paolo Morettin"
 
-
 from pysmt.shortcuts import Plus, Pow, Real, Symbol, Times, serialize
 from pysmt.typing import REAL
 from sympy import SympifyError, expand, sympify
@@ -18,7 +17,7 @@ def pysmt2sympy(expression):
         The string can then be read and modified by sympy.
 
     Args:
-        formula (FNode): The pysmt formula to convert.
+        expression (FNode): The pysmt formula to convert.
 
     Returns:
         str: The string representing the formula.

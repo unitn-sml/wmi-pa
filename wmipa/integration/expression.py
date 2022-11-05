@@ -4,6 +4,7 @@ from wmipa.utils import apply_aliases
 
 class Expression(Integrand):
     """Generic Expression to integrate"""
+
     def __init__(self, expression, aliases=None):
         super().__init__()
         if aliases is None:

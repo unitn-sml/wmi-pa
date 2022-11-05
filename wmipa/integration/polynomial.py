@@ -216,7 +216,7 @@ class Polynomial(Integrand):
             return 0
 
     def negate(self):
-        """Negates the polinomial by negating all its monomials."""
+        """Negates the polynomial by negating all its monomials."""
         for monomial in self.monomials:
             monomial.negate()
 

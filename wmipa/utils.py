@@ -173,3 +173,23 @@ def apply_aliases(expression, aliases):
             expression = expression.substitute({alias: aliases[alias]})
         expression = expression.substitute(constant_subs)
     return expression
+
+
+def is_atom(node):
+    return node.is_symbol(BOOL) or node.is_theory_relation()
+
+
+def is_literal(node):
+    return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
+
+
+def is_clause(formula):
+    return is_literal(formula) or (
+            formula.is_or() and all(is_literal(l) for l in formula.args())
+    )
+
+
+def is_cnf(formula):
+    return is_clause(formula) or (
+            formula.is_and() and all(is_clause(c) for c in formula.args())
+    )

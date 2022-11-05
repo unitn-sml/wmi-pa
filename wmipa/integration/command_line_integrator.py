@@ -94,8 +94,9 @@ class CommandLineIntegrator(CacheIntegrator):
             for line in lines:
                 # Result in the "Answer" line may be written in fraction form
                 if "Decimal" in line:
+                    # print("Res: {}".format(line))
                     return float(line.partition(": ")[-1].strip())
-
+            print("Res: 0 with error")
             # empty polytope
             res = 0.0
 

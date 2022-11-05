@@ -57,7 +57,7 @@ class WMIParsingException(WMIException):
     MALFORMED_ALIAS_EXPRESSION = 0
 
     """During the parsing of the formula, it was encountered a node that cannot exists inside
-        the formula representing the weight function. The weight function ammits only these internal nodes:
+        the formula representing the weight function. The weight function admits only these internal nodes:
         PLUS, MINUS, TIMES, DIV, POW, ITE. Also as a leaf node there must be a Real or a Symbol with
         type equal to Real.
 
@@ -121,7 +121,7 @@ class WMIParsingException(WMIException):
     def __init__(self, code, value=None):
         """Default constructor.
 
-        It first calls the init method of the parent and then assignes the expression to the attributes.
+        It first calls the init method of the parent and then assigns the expression to the attributes.
 
         Args:
             code (int): The code of the exception.

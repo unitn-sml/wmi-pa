@@ -20,7 +20,6 @@ class CacheIntegrator(Integrator):
     It inherits from the abstract class Integrator.
 
     Attributes:
-        algorithm (str): The algorithm to use when computing the integrals.
         n_threads (int): The number of threads to use.
         stub_integrate (bool): If True, the values will not be computed (0 is returned)
     """
@@ -76,28 +75,29 @@ class CacheIntegrator(Integrator):
             return None, None
         return self.cache_2(polytope, integrand, _)
 
-    def integrate_batch(self, problems, cache):
+    def integrate_batch(self, problems, cache, *args, **kwargs):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
 
         Args:
             problems (list(atom_assignments, weight, aliases)): The list of problems to
                 integrate.
+            cache (int): The level of caching to use (range -1, 0, 1, 2, 3).
 
         """
 
-        CACHE_FN = {
+        cache_modes = {
             -1: self.cache_1,
             0: self.cache_1,
             1: self.cache_1,
             2: self.cache_2,
             3: self.cache_3,
         }
-        if cache not in CACHE_FN:
-            modes = map(str, CACHE_FN.keys())
+        if cache not in cache_modes:
+            modes = map(str, cache_modes.keys())
             raise Exception(
-                f"Usupported cache mode. Supported modes are ({', '.join(modes)})"
+                f"Unsupported cache mode. Supported modes are ({', '.join(modes)})"
             )
-        cache_fn = CACHE_FN[cache]
+        cache_fn = cache_modes[cache]
 
         problems_to_integrate = {}
         problem_id = []
@@ -146,11 +146,14 @@ class CacheIntegrator(Integrator):
         _, integrand, polytope, key, cache = problem
         return self._integrate_problem_or_cached(integrand, polytope, key, cache)
 
-    def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache):
+    def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache, *args, **kwargs):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
 
         Args:
             problem (atom_assignments, weight, aliases): The problem to integrate.
+            cond_assignments (tuple): truth values for the conditions
+            cache (int): The level of caching to use (range -1, 0, 1, 2, 3).
+
 
         Returns:
             real: The integration result.
@@ -288,7 +291,7 @@ class CacheIntegrator(Integrator):
             A_i*x <= b_i        for all i in I - k
             A_k*x <= b_k +1
 
-        non redundant if optimal solution > b_k
+        non-redundant if optimal solution > b_k
         """
         variables = list(polytope.variables)
         obj = []
@@ -342,8 +345,8 @@ class CacheIntegrator(Integrator):
         values = self._get_truth_values(polytope, end_point)
         others = values[:index] + values[index + 1:]
 
-        # if at the end point (optimal) there is only one disequalities falsified
-        # then return that particular disequality (index)
+        # if at the end point (optimal) there is only one inequality falsified
+        # then return that particular inequality (index)
         if min(others) == max(others):
             return index
         try:

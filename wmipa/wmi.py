@@ -62,9 +62,6 @@ class WMI:
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
     MODE_SA_PA_SK = "SAPASK"
-    # MODE_SA_PA_BOOL = "SAPABOOL"
-    # MODE_SA_PA_BOOL_TA = "SAPABOOLTA"
-    # MODE_SA_PA_BOOL_TA_TA = "SAPABOOLTATA"
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
 
     def __init__(self, chi, weight=Real(1), **options):
@@ -234,8 +231,7 @@ class WMI:
         x = {
             x
             for x in get_real_variables(formula)
-            if not self.variables.is_weight_alias(x)
-               and not self.variables.is_euf_alias(x)
+            if not (self.variables.is_weight_alias(x) or self.variables.is_euf_alias(x))
         }
         A = {
             x for x in get_boolean_variables(formula) if not self.variables.is_label(x)
@@ -494,9 +490,9 @@ class WMI:
     def _create_problem(self, atom_assignments, weights, on_labels=True):
         """Create a tuple containing the problem to integrate.
 
-        It first finds all the aliases in the atom_assignments and then it takes the
+        It first finds all the aliases in the atom_assignments, then it takes the
             actual weight (based on the assignment).
-        Finally it creates the problem tuple with all the info in it.
+        Finally, it creates the problem tuple with all the info in it.
 
         Args:
             atom_assignments (dict): The list of assignments and relative value
@@ -530,7 +526,7 @@ class WMI:
         current_weight, cond_assignments = weights.weight_from_assignment(
             atom_assignments, on_labels=on_labels
         )
-        return (atom_assignments, current_weight, aliases, cond_assignments)
+        return atom_assignments, current_weight, aliases, cond_assignments
 
     def _parse_alias(self, equality):
         """Takes an equality and parses it.
@@ -544,7 +540,7 @@ class WMI:
 
         Raises:
             WMIParsingException: If the equality is not of the type
-                (Symbol = real_formula) or viceversa.
+                (Symbol = real_formula) or vice-versa.
 
         """
         assert equality.is_equals(), "Not an equality"
@@ -565,7 +561,7 @@ class WMI:
         This method retrieves all the total truth assignments of the given formula
             one by one thanks to the Block Clause algorithm.
             This particular algorithm finds a model that satisfy the formula, it then
-            add the negation of this model to the formula itself in order to constrain
+            adds the negation of this model to the formula itself in order to constrain
             the solver to fine another model that satisfies it.
 
         Args:
@@ -673,7 +669,7 @@ class WMI:
                 atom_assignments.update(boolean_assignments)
                 subs = {k: Bool(v) for k, v in boolean_assignments.items()}
                 f_next = formula
-                # iteratively simplify F[A<-mu^A], getting (possibily part.) mu^LRA
+                # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
                 while True:
                     f_before = f_next
                     f_next = simplify(substitute(f_before, subs))
@@ -710,7 +706,7 @@ class WMI:
         volume = fsum(results)
         return volume, len(problems) - cached, cached
 
-    def _get_allsat(self, formula, use_ta=False, atoms=None, options={}):
+    def _get_allsat(self, formula, use_ta=False, atoms=None, options=None):
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -724,6 +720,8 @@ class WMI:
         Yields:
             list: assignments on the atoms
         """
+        if options is None:
+            options = {}
         if use_ta:
             solver_options = {
                 "dpll.allsat_minimize_model": "true",
@@ -824,16 +822,16 @@ class WMI:
         normalized_assignment2 = list()
 
         if assignment.is_equals():
-            normalized_assignment.append(("="))
-            normalized_assignment2.append(("="))
+            normalized_assignment.append("=")
+            normalized_assignment2.append("=")
         else:
-            normalized_assignment.append(("<=/>="))
+            normalized_assignment.append("<=/>=")
 
         if normalizing_coefficient == 0.0:
-            normalized_assignment.append((0.0))
+            normalized_assignment.append(0.0)
             normalizing_coefficient = min_abs_coefficient
             if assignment.is_equals():
-                normalized_assignment2.append((0.0))
+                normalized_assignment2.append(0.0)
         else:
             normalized_assignment.append(
                 normalizing_coefficient / abs(normalizing_coefficient)
@@ -889,10 +887,9 @@ class WMI:
         lra_atoms = {
             atom
             for atom in lra_formula.get_atoms()
-            if not self.variables.is_weight_bool(atom)
-               and not (
-                    atom.is_equals() and self.variables.is_weight_alias(atom.args()[0])
-            )
+            if not (self.variables.is_weight_bool(atom) or (
+                    atom.is_equals() and self.variables.is_weight_alias(atom.arg(0))
+            ))
         }
         # bools = {x for x in get_boolean_variables(lra_formula)
         #         if not self.variables.is_weight_bool(x)}
@@ -910,7 +907,7 @@ class WMI:
         Args:
             formula (FNode): The formula to simplify.
             subs (dict): Dictionary with the substitutions to perform.
-            atom_assignment (dict): Dictionary with atoms and assigned value.
+            atom_assignments (dict): Dictionary with atoms and assigned value.
 
         Returns:
             bool: True if the formula is completely simplified.
@@ -945,7 +942,7 @@ class WMI:
             Awareness.
 
         Args:
-            formula (FNode): The formula on whick to compute WMI.
+            formula (FNode): The formula on which to compute WMI.
             weights (Weight): The corresponding weight.
 
         Returns:
@@ -1087,18 +1084,10 @@ class WMI:
                         curr_atom_assignments = dict(atom_assignments)
                         curr_atom_assignments.update(residual_assignments)
 
-                        # over2, res_formula2 = self._simplify_formula(
-                        #     res_formula, residual_assignments, curr_atom_assignments
-                        # )
-
                         b_not_assigned = (
                                 len(boolean_variables) - len(boolean_assignments) -
                                 sum(x.is_symbol(BOOL) and x not in weight_bools for x in residual_assignments)
                         )
-
-                        # assert over2, "The formula {}\nwas not completely simplified with \n{}\n\n{}".format(
-                        #     res_formula2.serialize(), curr_atom_assignments, residual_assignments
-                        # )
 
                         problem = self._create_problem(
                             curr_atom_assignments, weights, on_labels=False

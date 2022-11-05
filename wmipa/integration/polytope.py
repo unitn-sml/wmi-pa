@@ -31,7 +31,7 @@ class Bound:
 
     """
 
-    def __init__(self, expression, aliases={}):
+    def __init__(self, expression, aliases=None):
         """Default constructor.
 
         Takes as input a pysmt formula representing a linear inequality and
@@ -47,6 +47,8 @@ class Bound:
                 polynomial has degree more than 1.
 
         """
+        if aliases is None:
+            aliases = {}
         if not (expression.is_le() or expression.is_lt()):
             raise WMIParsingException(WMIParsingException.NOT_AN_INEQUALITY, expression)
         left, right = expression.args()
@@ -159,12 +161,12 @@ class Polytope:
     """Intermediate representation of a polytope.
 
     Attributes:
-        polytope (list(Bounds)): The list of all the inequalities in the polytope.
+        bounds (list(Bounds)): The list of all the inequalities in the polytope.
         variables (list): The list of the involved variables.
 
     """
 
-    def __init__(self, expressions, aliases={}):
+    def __init__(self, expressions, aliases=None):
         """Default constructor.
 
         Takes as input a list of pysmt formulas representing the linear
@@ -181,6 +183,8 @@ class Polytope:
                 its polynomial has degree > 1.
 
         """
+        if aliases is None:
+            aliases = {}
         self.bounds = []
         for expr in expressions:
             b = Bound(expr, aliases)

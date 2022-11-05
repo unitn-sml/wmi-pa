@@ -163,7 +163,7 @@ def test_not_lra_satisfiable():
     assert result_sa_pa_sk == 0
 
 
-def test_moltiplication_in_weight():
+def test_multiplication_in_weight():
     chi = And(
         Iff(a, GE(x, Real(0))),
         Or(
@@ -281,11 +281,11 @@ def test_setting_domA():
     chi = And(GE(x, Real(0)), LE(x, Real(2)), a)
 
     wmi = WMI(chi)
-    result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC, domA=set([a, b]))
-    result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT, domA=set([a, b]))
-    result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA, domA=set([a, b]))
-    result_sa_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_SA_PA, domA=set([a, b]))
-    result_sa_pa_sk, _ = wmi.computeMI(phi, mode=WMI.MODE_SA_PA_SK, domA=set([a, b]))
+    result_bc, _ = wmi.computeMI(phi, mode=WMI.MODE_BC, domA={a, b})
+    result_allsmt, _ = wmi.computeMI(phi, mode=WMI.MODE_ALLSMT, domA={a, b})
+    result_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_PA, domA={a, b})
+    result_sa_pa, _ = wmi.computeMI(phi, mode=WMI.MODE_SA_PA, domA={a, b})
+    result_sa_pa_sk, _ = wmi.computeMI(phi, mode=WMI.MODE_SA_PA_SK, domA={a, b})
     assert result_bc == 2 * 2
     assert result_allsmt == 2 * 2
     assert result_pa == 2 * 2

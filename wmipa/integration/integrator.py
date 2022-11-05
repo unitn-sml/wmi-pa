@@ -19,7 +19,7 @@ class Integrator(ABC):
         pass
 
     @abstractmethod
-    def integrate(self, atom_assignments, weight, aliases):
+    def integrate(self, atom_assignments, weight, aliases, *args, **kwargs):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
 
         Args:

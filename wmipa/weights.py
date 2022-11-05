@@ -4,7 +4,6 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import And, Bool, Iff, get_env, serialize, simplify, substitute
 from pysmt.typing import REAL
 
-from wmipa.utils import is_pow
 from wmipa.weightconverter import WeightConverterEUF, WeightConverterSkeleton
 from wmipa.wmiexception import WMIParsingException
 
@@ -63,7 +62,7 @@ class Weights:
         self.weights_as_formula_sk = self.converterSK.convert(weight_func)
         self.weights = weight_func
 
-        # inizialize the cache (if requested)
+        # initialize the cache (if requested)
         if cache:
             self.cache = {}
             if expand:
@@ -92,7 +91,7 @@ class Weights:
             conditions = self.weight_conditions
             weights = self.weights
 
-        # prepare an empty array of lenght 'n_conditions' to be populated with the
+        # prepare an empty array of length 'n_conditions' to be populated with the
         # values of the assignment
         cond_assignment = [None for _ in range(self.n_conditions)]
         if on_labels:
@@ -102,13 +101,12 @@ class Weights:
                 # if (atom.is_symbol() and atom.get_type() == BOOL and
                 # self.variables.is_cond_label(atom)):
                 if atom in conditions:
-
                     # take the index of the variable from the label
                     index = conditions[atom]
                     cond_assignment[index] = value
 
             assert (
-                None not in cond_assignment
+                    None not in cond_assignment
             ), "Couldn't retrieve the complete assignment"
 
         assignment = {atom: Bool(v) for atom, v in assignment.items()}
@@ -149,7 +147,7 @@ class Weights:
             FNode: The pysmt formula representing the weight function with all the
                 conditions substituted with the new labels.
             dict {FNode : FNode}: The dictionary containing all the conditions and their
-                respectivelly substitution (e.g: {(x < 3) : cond_0, (y < 5) : cond_1} ).
+                respectively substitution (e.g: {(x < 3) : cond_0, (y < 5) : cond_1} ).
 
         """
         # recursively find all the conditions and create a label for all of them
@@ -169,10 +167,9 @@ class Weights:
         """
         assert self.cache is not None, "Cache should be already initialized"
 
-        # create every possible combination of assigments
-        for assignment in product([True, False], repeat=(self.n_conditions)):
-
-            # evaluate the results for all assignments and save them in the chache
+        # create every possible combination of assignments
+        for assignment in product([True, False], repeat=self.n_conditions):
+            # evaluate the results for all assignments and save them in the cache
             cond_w = self._evaluate_weight(
                 self.labelled_weights, assignment, self.labels, {}
             )
@@ -242,7 +239,7 @@ class Weights:
         Args:
             node (FNode): The pysmt formula representing (part of) the weight function.
             subs (dict {FNode : FNode}): The dictionary that will contain the
-                correlations between each conditions and their labels.
+                correlations between each condition and their labels.
 
         Returns:
             dict {FNode : FNode}: The dictionary containing the correlations between
@@ -256,7 +253,7 @@ class Weights:
         if node.is_ite():
             cond, then, _else = node.args()
 
-            # if this particolar condition was not already labelled
+            # if this particular condition was not already labelled
             if cond not in subs:
                 label = self.variables.new_cond_label(len(subs))
                 subs[cond] = label
@@ -285,12 +282,12 @@ class Weights:
                 break
             val = simplify(substitute(val, assignment))
         assert val.is_bool_constant(), (
-            "Weight condition "
-            + serialize(condition)
-            + "\n\n cannot be evaluated with assignment "
-            + "\n".join([str((x, assignment[x])) for x in assignment])
-            + "\n\n simplified into "
-            + serialize(val)
+                "Weight condition "
+                + serialize(condition)
+                + "\n\n cannot be evaluated with assignment "
+                + "\n".join([str((x, assignment[x])) for x in assignment])
+                + "\n\n simplified into "
+                + serialize(val)
         )
         return val.constant_value()
 
