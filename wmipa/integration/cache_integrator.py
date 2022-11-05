@@ -109,7 +109,7 @@ class CacheIntegrator(Integrator):
                 atom_assignments, weight, aliases
             )
             key, polytope = cache_fn(polytope, integrand, cond_assignments)
-            if polytope is not None:
+            if polytope is not None and not polytope.is_empty():
                 # cache >= 1 recognize duplicates before calling the integrator
                 pid = key if cache >= 1 else index
                 if pid not in problems_to_integrate:
