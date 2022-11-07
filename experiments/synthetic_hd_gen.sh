@@ -1,21 +1,21 @@
 #!/bin/bash
 
 SYN_DIR=synthetic_exp
-MODELS=10
+MODELS=5
 SEED=666
 
 MIN_BOOL=3
 MAX_BOOL=3
-MIN_REAL=3
-MAX_REAL=3
-MIN_DEPTH=4
-MAX_DEPTH=7
+MIN_REAL=5
+MAX_REAL=11
+MIN_DEPTH=3
+MAX_DEPTH=3
 
 mkdir -p $SYN_DIR/data $SYN_DIR/results
 
 for ((bool=$MIN_BOOL; bool<=$MAX_BOOL; bool++))
 do
-	for ((real=$MIN_REAL; real<=$MAX_REAL; real++))
+	for ((real=$MIN_REAL; real<=$MAX_REAL; real+=2))
 	do
 		for ((depth=$MIN_DEPTH; depth<=$MAX_DEPTH; depth++))
 		do
