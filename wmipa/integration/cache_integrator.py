@@ -26,7 +26,7 @@ class CacheIntegrator(Integrator):
 
     DEF_N_THREADS = 7
 
-    def __init__(self, **options):
+    def __init__(self, n_threads=DEF_N_THREADS, stub_integrate=False):
         """Default constructor.
 
         Args:
@@ -37,13 +37,9 @@ class CacheIntegrator(Integrator):
 
         """
 
-        # set threads
-        n_threads = options.get("n_threads")
-        self.n_threads = n_threads or self.DEF_N_THREADS
-
+        self.n_threads = n_threads
+        self.stub_integrate = stub_integrate
         self.hashTable = HashTable()
-        stub_integrate = options.get("stub_integrate")
-        self.stub_integrate = stub_integrate or False
         self.integration_time = 0.0
 
     def get_integration_time(self):

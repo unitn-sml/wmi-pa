@@ -64,23 +64,23 @@ class WMI:
     MODE_SA_PA_SK = "SAPASK"
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
 
-    def __init__(self, chi, weight=Real(1), **options):
+    def __init__(self, chi, weight=Real(1), integrator=None, **options):
         """Default constructor.
 
         Args:
             chi (FNode): The support of the problem.
             weight (FNode, optional): The weight of the problem (default: 1).
-            **options:
-                - integrator: class used to integrate
-                - integrator options (see LatteIntegrator and VolestiIntegrator)
+            integrator: integrator instance (default: LatteIntegrator()).
 
         """
         self.variables = WMIVariables()
         self.weights = Weights(weight, self.variables)
         self.chi = chi
 
-        Integrator = options.get("integrator") or LatteIntegrator
-        self.integrator = Integrator(**options)
+        if integrator is None:
+            integrator = LatteIntegrator()
+        self.integrator = integrator
+
         self.list_norm = set()
         self.norm_aliases = dict()
         self.skeleton_simplifier = SkeletonSimplifier()

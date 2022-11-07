@@ -24,11 +24,11 @@ from wmipa.integration.volesti_integrator import VolestiIntegrator
 def compute_wmi(domain, support, weight, args, q):
     if "PA" in args.mode:
         if args.integration == "latte":
-            integrator = LatteIntegrator
+            integrator = LatteIntegrator()
         elif args.integration == "volesti":
-            integrator = VolestiIntegrator
+            integrator = VolestiIntegrator(args.algorithm, args.error, args.walk_type, args.N, args.walk_length)
         elif args.integration == "symbolic":
-            integrator = SymbolicIntegrator
+            integrator = SymbolicIntegrator()
         else:
             raise ValueError(f"Invalid integrator {args.integrator}")
 

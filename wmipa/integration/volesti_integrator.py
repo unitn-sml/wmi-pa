@@ -57,36 +57,52 @@ class VolestiIntegrator(CommandLineIntegrator):
     DEF_N = 1000
     DEF_WALK_LENGTH = 0
 
-    def __init__(self, **options):
+    def __init__(self,
+                 algorithm=DEF_ALGORITHM,
+                 error=DEF_ERROR,
+                 walk_type=DEF_RANDOM_WALK,
+                 N=DEF_N,
+                 walk_length=DEF_WALK_LENGTH,
+                 **options
+                 ):
         """Default constructor.
 
         Args:
-            **options:
-                - algorithm: Defines the algorithm to use when integrating.
-                - n_threads: Defines the number of threads to use.
-                - stub_integrate: If True the integrals will not be computed.
-                - error: The relative error tolerated (in (0.0, 1.0)).
-                - walk_type: The type of random walk to use.
-                - N: Number of samples.
-                - walk_length: Length of random walk.
+            algorithm: Defines the algorithm to use when integrating.
+            error: The relative error tolerated (in (0.0, 1.0)).
+            walk_type: The type of random walk to use.
+            N: Number of samples.
+            walk_length: Length of random walk.
+            options: @see CommandLineIntegrator.__init__
 
         """
         CommandLineIntegrator.__init__(self, **options)
-        self.error = options.get("error") or self.DEF_ERROR
+
+        self.algorithm = algorithm
+        if self.algorithm not in self.ALGORITHMS:
+            err = "{}, choose one from: {}".format(
+                self.algorithm, ", ".join(self.ALGORITHMS)
+            )
+            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
+
+        self.error = error
         if not (0.0 < self.error < 1.0):
             err = "{}, error must be in (0.0, 1.0)".format(self.error)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
-        self.walk_type = options.get("walk_type") or self.DEF_RANDOM_WALK
+
+        self.walk_type = walk_type
         if self.walk_type not in self.RANDOM_WALKS:
             err = "{}, choose one from: {}".format(
                 self.walk_type, ", ".join(self.RANDOM_WALKS)
             )
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
-        self.N = options.get("N") or self.DEF_N
+
+        self.N = N
         if self.N <= 0:
             err = "{}, N must be a positive number".format(self.N)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
-        self.walk_length = options.get("walk_length") or self.DEF_WALK_LENGTH
+
+        self.walk_length = walk_length
         if self.walk_length < 0:
             err = "{}, walk_length must be a non-negative number".format(
                 self.walk_length

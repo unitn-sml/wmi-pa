@@ -12,8 +12,6 @@ sys.setrecursionlimit(10 ** 5)
 
 
 class SymbolicIntegrator(CacheIntegrator):
-    def __init__(self, **options):
-        super().__init__(**options)
 
     @staticmethod
     def _integrator():

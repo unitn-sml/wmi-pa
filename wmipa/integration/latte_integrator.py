@@ -5,6 +5,7 @@ from subprocess import call
 
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
 from wmipa.integration.polytope import Polynomial, Polytope
+from wmipa.wmiexception import WMIRuntimeException
 
 
 class LatteIntegrator(CommandLineIntegrator):
@@ -25,6 +26,26 @@ class LatteIntegrator(CommandLineIntegrator):
     DEF_ALGORITHM = ALG_CONE_DECOMPOSE
 
     ALGORITHMS = [ALG_TRIANGULATE, ALG_CONE_DECOMPOSE]
+
+    def __init__(self, algorithm=DEF_ALGORITHM, **options):
+        """Default constructor.
+
+        It calls the init method of the parent.
+
+        Args:
+            algorithm (str): The algorithm to use when computing the integrals.
+            options: @see CommandLineIntegrator.__init__
+
+        """
+        super().__init__(**options)
+        self.algorithm = algorithm
+
+        # check that algorithm exists
+        if self.algorithm not in self.ALGORITHMS:
+            err = "{}, choose one from: {}".format(
+                self.algorithm, ", ".join(self.ALGORITHMS)
+            )
+            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
     @classmethod
     def _make_problem(cls, weight, bounds, aliases):

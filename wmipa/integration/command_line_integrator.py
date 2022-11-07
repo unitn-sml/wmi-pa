@@ -42,16 +42,6 @@ class CommandLineIntegrator(CacheIntegrator):
 
     def __init__(self, **options):
         super().__init__(**options)
-        # get algorithm
-        algorithm = options.get("algorithm")
-        self.algorithm = algorithm or self.DEF_ALGORITHM
-
-        # check that algorithm exists
-        if self.algorithm not in self.ALGORITHMS:
-            err = "{}, choose one from: {}".format(
-                self.algorithm, ", ".join(self.ALGORITHMS)
-            )
-            raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
     def _integrate_problem(self, integrand, polytope):
         """Generates the input files and calls integrator executable

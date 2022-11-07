@@ -24,7 +24,7 @@ phi = And(Iff(a, GE(x, Real(0))),
           LE(x, Real(1)))
 
 # weight function definition
-w = Ite(GE(x, Real(0)),
+w = Ite(GE(3 * x, Real(0)),
         x,
         Times(Real(-1), x))
 # fmt: on
@@ -37,12 +37,12 @@ print("Support:", chi.serialize())
 
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
-    for integrator in (LatteIntegrator, VolestiIntegrator, SymbolicIntegrator):
+    for integrator in (LatteIntegrator(), VolestiIntegrator(), SymbolicIntegrator()):
         wmi = WMI(chi, w, integrator=integrator)
         result, n_integrations = wmi.computeWMI(phi, mode=mode)
         print(
-            "WMI with mode {} (integrator: {})\t "
+            "WMI with mode {:10} (integrator: {:20})\t "
             "result = {}, \t # integrations = {}".format(
-                mode, integrator.__name__, result, n_integrations
+                mode, integrator.__class__.__name__, result, n_integrations
             )
         )

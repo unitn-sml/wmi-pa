@@ -29,7 +29,7 @@ print("Support:", chi.serialize())
 print("Weight function:", w.serialize())
 
 print()
-wmi = WMI(chi, w, integrator=VolestiIntegrator)
+wmi = WMI(chi, w, integrator=VolestiIntegrator())
 result, n_integrations = wmi.computeWMI(phi, mode=WMI.MODE_SA_PA_SK)
 print(
     "WMI with mode {} \t result = {}, \t # integrations = {}".format(
