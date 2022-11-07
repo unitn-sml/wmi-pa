@@ -62,7 +62,7 @@ def compute_wmi(domain, support, weight, args, q):
                 ordered=False,
             )
         elif args.mode == "Rejection":
-            wmi = RejectionEngine(domain, support, weight, sample_count=100000)
+            wmi = RejectionEngine(domain, support, weight, sample_count=10**6)
         else:
             raise ValueError(f"Invalid mode {args.mode}")
 
