@@ -81,6 +81,7 @@ class CacheIntegrator(Integrator):
 
         """
 
+        EMPTY = -1
         cache_modes = {
             -1: self.cache_1,
             0: self.cache_1,
@@ -121,6 +122,8 @@ class CacheIntegrator(Integrator):
                     # duplicate found
                     cached += 1
                 problem_id.append(problems_to_integrate[pid][0])
+            else:
+                problem_id.append(EMPTY)
 
         problems_to_integrate = problems_to_integrate.values()
         assert len(problem_id) == len(problems)
@@ -130,8 +133,8 @@ class CacheIntegrator(Integrator):
         results = pool.map(self._integrate_wrapper, problems_to_integrate)
         pool.close()
         pool.join()
-        values = [results[pid][0] for pid in problem_id]
-        cached += len([results[pid][1] for pid in problem_id if results[pid][1]])
+        values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
+        cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
         assert len(values) == len(problems)
 
         self.integration_time = time.time() - start_time
