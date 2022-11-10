@@ -43,7 +43,7 @@ class VolestiIntegrator(CommandLineIntegrator):
     RW_CDHR = "CDHR"
     RW_BILLIARD_WALK = "Bi"
     RW_ACCELERATED_BILLIARD_WALK = "ABi"
-    DEF_RANDOM_WALK = RW_ACCELERATED_BILLIARD_WALK
+    DEF_RANDOM_WALK = RW_CDHR
 
     RANDOM_WALKS = [
         RW_BALL_WALK,
@@ -54,15 +54,17 @@ class VolestiIntegrator(CommandLineIntegrator):
     ]
 
     DEF_ERROR = 1e-1
+    DEF_SEED = None  # unset
+    DEF_WALK_LENGTH = None  # let the tool choose
     DEF_N = 1000
-    DEF_WALK_LENGTH = 0
 
     def __init__(self,
                  algorithm=DEF_ALGORITHM,
                  error=DEF_ERROR,
                  walk_type=DEF_RANDOM_WALK,
-                 N=DEF_N,
                  walk_length=DEF_WALK_LENGTH,
+                 seed=DEF_SEED,
+                 N=DEF_N,
                  **options
                  ):
         """Default constructor.
@@ -97,16 +99,21 @@ class VolestiIntegrator(CommandLineIntegrator):
             )
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
+        self.walk_length = walk_length
+        if self.walk_length is not None and self.walk_length < 0:
+            err = "{}, walk_length must be a non-negative number".format(
+                self.walk_length
+            )
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
+
         self.N = N
         if self.N <= 0:
             err = "{}, N must be a positive number".format(self.N)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
-        self.walk_length = walk_length
-        if self.walk_length < 0:
-            err = "{}, walk_length must be a non-negative number".format(
-                self.walk_length
-            )
+        self.seed = seed
+        if self.seed is not None and self.seed < 0:
+            err = "{}, seed must be a non-negative number".format(self.seed)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
     def _write_integrand_file(self, integrand, variables, path):
@@ -159,9 +166,11 @@ class VolestiIntegrator(CommandLineIntegrator):
             self.walk_type,
             "--N",
             str(self.N),
-            "--wlength",
-            str(self.walk_length),
         ]
+        if self.walk_length is not None:
+            cmd += ["--wlength", str(self.walk_length)]
+        if self.seed is not None:
+            cmd += ["--seed", str(self.seed)]
 
         with open(output_file, "w") as f:
             if self.stub_integrate:
