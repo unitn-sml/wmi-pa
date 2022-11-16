@@ -26,13 +26,20 @@ def compute_wmi(domain, support, weight, args, q):
         if args.integration == "latte":
             integrator = LatteIntegrator()
         elif args.integration == "volesti":
-            integrator = VolestiIntegrator(args.algorithm, args.error, args.walk_type, args.N, args.walk_length)
+            integrator = VolestiIntegrator(
+                algorithm=args.algorithm,
+                error=args.error,
+                walk_type=args.walk_type,
+                walk_length=args.walk_length,
+                seed=0,
+                N=args.N
+            )
         elif args.integration == "symbolic":
             integrator = SymbolicIntegrator()
         else:
             raise ValueError(f"Invalid integrator {args.integrator}")
 
-        wmi = WMI(support, weight, integrator=integrator, **args.__dict__)
+        wmi = WMI(support, weight, integrator=integrator)
         res = wmi.computeWMI(
             Bool(True),
             mode=args.mode,
@@ -62,7 +69,7 @@ def compute_wmi(domain, support, weight, args, q):
                 ordered=False,
             )
         elif args.mode == "Rejection":
-            wmi = RejectionEngine(domain, support, weight, sample_count=10**6)
+            wmi = RejectionEngine(domain, support, weight, sample_count=10 ** 6)
         else:
             raise ValueError(f"Invalid mode {args.mode}")
 
@@ -150,15 +157,18 @@ def parse_args():
         help="Output folder where to save the result (default: cwd)",
     )
     parser.add_argument("-f", "--filename", help="Name of the result file (optional)")
+
+    parser.add_argument(
+        "--timeout", type=int, default=3600, help="Max time (in seconds)"
+    )
+
     parser.add_argument(
         "-m", "--mode", choices=modes, required=True, help="Mode to use"
     )
     parser.add_argument(
         "--threads", default=None, type=int, help="Number of threads to use for WMIPA"
     )
-    parser.add_argument(
-        "--timeout", type=int, default=3600, help="Max time (in seconds)"
-    )
+
     parser.add_argument(
         "-c",
         "--cache",
@@ -243,7 +253,7 @@ def main():
     time_start = time.time()
 
     for i, (filename, query_n, domain, support, weight) in enumerate(
-        problems_from_densities(files)
+            problems_from_densities(files)
     ):
 
         time_init = time.time()
