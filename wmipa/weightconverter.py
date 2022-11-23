@@ -164,13 +164,13 @@ class WeightConverterEUF(WeightConverter):
 class WeightConverterSkeleton(WeightConverter):
     def __init__(self, variables):
         super().__init__(variables)
-        self.conv_bools = set()
-        self.cnfizer = TseitinCNFizer(self.new_label)
+        self.cnf_labels = set()
+        self.cnfizer = LabelCNFizer(self.variables)
 
     def new_label(self):
-        w = self.variables.new_weight_bool(len(self.conv_bools))
-        self.conv_bools.add(w)
-        return w
+        B = self.variables.new_cond_label(len(self.cnf_labels))
+        self.cnf_labels.add(B)
+        return B
 
     def convert(self, weight_func):
         conversion_list = list()
@@ -257,20 +257,20 @@ class CNFPreprocessor(IdentityDagWalker):
         return self.walk_or(self.mgr.Or(self.mgr.Not(left), right), (self.mgr.Not(left_a), right_a), **kwargs)
 
 
-class TseitinCNFizer(CNFizer):
+class LabelCNFizer(CNFizer):
     def walk_quantifier(self, formula, args, **kwargs):
         pass
 
-    def __init__(self, new_label_fn, environment=None):
+    def __init__(self, wmi_variables, environment=None):
         super().__init__(environment)
         self.preprocessor = CNFPreprocessor(env=environment)
-        self.new_label = new_label_fn
+        self.wmi_variables = wmi_variables
 
     def _key_var(self, formula):
         if formula in self._introduced_variables:
             res = self._introduced_variables[formula]
         else:
-            res = self.new_label()
+            res = self.wmi_variables.new_cnf_label(len(self._introduced_variables))
             self._introduced_variables[formula] = res
         return res
 
