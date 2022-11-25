@@ -184,9 +184,14 @@ def plot_data(
     plt.savefig(outfile, bbox_inches="tight")
     print("created {}".format(outfile))
     plt.clf()
+    csvfile = os.path.join(outdir, "{}_uai{}{}.csv".format(param, sfx, filename))
+    csvdf = data[[(mode, param) for mode in modes]]
+    csvdf.columns = csvdf.columns.droplevel(1)
+    csvdf.to_csv(csvfile, index_label="instance")
+    print("created {}".format(csvfile))
 
 
-def check_values(data, ref="SA-WMI-PA"):
+def check_values(data, ref="SA-WMI-PA-SK(LattE)"):
     data["filename"] = data["filename"].apply(os.path.basename)
 
     data = (
@@ -211,7 +216,7 @@ def check_values(data, ref="SA-WMI-PA"):
         diff = ~np.isclose(
             data[indexes]["value", mode].values,
             data[indexes]["value", ref].values,
-            atol=ERR_TOLERANCE,
+            rtol=ERR_TOLERANCE,
         )
         if diff.any():
             print(
@@ -220,7 +225,7 @@ def check_values(data, ref="SA-WMI-PA"):
                 )
             )
 
-            print(data[indexes][diff]["value"][["SA-WMI-PA", "XADD", "FXSDD"]])
+            print(data[indexes][diff]["value"][[ref, mode]])
         else:
             print("Mode {:10s}: {:4d} values OK".format(mode, indexes.sum()))
 
@@ -266,14 +271,12 @@ def group_data(data: pd.DataFrame, cactus, timeout):
                 # cols.where(cols < timeout, inplace=True)
 
                 # cols.columns = pd.MultiIndex.from_tuples([(mode, param)])
-                print(cols)
                 data[(mode, param)] = np.NaN
                 data[(mode, param)].update(cols)
 
         # data = data.cumsum(axis=0)
         # start number of problems solved from 1
         data.index += 1
-        print(data)
     else:
         # sort by increasing time
         sort_by = [(mode, "time") for mode in modes]
