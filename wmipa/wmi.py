@@ -728,7 +728,6 @@ class WMI:
                 "dpll.allsat_allow_duplicates": "false",
                 "preprocessor.toplevel_propagation": "false",
                 "preprocessor.simplification": "0",
-                "debug.api_call_trace": "0",
             }
         else:
             solver_options = {}
@@ -1032,9 +1031,9 @@ class WMI:
     def _compute_WMI_SA_PA_SK(self, formula, weights):
         problems = []
 
-        cnf_labels = {b for b in get_boolean_variables(formula) if self.variables.is_cnf_label(b)}
-        cnd_labels = {b for b in get_boolean_variables(formula) if self.variables.is_cond_label(b)}
-        boolean_variables = get_boolean_variables(formula) - cnf_labels - cnd_labels
+        cnf_labels = {b for b in get_boolean_variables(formula) if
+                      self.variables.is_cnf_label(b) or self.variables.is_cond_label(b)}
+        boolean_variables = get_boolean_variables(formula) - cnf_labels
         lra_atoms = get_lra_atoms(formula)
 
         # number of booleans not assigned in each problem
@@ -1049,7 +1048,7 @@ class WMI:
 
         else:
             boolean_models = self._get_allsat(
-                formula, use_ta=True, atoms=boolean_variables.union(cnd_labels),
+                formula, use_ta=True, atoms=boolean_variables,
             )
 
             for boolean_assignments in boolean_models:
@@ -1061,8 +1060,8 @@ class WMI:
                 )
 
                 if not over:
-                    # boolean variables first
-                    residual_atoms = list(get_boolean_variables(res_formula) - cnf_labels) + \
+                    # boolean variables first (discard cnf labels)
+                    residual_atoms = list(get_boolean_variables(res_formula).intersection(boolean_variables)) + \
                                      list(get_lra_atoms(res_formula))
 
                     # may be both on LRA and boolean atoms
