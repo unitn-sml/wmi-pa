@@ -191,7 +191,7 @@ def plot_data(
     print("created {}".format(csvfile))
 
 
-def check_values(data, ref="SA-WMI-PA-SK(LattE)"):
+def check_values(data, ref="SA-WMI-PA-SK"):
     data["filename"] = data["filename"].apply(os.path.basename)
 
     data = (

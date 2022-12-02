@@ -1,11 +1,22 @@
 # wmi-pa
 [![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
 
-Python 3 implementation of the method presented in:
+Python 3 implementation of the methods presented in:
 
   [Efficient WMI via SMT-Based Predicate Abstraction](https://www.ijcai.org/proceedings/2017/100)  
-  Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
+  Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
   in Proceedings of IJCAI 2017
+
+  [Advanced smt techniques for Weighted Model Integration](https://www.sciencedirect.com/science/article/abs/pii/S0004370219301213)  
+  Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
+  in Artificial Intelligence, Volume 275, 2019
+
+  [SMT-based Weighted Model Integration with Structure Awareness](https://arxiv.org/abs/2206.13856)  
+  Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
+  in UAI Conference 2022
+
+  [SMT-based Weighted Model Integration with Structure Awareness and Multiple Integration Approaches](TODO)  
+  Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani
 
 ## pywmi
 
@@ -17,31 +28,32 @@ WMI-PA is now part of [pywmi](https://github.com/weighted-model-integration/pywm
 
 ### Additional requirements
 
-[LattE integrale](https://www.math.ucdavis.edu/~latte/) 
-LattE's binary folder must be present in the PATH environment variable.
+At least one following integration backend is needed:
+  * [LattE integrale](https://www.math.ucdavis.edu/~latte/) - Exact integration (recommended):
+    ```[bash]
+    wget https://github.com/latte-int/latte/releases/download/version_1_7_6/latte-int-1.7.6.tar.gz
+    tar -xzf latte-int-1.7.6.tar.gz
+    cd latte-int-1.7.6
+    ./configure GXX="g++ -std=c++11" --prefix=$HOME/latte && make && make install
+    ```
+    Add `$HOME/latte/bin` to the PATH environment variable:
+    ```[bash]
+    export PATH=$HOME/latte/bin:$PATH
+    ```
 
-[VolEsti](https://github.com/masinag/volesti/) 
-LattE's binary folder must be present in the PATH environment variable.
-Installation:
-```[bash]
-git clone https://github.com/masinag/approximate-integration
-cd approximate-integration
-mkdir build
-cd build
-cmake ..
-make
-cd ..
-echo export PATH=\$PATH:$(pwd)/bin >> ~/.bashrc
-source ~/.bashrc
-```
-
-Check if the installation was successful by running the command
-```[bash]
-volesti_integrate
-```
+  * [VolEsti](https://github.com/masinag/approximate-integration) - Approximated integration:
+    ```[bash] 
+    ```[bash]
+    git clone https://github.com/masinag/approximate-integration
+    cd approximate-integration
+    make
+    ```
+    Add `bin` to the PATH environment variable:
+    ```[bash]
+    export PATH=$PWD/bin:$PATH
+    ```
 
 [MathSAT5](http://mathsat.fbk.eu/)
-Run:
 
     pysmt-install --msat
 

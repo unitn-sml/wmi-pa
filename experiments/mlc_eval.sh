@@ -1,3 +1,5 @@
+#!/bin/bash
+
 MLC_DIR=mlc
 
 for dir in $(ls $MLC_DIR/data)
