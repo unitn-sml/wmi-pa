@@ -2,7 +2,7 @@
 
 SYN_DIR=synthetic_exp
 
-for dir in $(ls -d $SYN_DIR/data)
+for dir in $(ls -d $SYN_DIR/data/*)
 do
 	res_dir=$(sed "s+data+results+g" <<< $dir)
 	mkdir -p $res_dir

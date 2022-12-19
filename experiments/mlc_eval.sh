@@ -2,7 +2,7 @@
 
 MLC_DIR=mlc
 
-for dir in $(ls -d $MLC_DIR/data)
+for dir in $(ls -d $MLC_DIR/data/*)
 do
 	res_dir=$(sed "s+data+results+g" <<< $dir)
   mkdir -p $res_dir
