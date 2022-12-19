@@ -10,6 +10,6 @@ do
 	for mode in XSDD XADD FXSDD "PA latte" "SAPA latte" "SAPASK latte"
         do
                 echo Mode $mode
-                python3 evaluateModels.py $dir -o $res_dir -m $mode --timeout 1200
+                python3 evaluateModels.py $dir -o $res_dir --timeout 1200 -m $mode
         done
 done
