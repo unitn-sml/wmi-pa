@@ -54,8 +54,16 @@ At least one following integration backend is needed:
     ```
 
 [MathSAT5](http://mathsat.fbk.eu/)
+```[bash]
+pysmt-install --msat
+```
+For the SA-WMI-PA-SK mode, a slightly customized version of MathSAT5 is needed.
+In order to install it, you need to substitute the file 
+`<venv>/lib/python3.8/site-packages/_mathsat.cpython-38-x86_64-linux-gnu.so`
+with the one provided in the `bin/` folder of this repository 
+(Python3.8 under Linux x86_64 is required).
 
-    pysmt-install --msat
+Support for other OS and Python versions will be added in the near future.
 
 ## Examples
 We provide some examples that show how to write a model and evaluate weighted model integrals on it.

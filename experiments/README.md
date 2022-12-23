@@ -1,4 +1,4 @@
-# Experimental setting for UAI 22
+# Experimental setting for UAI / AIJ 2022
 
 ## Synthetic experiments
 * Generate synthetic experiments by running
