@@ -1,4 +1,7 @@
-"""
+"""This example corresponds to the motivating example in the IJCAI poster.
+It shows a simple case in which WMI-AllSMT performs more integrations
+than necessary.
+
 Intuitively, two mutually exclusive cases are encoded:
 
 1) W(x,y) = x + y, x in [0,2], y in [0,2]
@@ -17,25 +20,29 @@ x = Symbol("x", REAL)
 y = Symbol("y", REAL)
 
 # formula definition
-phi = And(
-    Implies(LE(y, Real(1)), And(LE(Real(0), x), LE(x, Real(2)))),
-    Implies(Not(LE(y, Real(1))), And(LE(Real(1), x), LE(x, Real(3)))),
-    LE(Real(0), y),
-    LE(y, Real(2)),
-)
-
-print("Formula:", phi.serialize())
+# fmt: off
+phi = And(Implies(LE(y, Real(1)), And(LE(Real(0), x), LE(x, Real(2)))),
+          Implies(Not(LE(y, Real(1))), And(LE(Real(1), x), LE(x, Real(3)))),
+          LE(Real(0), y), LE(y, Real(2)))
 
 # weight function definition
-w = Ite(LE(y, Real(1)), Plus(x, y), Times(Real(2), y))
+w = Ite(LE(y, Real(1)),
+        Plus(x, y),
+        Times(Real(2), y))
 
 chi = Bool(True)
+# fmt: on
 
+print("Formula:", phi.serialize())
 print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
-wmi = WMI(chi, w)
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
+    wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
+    print(
+        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
+            mode, result, n_integrations
+        )
+    )

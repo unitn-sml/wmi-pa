@@ -1,5 +1,5 @@
 from pysmt.shortcuts import REAL, Pow, Times, Symbol, Real
-from wmipa.polytope import Monomial
+from wmipa.integration.polynomial import Monomial
 
 x = Symbol("X", REAL)
 y = Symbol("Y", REAL)

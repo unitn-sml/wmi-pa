@@ -1,5 +1,6 @@
-from pysmt.shortcuts import GE, LE, And, Bool, Ite, Real, Symbol, LT, Times, Plus, Iff
-from pysmt.typing import REAL, BOOL
+from pysmt.shortcuts import GE, LE, LT, And, Bool, Iff, Ite, Plus, Real, Symbol, Times
+from pysmt.typing import BOOL, REAL
+
 from wmipa import WMI
 
 # variables definition
@@ -12,12 +13,10 @@ x1 = Symbol("x1", REAL)
 x2 = Symbol("x2", REAL)
 
 # formula definition
+# fmt: off
 phi = Bool(True)
 
-print("Formula:", phi.serialize())
-
 # weight function definition
-# fmt: off
 w = Ite(a & (x1 >= 1.5),
         Times(
             Ite(b | (x2 >= 1),
@@ -52,11 +51,16 @@ chi = And(LE(Real(0), x1), LT(x1, Real(1)),
           Iff(a, GE(x2, Real(1))))
 # fmt: on
 
+print("Formula:", phi.serialize())
 print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode, cache=-1)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
+    print(
+        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
+            mode, result, n_integrations
+        )
+    )

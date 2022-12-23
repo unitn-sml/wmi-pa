@@ -1,8 +1,9 @@
-from pysmt.shortcuts import Symbol, And, GE, LE, Real, Equals, Plus, Bool, Min
-from pysmt.typing import REAL, BOOL
+import pytest
+from pysmt.shortcuts import GE, LE, And, Bool, Equals, Min, Plus, Real, Symbol
+from pysmt.typing import BOOL, REAL
+
 from wmipa import WMI
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
-import pytest
 
 a = Symbol("A", BOOL)
 b = Symbol("B", BOOL)
@@ -30,7 +31,9 @@ def test_double_assignments_same_variable():
 
 
 def test_not_correct_alias():
-    chi = And(GE(x, Real(0)), LE(x, Real(1)), Equals(Plus(x, Real(3)), Plus(y, Real(2))))
+    chi = And(
+        GE(x, Real(0)), LE(x, Real(1)), Equals(Plus(x, Real(3)), Plus(y, Real(2)))
+    )
     wmi = WMI(chi)
 
     with pytest.raises(WMIParsingException) as ex:
@@ -43,7 +46,7 @@ def test_invalid_weight_function():
     w = GE(x, Real(2))
 
     with pytest.raises(WMIParsingException) as ex:
-        wmi = WMI(chi, w)
+        _ = WMI(chi, w)
     assert ex.value.code == WMIParsingException.INVALID_WEIGHT_FUNCTION
 
 
@@ -75,7 +78,7 @@ def test_bound_not_inequality():
     assert 1 == 1
 
 
-def test_bound_polynome_degree_greater_than_one():
+def test_bound_polynomial_degree_greater_than_one():
     # don't know of a call to wmi that will raise this specific exception
     assert 1 == 1
 

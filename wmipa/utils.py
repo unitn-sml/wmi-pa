@@ -7,8 +7,11 @@ Credits: least common multiple code by J.F. Sebastian
 
 from functools import reduce
 
-from pysmt.typing import BOOL, REAL
+import networkx as nx
 from pysmt.operators import POW
+from pysmt.typing import BOOL, REAL
+
+from wmipa.wmiexception import WMIParsingException
 
 
 def get_boolean_variables(formula):
@@ -124,10 +127,69 @@ def lcmm(args):
         60
 
     Args:
-        args (list(int)): The list of numbers on which to compute the lowest common multiple.
+        args (list(int)): The list of numbers on which to compute the
+            lowest common multiple.
 
     Returns:
         int: The lowest common multiple of all the numbers in the list.
 
     """
     return reduce(_lcm, args)
+
+def apply_aliases(expression, aliases):
+    """Substitute the aliases within the expression in the right order.
+
+    Args:
+        expression (FNode): The pysmt expression to apply the aliases to.
+        aliases (dict): The aliases to apply to the expression.
+    """
+    if len(aliases) > 0:
+        # Build a dependency graph of the substitutions and apply them in
+        # topological order
+        Gsub = nx.DiGraph()
+        constant_subs = {}
+
+        # For every alias
+        for x, alias_expr in aliases.items():
+            for y in alias_expr.get_free_variables():
+                # Create a node from the alias to every symbol inside it
+                Gsub.add_edge(x, y)
+            # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
+            if len(alias_expr.get_free_variables()) == 0:
+                constant_subs.update({x: alias_expr})
+
+        # Get the nodes in topological order
+        try:
+            sorted_substitutions = [
+                node for node in nx.topological_sort(Gsub) if node in aliases
+            ]
+        except nx.exception.NetworkXUnfeasible:
+            raise WMIParsingException(
+                WMIParsingException.CYCLIC_ASSIGNMENT_IN_ALIASES, aliases
+            )
+
+        # Apply all the substitutions
+        for alias in sorted_substitutions:
+            expression = expression.substitute({alias: aliases[alias]})
+        expression = expression.substitute(constant_subs)
+    return expression
+
+
+def is_atom(node):
+    return node.is_symbol(BOOL) or node.is_theory_relation()
+
+
+def is_literal(node):
+    return is_atom(node) or (node.is_not() and is_atom(node.arg(0)))
+
+
+def is_clause(formula):
+    return is_literal(formula) or (
+            formula.is_or() and all(is_literal(l) for l in formula.args())
+    )
+
+
+def is_cnf(formula):
+    return is_clause(formula) or (
+            formula.is_and() and all(is_clause(c) for c in formula.args())
+    )

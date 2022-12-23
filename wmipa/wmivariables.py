@@ -1,13 +1,14 @@
 from pysmt.shortcuts import FreshSymbol
 from pysmt.typing import BOOL, REAL
-from wmipa.utils import get_boolean_variables
 
+from wmipa.utils import get_boolean_variables
 
 COND = "cond"
 WMI = "wmi"
 QUERY = "query"
 WEIGHT_ALIAS = "weight_alias"
-WEIGHT_BOOL = "weight_bool"
+CNF_LABEL = "weight_bool"
+EUF_ALIAS = "euf_alias"
 
 
 class WMIVariables:
@@ -80,9 +81,10 @@ class WMIVariables:
             FNode: The new label.
 
         """
-        return self._new_label(WEIGHT_ALIAS, index, sym_type=REAL, template="EUF%s")
+        return self._new_label(EUF_ALIAS, index, sym_type=REAL, template="EUF%s")
 
-    def new_weight_bool(self, index):
+
+    def new_cnf_label(self, index):
         """Returns a symbol representing a weight bool.
 
         Args:
@@ -92,12 +94,13 @@ class WMIVariables:
             FNode: The new bool.
 
         """
-        return self._new_label(WEIGHT_BOOL, index, sym_type=BOOL, template="FW%s")
+        return self._new_label(CNF_LABEL, index, sym_type=BOOL, template="CNFB%s")
 
     def is_cond_label(self, variable):
         """Checks if the variable is a condition label.
 
-        To recognize if the label is a condition label, it first check if it is a wmi variable and then it controls its label type.
+        To recognize if the label is a condition label, it first checks if it is a wmi variable,
+        then it controls its label type.
 
         Args:
             variable (FNode): The variable to examine.
@@ -111,7 +114,8 @@ class WMIVariables:
     def is_query_label(self, variable):
         """Checks if the variable is a query label.
 
-        To recognize if the label is a query label, it first check if it is a wmi variable and then it controls its label type.
+        To recognize if the label is a query label, it first checks if it is a wmi variable,
+        then it controls its label type.
 
         Args:
             variable (FNode): The variable to examine.
@@ -125,7 +129,8 @@ class WMIVariables:
     def is_wmi_label(self, variable):
         """Checks if the variable is a wmi label.
 
-        To recognize if the label is a wmi label, it first check if it is a wmi variable and then it controls its label type.
+        To recognize if the label is a wmi label, it first checks if it is a wmi variable,
+        then it controls its label type.
 
         Args:
             variable (FNode): The variable to examine.
@@ -136,10 +141,11 @@ class WMIVariables:
         """
         return variable in self.variables and self.variables[variable][1] == WMI
 
-    def is_weight_alias(self, variable):
+    def is_euf_alias(self, variable):
         """Checks if the variable is a weight label.
 
-        To recognize if the label is a weight label, it first check if it is a weight variable and then it controls its label type.
+        To recognize if the label is a weight label, it first checks if it is a weight variable,
+        then it controls its label type.
 
         Args:
             variable (FNode): The variable to examine.
@@ -148,12 +154,30 @@ class WMIVariables:
             bool: True if the variable is a weight label, False otherwise.
 
         """
-        return variable in self.variables and self.variables[variable][1] == WEIGHT_ALIAS
+        return variable in self.variables and self.variables[variable][1] == EUF_ALIAS
 
-    def is_weight_bool(self, variable):
+    def is_weight_alias(self, variable):
+        """Checks if the variable is a weight label.
+
+        To recognize if the label is a weight label, it first checks if it is a weight variable,
+        then it controls its label type.
+
+        Args:
+            variable (FNode): The variable to examine.
+
+        Returns:
+            bool: True if the variable is a weight label, False otherwise.
+
+        """
+        return (
+                variable in self.variables and self.variables[variable][1] == WEIGHT_ALIAS
+        )
+
+    def is_cnf_label(self, variable):
         """Checks if the variable is a weight bool.
 
-        To recognize if the label is a weight bool, it first check if it is a weight variable and then it controls its label type.
+        To recognize if the bool is a weight bool, it first checks if it is a weight variable,
+        then it controls its label type.
 
         Args:
             variable (FNode): The variable to examine.
@@ -162,7 +186,7 @@ class WMIVariables:
             bool: True if the variable is a weight bool, False otherwise.
 
         """
-        return variable in self.variables and self.variables[variable][1] == WEIGHT_BOOL
+        return variable in self.variables and self.variables[variable][1] == CNF_LABEL
 
     def is_label(self, variable):
         """Checks if the variable is a condition label, query label or wmi label.

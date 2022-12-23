@@ -1,12 +1,15 @@
+#!/bin/bash
+
 MLC_DIR=mlc
 
-for dir in $(ls $MLC_DIR/data)
+for dir in $(ls -d $MLC_DIR/data/*)
 do
-        mkdir -p $MLC_DIR/results/$dir
+	res_dir=$(sed "s+data+results+g" <<< $dir)
+  mkdir -p $res_dir
 	echo Evaluating $dir
-	for mode in SAPA PA XSDD XADD FXSDD
+	for mode in XSDD XADD FXSDD "PA latte" "SAPA latte" "SAPASK latte"
         do
                 echo Mode $mode
-                python3 evaluateModels.py $MLC_DIR/data/$dir -o $MLC_DIR/results/$dir -m $mode --timeout 1200
+                python3 evaluateModels.py $dir -o $res_dir --timeout 1200 -m $mode
         done
 done
