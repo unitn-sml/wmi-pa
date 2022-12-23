@@ -1,8 +1,3 @@
-"""
-This example corresponds to Ex.3 in the paper.
-
-"""
-
 from pysmt.shortcuts import (
     GE,
     LE,

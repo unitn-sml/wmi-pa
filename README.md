@@ -1,4 +1,4 @@
-# wmi-pa
+# SA-WMI-PA-SK
 [![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
 
 Python 3 implementation of the methods presented in:
