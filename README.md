@@ -1,12 +1,8 @@
-# sa-wmi-pa
+# SA-WMI-PA-SK
 [![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
 
 Python 3 implementation of the methods presented in:
 
-  [SMT-based Weighted Model Integration with Structure Awareness](https://arxiv.org/abs/2206.13856)
-  Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani,
-  in Proceedings of UAI 2022
-  
   [Efficient WMI via SMT-Based Predicate Abstraction](https://www.ijcai.org/proceedings/2017/100)  
   Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
   in Proceedings of IJCAI 2017

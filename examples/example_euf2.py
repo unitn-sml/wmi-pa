@@ -1,8 +1,3 @@
-"""
-This example corresponds to Ex.4 in the paper.
-
-"""
-
 from pysmt.shortcuts import Iff, Implies, Ite, Symbol
 from pysmt.typing import BOOL, REAL
 

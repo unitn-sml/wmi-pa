@@ -1,15 +1,3 @@
-"""This example corresponds to the motivating example in the IJCAI poster.
-It shows a simple case in which WMI-AllSMT performs more integrations
-than necessary.
-
-Intuitively, two mutually exclusive cases are encoded:
-
-1) W(x,y) = x + y, x in [0,2], y in [0,2]
-2) W(x,y) = 2y, x in [1,3], y in [0,2]
-
-
-"""
-
 from pysmt.shortcuts import LE, And, Bool, Implies, Ite, Not, Plus, Real, Symbol, Times
 from pysmt.typing import REAL
 
