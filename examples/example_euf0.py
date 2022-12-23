@@ -1,15 +1,15 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Ite, Real, Symbol
-from pysmt.typing import REAL, BOOL
+from pysmt.typing import REAL
+
 from wmipa import WMI
 
 # variables definition
 x = Symbol("x", REAL)
 y = Symbol("y", REAL)
-A = Symbol("A", BOOL)
-
-phi = Bool(True)
 
 # fmt: off
+phi = Bool(True)
+
 chi = And(
     GE(x, Real(0)),
     LE(x, Real(2)),
@@ -36,7 +36,11 @@ print("Support:", chi.serialize())
 
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(mode, result, n_integrations))
+    print(
+        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
+            mode, result, n_integrations
+        )
+    )

@@ -1,5 +1,5 @@
 from pysmt.shortcuts import REAL, Real, LE, GE, LT, Plus, Pow, Times, Symbol
-from wmipa.polytope import Polytope, Bound
+from wmipa.integration.polytope import Polytope, Bound
 from wmipa.wmiexception import WMIParsingException
 import pytest
 
@@ -28,14 +28,14 @@ def test_polytope_one_bound():
     polytope = Polytope(bounds, {})
     assert len(polytope.bounds) == 1
     assert str(polytope.bounds[0]) == str(bound)
-    assert polytope.variables == set(["X"])
+    assert polytope.variables == {"X"}
 
 
 def test_polytope_multiple_bounds():
     bounds = [LE(x, r1), GE(y, Times(r1, x)), LT(Plus(r1, r2), Times(y, r3))]
     polytope = Polytope(bounds, {})
     assert len(polytope.bounds) == 3
-    assert polytope.variables == set(["X", "Y"])
+    assert polytope.variables == {"X", "Y"}
 
 
 def test_polytope_grade_more_than_one():
@@ -49,7 +49,7 @@ def test_polytope_aliases():
     aliases = {y: Times(x, r3)}
     polytope = Polytope(bounds, aliases)
     assert len(polytope.bounds) == 2
-    assert polytope.variables == set(["X"])
+    assert polytope.variables == {"X"}
 
 
 def test_polytope_aliases_remove_variables():
@@ -65,4 +65,4 @@ def test_polytope_aliases_brings_more_variables():
     aliases = {y: Plus(w, z)}
     polytope = Polytope(bounds, aliases)
     assert len(polytope.bounds) == 2
-    assert polytope.variables == set(["X", "W", "Z"])
+    assert polytope.variables == {"X", "W", "Z"}

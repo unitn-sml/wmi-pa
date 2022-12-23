@@ -1,5 +1,5 @@
-"""
-This module implements the exceptions used throughout the code.
+"""This module implements the exceptions used throughout the code.
+
 """
 
 version = "0.99"
@@ -52,57 +52,57 @@ class WMIParsingException(WMIException):
         '.get_type() == REAL'.
         An example of correct equality is: 'x = Plus(y, Real(3))' where
         x = Symbol('X', REAL) and y = Symbol('Y', REAL).
-        
+
     """
     MALFORMED_ALIAS_EXPRESSION = 0
 
     """During the parsing of the formula, it was encountered a node that cannot exists inside
-        the formula representing the weight function. The weight function ammits only these internal nodes:
+        the formula representing the weight function. The weight function admits only these internal nodes:
         PLUS, MINUS, TIMES, DIV, POW, ITE. Also as a leaf node there must be a Real or a Symbol with
         type equal to Real.
-        
+
     """
     INVALID_WEIGHT_FUNCTION = 1
 
     """During the parsing of the formula, it was encountered an expression that couldn't be converted to pysmt.
         The expression must be of one of this types: PLUS, MINUS, TIMES, DIV, POW, SYMBOL, REAL.
-        
+
     """
     CANNOT_CONVERT_SYMPY_FORMULA_TO_PYSMT = 2
 
     """During the parsing of the formula, it was encountered an expression that couldn't be converted to sympy.
         The expression must be of one of this types: PLUS, MINUS, TIMES, DIV, POW, SYMBOL, REAL.
-        
+
     """
     CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY = 3
 
     """During the parsing of the formula, it was encountered an expression that is not a monomial.
-    
+
     """
     NOT_A_MONOMIAL = 4
 
     """During the parsing of the formula, it was encountered two or more aliases (equalities) that
         lead to a cyclic assignment (e.g: y = x, x = y).
-    
+
     """
     CYCLIC_ASSIGNMENT_IN_ALIASES = 5
 
     """During the parsing of the formula, it was encountered an expression that does not represent an inequality.
-    
+
     """
     NOT_AN_INEQUALITY = 6
 
     """During the parsing of the formula, it was encountered an expression that represents a polynomial
         with a degree greater than one. This is not supported in this module because it handles only
         linear inequalities over reals.
-    
+
     """
     POLYNOMIAL_WITH_DEGREE_GREATER_THAN_ONE = 7
 
     """During the parsing of the formula, it was encountered a same alias with two or more assignments
         (e.g: z = x+3, z = y-2). This module does not support this kind of operations, for every alias
         there must be at most one assignment.
-    
+
     """
     MULTIPLE_ASSIGNMENT_SAME_ALIAS = 8
 
@@ -121,7 +121,7 @@ class WMIParsingException(WMIException):
     def __init__(self, code, value=None):
         """Default constructor.
 
-        It first calls the init method of the parent and then assignes the expression to the attributes.
+        It first calls the init method of the parent and then assigns the expression to the attributes.
 
         Args:
             code (int): The code of the exception.
@@ -145,7 +145,7 @@ class WMIRuntimeException(WMIException):
         value: Additional info about the value that raised the exception (default: None).
     """
 
-    """The domain of integration of the numerical variables should be all the variables in the formula. 
+    """The domain of integration of the numerical variables should be all the variables in the formula.
         The domain of integration of the Boolean variables should be a superset of all the boolean
         variables in the formula.
     """
@@ -153,7 +153,7 @@ class WMIRuntimeException(WMIException):
 
     """The mode selected is not correct. Check which are the possibilities (it should be displayed
         in the error message).
-    
+
     """
     INVALID_MODE = 1
 
@@ -194,55 +194,55 @@ class WMIParsingFileException(WMIException):
 
     """During the parsing of the file it was encountered an operation that is not supported by
         WMI module.
-        
+
     """
     OPERATION_NOT_SUPPORTED = 0
 
     """During the parsing of the file it was encountered a type error. More info in the error message
         itself.
-        
+
     """
     TYPE_ERROR = 1
 
     """During the parsing of the file it was encountered a double type declaration, that is the same
         variable was declared twice in the file (e.g: y=5; y=10).
-        
+
     """
     DOUBLE_DECLARATION = 2
 
     """During the parsing of the file it was encountered a type that is not supported by WMI.
-    
+
     """
     TYPE_NOT_SUPPORTED = 3
 
     """During the parsing of the file it was encountered a variable that was not declared in the model.
         More info in the error message itself.
-    
+
     """
     VARIABLE_NOT_DECLARED = 4
 
     """During the parsing of the file it was encountered a variable that was not initialized.
         More info in the error message itself.
-    
+
     """
     VARIABLE_NOT_INITIALIZED = 5
 
     """During the parsing of the file it was encountered a type that is not supported by WMI.
         More info in the error message itself.
-    
+
     """
     DOUBLE_WEIGHT_DECLARATION = 6
 
     """During the parsing of the file it was encountered a query declaration in a model file.
         This type of declaration can only be declared in the query or complete file.
-    
+
     """
     QUERY_IN_MODEL = 7
 
     """During the parsing of the file it was encountered a syntax error (this could be an error
         in the format itself or something that is not recognized by WMI.
         More info in the error message itself.
-    
+
     """
     SYNTAX_ERROR = 8
 

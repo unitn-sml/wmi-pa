@@ -1,3 +1,5 @@
+#!/bin/bash
+
 SYN_DIR=synthetic_exp
 MODELS=10
 SEED=666

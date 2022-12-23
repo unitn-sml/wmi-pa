@@ -1,7 +1,7 @@
 import os
-
-from setuptools import setup, find_packages
 from os import path
+
+from setuptools import find_packages, setup
 
 NAME = "wmipa"
 DESCRIPTION = "Weighted Model Integration PA (Predicate Abstraction) solver."
@@ -9,10 +9,13 @@ URL = "http://github.com/unitn-sml/wmi-pa"
 EMAIL = "paolo.morettin@unitn.it"
 AUTHOR = "Paolo Morettin"
 REQUIRES_PYTHON = ">=3.5.0"
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 
 # What packages are required for this module to be executed?
-REQUIRED = ["pysmt @ git+https://github.com/pysmt/pysmt", "numpy", "sympy", "networkx"]
+REQUIRED = ["pysmt @ git+ssh://git@github.com/masinag/pysmt@nrat#egg=pysmt",
+            "numpy",
+            "sympy",
+            "networkx"]
 
 # What packages are optional?
 EXTRAS = {

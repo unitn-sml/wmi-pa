@@ -1,5 +1,5 @@
 from pysmt.shortcuts import Real, LE, Pow, REAL, Symbol, Times, Plus, GE
-from wmipa.polytope import Bound
+from wmipa.integration.polytope import Bound
 from fractions import Fraction
 from wmipa.wmiexception import WMIParsingException
 import pytest

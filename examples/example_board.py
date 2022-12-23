@@ -1,11 +1,11 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Ite, Real, Symbol
-from pysmt.typing import REAL, BOOL
+from pysmt.typing import REAL
+
 from wmipa import WMI
 
 # variables definition
 x = Symbol("x", REAL)
 y = Symbol("y", REAL)
-A = Symbol("A", BOOL)
 
 # fmt: off
 phi = Bool(True)
@@ -27,17 +27,19 @@ w = Ite(x >= 1,
             4*(x*y)
             ),
         )
-# fmt: off
+# fmt: on
 
 print("Formula:", phi.serialize())
 
 print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
-
 print()
-for mode in [WMI.MODE_PA, WMI.MODE_SA_PA]:
+for mode in [WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
     wmi = WMI(chi, w)
     result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print("WMI with mode {} \t result = {}, \t # integrations = {}".format(
-        mode, result, n_integrations))
+    print(
+        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
+            mode, result, n_integrations
+        )
+    )
