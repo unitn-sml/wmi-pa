@@ -9,6 +9,9 @@ Currently, three algorithms are supported:
     "AllSMT" -- Improves BC by leveraging the AllSAT feature of the SMT Solver.
     "PA" -- WMI with Predicate Abstraction, may reduce drastically the number of
         integrals computed.
+    "SA-PA" -- Improves PA by making it aware of the structure of the weight function.
+    "SA-PA-SK" -- Improves SA-PA by using a better encoding of the problem and a revised
+        enumeration strategy
 
 """
 
