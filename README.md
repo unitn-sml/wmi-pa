@@ -23,18 +23,24 @@ Python 3 implementation of the methods presented in:
 WMI-PA is now part of [pywmi](https://github.com/weighted-model-integration/pywmi/), a general framework for Weighted Model Integration that offers a number of different solvers, a command-line interface, etc.
 
 ## Installation
+Base version:
 
     pip install wmipa
 
+Version with support for NRA:
+
+    pip install "wmipa[nra]"
 ### Additional requirements
 
 At least one following integration backend is needed:
   * [LattE integrale](https://www.math.ucdavis.edu/~latte/) - Exact integration (recommended):
     ```[bash]
+    sudo apt install -y libntl-dev libcdd-dev libcdd-tools
     wget https://github.com/latte-int/latte/releases/download/version_1_7_6/latte-int-1.7.6.tar.gz
     tar -xzf latte-int-1.7.6.tar.gz
     cd latte-int-1.7.6
-    ./configure GXX="g++ -std=c++11" --prefix=$HOME/latte && make && make install
+    ./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" --prefix=$HOME/latte && make && make install
+    cd ..
     ```
     Add `$HOME/latte/bin` to the PATH environment variable:
     ```[bash]

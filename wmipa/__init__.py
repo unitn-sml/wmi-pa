@@ -5,6 +5,7 @@ except ImportError:
     IMPORT_ERR_MSG = """Couldn't import mathsat.
 MathSAT needs to be manually installed via:
     pysmt-install --msat"""
+    raise ImportError(IMPORT_ERR_MSG)
 
 from .log import logger
 from .wmi import WMI
