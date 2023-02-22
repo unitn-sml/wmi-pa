@@ -15,7 +15,7 @@ Python 3 implementation of the methods presented in:
   Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
   in UAI Conference 2022
 
-  [SMT-based Weighted Model Integration with Structure Awareness and Multiple Integration Approaches](TODO)  
+  [SMT-based Weighted Model Integration with Structure Awareness and Multiple Integration Approaches](https://arxiv.org/abs/2302.06188)  
   Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani
 
 ## pywmi
