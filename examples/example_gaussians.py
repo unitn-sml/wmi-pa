@@ -1,4 +1,10 @@
-from pysmt.shortcuts import GE, LE, LT, And, Bool, Iff, Pow, PI, Real, Symbol, Exp, Div, Times
+try:
+    from pysmt.shortcuts import PI, Exp
+except ImportError:
+    raise ImportError("""Couldn't import PI or Exp from pysmt.shortcuts.
+Install wmipa with the extras_require option for non-linear arithmetic: 
+    pip install wmipa[nra]""")
+from pysmt.shortcuts import GE, LE, And, Bool, Pow, Real, Symbol, Div, Times
 from pysmt.typing import REAL
 
 from wmipa import WMI

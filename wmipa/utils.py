@@ -13,6 +13,11 @@ from pysmt.typing import BOOL, REAL
 
 from wmipa.wmiexception import WMIParsingException
 
+try:
+    from pysmt.operators import EXP
+except ImportError:
+    EXP = None
+
 
 def get_boolean_variables(formula):
     """Finds all the boolean variables in the formula.
@@ -75,10 +80,24 @@ def is_pow(node):
         node (FNode): The node to examine.
 
     Returns:
-        bool: True if the node is a Pow operator, False otherwise.
+        bool: True if the node is the Pow operator, False otherwise.
 
     """
     return node.node_type() == POW
+
+
+def is_exp(node):
+    """Test whether the node is the Exp operator
+    If the pysmt version does not support Exp, then return False
+
+    Args:
+        node (FNode): The node to examine.
+
+    Returns:
+        bool: True if the node is the Exp operator, False otherwise.
+
+    """
+    return node.node_type() == EXP
 
 
 def _gcd(a, b):
@@ -135,6 +154,7 @@ def lcmm(args):
 
     """
     return reduce(_lcm, args)
+
 
 def apply_aliases(expression, aliases):
     """Substitute the aliases within the expression in the right order.

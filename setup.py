@@ -9,11 +9,11 @@ URL = "http://github.com/unitn-sml/wmi-pa"
 EMAIL = "paolo.morettin@unitn.it"
 AUTHOR = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 REQUIRES_PYTHON = ">=3.5.0"
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    "pysmt @ git+ssh://git@github.com/masinag/pysmt@nrat#egg=pysmt",
+    "pysmt",
     "pywmi",
     "numpy",
     "sympy",
@@ -23,6 +23,7 @@ REQUIRED = [
 # What packages are optional?
 EXTRAS = {
     #        'sdd': ["pysdd"]
+    "nra": ["pysmt @ git+ssh://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 }
 
 here = os.path.abspath(os.path.dirname(__file__))
