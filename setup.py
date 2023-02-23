@@ -64,4 +64,9 @@ setup(
         #        'upload': UploadCommand,
         #        'install': PostInstallCommand,
     },
+    entry_points={
+        "console_scripts": [
+            "wmipa-install = wmipa_cli.install:run",
+        ]
+    },
 )
