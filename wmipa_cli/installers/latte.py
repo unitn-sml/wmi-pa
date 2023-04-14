@@ -6,8 +6,8 @@ from wmipa_cli.utils import check_os_version
 
 
 class LatteInstaller(Installer):
-    dependencies = ["g++", "make", "wget", "libgmp-dev", "libmpfr-dev", "libboost-dev", "libntl-dev",
-                    "libcdd-dev", "libcdd-tools"]
+    dependencies = ['g++', 'libboost-dev', 'libcdd-dev', 'libcdd-tools', 'libgmp-dev', 'libmpfr-dev', 'libntl-dev',
+                    'make', 'wget']
 
     def __init__(self, install_path, version=(1, 7, 6)):
         super().__init__(install_path)
@@ -28,7 +28,7 @@ class LatteInstaller(Installer):
             a=version[0], b=version[1], c=version[2])
 
     def check_environment(self):
-        print("Checking environment for LattE Integrale...")
+        print(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
             warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
         Please install it manually from {self.download_url}""")
@@ -45,16 +45,17 @@ class LatteInstaller(Installer):
 
     def download(self):
         if os.path.exists(self.filename) or os.path.exists(self.filename.rstrip("tar.gz")):
-            print(f"Skipping download of LattE Integrale, file {self.filename} already exists.")
+            print(f"Skipping download of {self.get_name()}, file {self.filename} already exists.")
             return
-        print(f"Downloading LattE Integrale from {self.download_url} to {os.getcwd()}...")
+        print(f"Downloading {self.get_name()} from {self.download_url} to {os.getcwd()}...")
         os.system("wget %s" % self.download_url)
 
     def unpack(self):
         if os.path.exists(self.filename.rstrip("tar.gz")):
-            print(f"Skipping unpacking of LattE Integrale, directory {self.filename.rstrip('tar.gz')} already exists.")
+            print(
+                f"Skipping unpacking of {self.get_name()}, directory {self.filename.rstrip('tar.gz')} already exists.")
             return
-        print(f"Unpacking LattE Integrale  to {os.getcwd()}...")
+        print(f"Unpacking {self.get_name()}  to {os.getcwd()}...")
         os.system(f"tar -xzf {self.filename}")
         os.system(f"rm {self.filename}")
 
