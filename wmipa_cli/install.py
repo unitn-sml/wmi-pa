@@ -20,7 +20,7 @@ def run():
     if args.all or args.volesti:
         installers.append(VolestiInstaller(args.install_path))
     for installer in installers:
-        installer.install()
+        installer.install(args.y)
     paths_to_export = []
     for installer in installers:
         paths_to_export.extend(installer.paths_to_export)
@@ -41,6 +41,7 @@ def parse_args(args):
     parser.add_argument("--all", help="Install all dependencies", action="store_true")
     parser.add_argument("--install-path", help="Install path", default=f"{os.path.expanduser('~')}/.wmipa",
                         type=str)
+    parser.add_argument("-y", help="Answer yes to all questions", action="store_true")
     return parser.parse_args(args)
 
 
@@ -62,7 +63,7 @@ def copy_custom_msat_binary():
     msat_install_dir = sysconfig.get_path("purelib")
     msat_so = "_mathsat.cpython-38-x86_64-linux-gnu.so"
     msat_py = "mathsat.py"
-    url = "https://github.com/unitn-sml/wmi-pa/raw/master/bin/{}"
+    url = "https://github.com/masinag/wmi-pa/raw/master/bin/{}"
     msat_so_url = url.format(msat_so)
     msat_py_url = url.format(msat_py)
 

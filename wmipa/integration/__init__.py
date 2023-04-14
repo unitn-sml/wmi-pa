@@ -1,6 +1,9 @@
 from shutil import which
 
-IMPORT_ERR_MSG = "No integration backend installed."
+IMPORT_ERR_MSG = "No integration backend installed.\n" \
+                 "Please install LattE integrale or VolEsti via\n" \
+                 "wmipa-install --latte\n" \
+                 "wmipa-install --volesti`"
 latte_installed = True
 volesti_installed = True
 

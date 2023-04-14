@@ -8,8 +8,8 @@ class Installer(metaclass=ABCMeta):
         self.install_path = os.path.abspath(install_path)
         self.paths_to_export = []
 
-    def install(self):
-        if not self.check_environment():
+    def install(self, yes=False):
+        if not self.check_environment(yes):
             error("Installation aborted.")
             return
         print(f"Installing {self.get_name()} in {self.install_path}...")
@@ -27,7 +27,7 @@ class Installer(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def check_environment(self):
+    def check_environment(self, yes):
         pass
 
     @abstractmethod

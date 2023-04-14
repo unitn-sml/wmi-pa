@@ -27,21 +27,21 @@ class LatteInstaller(Installer):
                "version_{a}_{b}_{c}/latte-int-{a}.{b}.{c}.tar.gz".format(
             a=version[0], b=version[1], c=version[2])
 
-    def check_environment(self):
+    def check_environment(self, yes):
         print(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
             warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
         Please install it manually from {self.download_url}""")
             return False
-        if not self.ask_dependencies_proceed():
+        if not self.ask_dependencies_proceed(yes):
             return False
         return True
 
-    def ask_dependencies_proceed(self):
+    def ask_dependencies_proceed(self, yes):
         print("Make sure you have the following dependencies installed:")
         print(" ".join(self.dependencies))
         print("Do you want to proceed? [y/n] ", end="")
-        return input().strip().lower() == "y"
+        return yes or input().strip().lower() == "y"
 
     def download(self):
         if os.path.exists(self.filename) or os.path.exists(self.filename.rstrip("tar.gz")):
