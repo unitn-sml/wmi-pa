@@ -62,18 +62,13 @@ def copy_custom_msat_binary():
     msat_install_dir = sysconfig.get_path("purelib")
     msat_so = "_mathsat.cpython-38-x86_64-linux-gnu.so"
     msat_py = "mathsat.py"
-    here = os.path.abspath(os.path.dirname(__file__))
-    project_root = os.path.join(here, "..")
-    source_path = os.path.join(project_root, "bin")
-    target_path = os.path.join(msat_install_dir)
-    msat_so_path = os.path.join(source_path, msat_so)
-    msat_py_path = os.path.join(source_path, msat_py)
-    assert os.path.exists(msat_so_path), f"File {msat_so_path} does not exist"
-    assert os.path.exists(msat_py_path), f"File {msat_py_path} does not exist"
-    assert os.path.exists(os.path.join(target_path, msat_so)), f"File {os.path.join(target_path, msat_so)} does not exist"
-    assert os.path.exists(os.path.join(target_path, msat_py)), f"File {os.path.join(target_path, msat_py)} does not exist"
-    os.system(f"cp {msat_so_path} {target_path}")
-    os.system(f"cp {msat_py_path} {target_path}")
+    url = "https://github.com/unitn-sml/wmi-pa/raw/master/bin/{}"
+    msat_so_url = url.format(msat_so)
+    msat_py_url = url.format(msat_py)
+
+    # download files to the venv/lib/python3.8/site-packages
+    os.system(f"wget {msat_so_url} -O {os.path.join(msat_install_dir, msat_so)}")
+    os.system(f"wget {msat_py_url} -O {os.path.join(msat_install_dir, msat_py)}")
 
 
 def install_msat():
