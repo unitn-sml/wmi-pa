@@ -11,9 +11,11 @@ class WMICommandLineIntegratorException(WMIRuntimeException):
     """
 
     MEMORY_LIMIT = 0
+    UNBOUNDED_POLYHEDRON = 1
 
     messages = {
-        MEMORY_LIMIT: "Memory limit exceeded",
+        MEMORY_LIMIT: "Memory limit exceeded (maybe)",
+        UNBOUNDED_POLYHEDRON: "Unbounded polyhedron",
     }
 
     def __init__(self, code, value=None):
@@ -111,7 +113,11 @@ class CommandLineIntegrator(CacheIntegrator):
                     return float(line.partition(": ")[-1].strip())
 
             # error (possibly interrupted due to memory limit)
-            raise WMICommandLineIntegratorException(WMICommandLineIntegratorException.MEMORY_LIMIT)
+            if "Cannot compute valuation for unbounded polyhedron." in ' '.join(lines):
+                error = WMICommandLineIntegratorException.UNBOUNDED_POLYHEDRON
+            else:
+                error = WMICommandLineIntegratorException.MEMORY_LIMIT
+            raise WMICommandLineIntegratorException(error)
 
         return res
 
