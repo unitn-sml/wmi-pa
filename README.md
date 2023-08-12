@@ -32,15 +32,18 @@ Base version:
 pip install wmipa
 ```
 
-Version with support for NRA:
-
-```bash
-pip install "wmipa[nra]"
-```
-
 ### Additional requirements
 
-To install all the requirements, run the following command:
+The base version of the solver requires at least one integration backend to be installed.
+
+Additional dependencies are needed to also support SA-WMI-PA-SK mode and NRA theory.
+
+We provide a script that automatically installs all the requirements. The script has only been tested on Ubuntu
+distributions.
+
+#### All-in-one installation
+
+To install all the mandatory and optional requirements, run
 
 ```bash
 wmipa-install --all
@@ -77,16 +80,28 @@ At least one following integration backend is needed:
   PATH=$HOME/.wmipa/approximate-integration/bin:$PATH
   ```
 
-[MathSAT5](http://mathsat.fbk.eu/)
+* [PyXadd](https://github.com/weighted-model-integration/pywmi) - Symbolic integration:
+  ```bash
+  wmipa-install --symbolic
+  ```
+
+The [MathSAT5](http://mathsat.fbk.eu/) SMT solver is required
 
 ```bash
 pysmt-install --msat
 ```
 
-For the SA-WMI-PA-SK mode, a slightly customized version of MathSAT5 is needed.
+To support NRA theory (PI, Sin, Exp,
+ecc.), [a customized version of PySMT](https://github.com/masinag/pysmt/tree/nrat) must be installed via
 
 ```bash
-wmipa-install --msat-custom
+wmipa-install --nra
+```
+
+For the SA-WMI-PA-SK mode, a slightly customized version of MathSAT5 must be installed via
+
+```bash
+wmipa-install --msat-sk
 ```
 
 This script substitutes the files
