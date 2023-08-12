@@ -1,5 +1,5 @@
 import os
-from logging import warning
+from wmipa_cli.log import logger
 
 from wmipa_cli.installers.installer import Installer
 from wmipa_cli.utils import check_os_version
@@ -28,9 +28,9 @@ class LatteInstaller(Installer):
             a=version[0], b=version[1], c=version[2])
 
     def check_environment(self, yes):
-        print(f"Checking environment for {self.get_name()}...")
+        logger.info(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
-            warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
+            logger.warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
         Please install it manually from {self.download_url}""")
             return False
         if not self.ask_dependencies_proceed(yes):
@@ -38,29 +38,29 @@ class LatteInstaller(Installer):
         return True
 
     def ask_dependencies_proceed(self, yes):
-        print("Make sure you have the following dependencies installed:")
-        print(" ".join(self.dependencies))
-        print("Do you want to proceed? [y/n] ", end="")
+        logger.info("Make sure you have the following dependencies installed:")
+        logger.info(" ".join(self.dependencies))
+        logger.info("Do you want to proceed? [y/n] ", end="")
         return yes or input().strip().lower() == "y"
 
     def download(self):
         if os.path.exists(self.filename) or os.path.exists(self.filename.rstrip("tar.gz")):
-            print(f"Skipping download of {self.get_name()}, file {self.filename} already exists.")
+            logger.info(f"Skipping download of {self.get_name()}, file {self.filename} already exists.")
             return
-        print(f"Downloading {self.get_name()} from {self.download_url} to {os.getcwd()}...")
+        logger.info(f"Downloading {self.get_name()} from {self.download_url} to {os.getcwd()}...")
         os.system("wget %s" % self.download_url)
 
     def unpack(self):
         if os.path.exists(self.filename.rstrip("tar.gz")):
-            print(
+            logger.info(
                 f"Skipping unpacking of {self.get_name()}, directory {self.filename.rstrip('tar.gz')} already exists.")
             return
-        print(f"Unpacking {self.get_name()}  to {os.getcwd()}...")
+        logger.info(f"Unpacking {self.get_name()}  to {os.getcwd()}...")
         os.system(f"tar -xzf {self.filename}")
         os.system(f"rm {self.filename}")
 
     def build(self):
-        print("Configuring and building LattE Integrale...")
+        logger.info("Configuring and building LattE Integrale...")
         dirname = self.filename.rstrip(".tar.gz")
         os.chdir(dirname)
         os.system(f'./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" '

@@ -1,6 +1,6 @@
 import os
 from abc import ABCMeta, abstractmethod
-from logging import error
+from wmipa_cli.log import logger
 
 
 class Installer(metaclass=ABCMeta):
@@ -10,9 +10,9 @@ class Installer(metaclass=ABCMeta):
 
     def install(self, yes=False):
         if not self.check_environment(yes):
-            error("Installation aborted.")
+            logger.error("Installation aborted.")
             return
-        print(f"Installing {self.get_name()} in {self.install_path}...")
+        logger.info(f"Installing {self.get_name()} in {self.install_path}...")
         here = os.path.abspath(os.path.dirname(__file__))
         os.system(f"mkdir -p {self.install_path}")
         os.chdir(self.install_path)

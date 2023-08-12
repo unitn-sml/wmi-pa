@@ -3,9 +3,12 @@ __author__ = "Paolo Morettin"
 
 from subprocess import call
 
+from wmipa.integration import _is_latte_installed
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
 from wmipa.integration.polytope import Polynomial, Polytope
-from wmipa.wmiexception import WMIRuntimeException
+from wmipa.wmiexception import WMIRuntimeException, WMIIntegrationException
+
+_LATTE_INSTALLED = _is_latte_installed()
 
 
 class LatteIntegrator(CommandLineIntegrator):
@@ -102,6 +105,9 @@ class LatteIntegrator(CommandLineIntegrator):
             output_file (str): The file where to write the result of the computation.
 
         """
+        if not _LATTE_INSTALLED:
+            raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "LattE")
+
         cmd = [
             "integrate",
             "--valuation=integrate",

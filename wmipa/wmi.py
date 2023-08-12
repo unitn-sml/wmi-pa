@@ -38,7 +38,7 @@ from pysmt.shortcuts import (
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
-from wmipa import logger
+from wmipa import logger, _msat_version_supports_skeleton
 from wmipa.integration import LatteIntegrator
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables
 from wmipa.weightconverter import SkeletonSimplifier
@@ -46,6 +46,7 @@ from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
 
+_MSAT_VERSION_SUPPORTS_SKELETON = _msat_version_supports_skeleton()
 
 class WMI:
     """The class that has the purpose to calculate the Weighted Module Integration of
@@ -1032,6 +1033,9 @@ class WMI:
         return volume, len(problems) - cached, cached
 
     def _compute_WMI_SA_PA_SK(self, formula, weights):
+        if not _MSAT_VERSION_SUPPORTS_SKELETON:
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, "MSAT version does not support WMI_SA_PA_SK")
+
         problems = []
 
         cnf_labels = {b for b in get_boolean_variables(formula) if

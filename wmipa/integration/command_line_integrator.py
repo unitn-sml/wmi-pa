@@ -3,33 +3,8 @@ from os import chdir, getcwd
 from tempfile import TemporaryDirectory
 
 from wmipa.integration.cache_integrator import CacheIntegrator
-from wmipa.wmiexception import WMIRuntimeException
+from wmipa.wmiexception import WMIIntegrationException
 
-class WMICommandLineIntegratorException(WMIRuntimeException):
-    """
-    Exception raised when the command line integrator fails.
-    """
-
-    MEMORY_LIMIT = 0
-    UNBOUNDED_POLYHEDRON = 1
-
-    messages = {
-        MEMORY_LIMIT: "Memory limit exceeded (maybe)",
-        UNBOUNDED_POLYHEDRON: "Unbounded polyhedron",
-    }
-
-    def __init__(self, code, value=None):
-        """
-        Default constructor.
-
-        It calls the init method of the parent.
-
-        Args:
-            code (int): The code of the exception.
-            value: Additional info about the value that raised the exception (default: None).
-
-        """
-        super().__init__(code, value)
 
 class CommandLineIntegrator(CacheIntegrator):
     DEF_ALGORITHM = None
@@ -114,10 +89,10 @@ class CommandLineIntegrator(CacheIntegrator):
 
             # error (possibly interrupted due to memory limit)
             if "Cannot compute valuation for unbounded polyhedron." in ' '.join(lines):
-                error = WMICommandLineIntegratorException.UNBOUNDED_POLYHEDRON
+                error = WMIIntegrationException.UNBOUNDED_POLYHEDRON
             else:
-                error = WMICommandLineIntegratorException.MEMORY_LIMIT
-            raise WMICommandLineIntegratorException(error)
+                error = WMIIntegrationException.MEMORY_LIMIT
+            raise WMIIntegrationException(error)
 
         return res
 

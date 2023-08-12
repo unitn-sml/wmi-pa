@@ -13,17 +13,17 @@ VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    "pysmt",
-    "pywmi",
-    "numpy",
-    "sympy",
     "networkx",
+    "numpy",
+    "pysmt",
+    "pytest",
+    "sympy",
 ]
 
 # What packages are optional?
 EXTRAS = {
     #        'sdd': ["pysdd"]
-    "nra": ["pysmt @ git+ssh://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
+    # "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 
 here = os.path.abspath(os.path.dirname(__file__))

@@ -1,25 +1,23 @@
 from shutil import which
 
-IMPORT_ERR_MSG = "No integration backend installed.\n" \
-                 "Please install LattE integrale or VolEsti via\n" \
-                 "wmipa-install --latte\n" \
-                 "wmipa-install --volesti`"
-latte_installed = True
-volesti_installed = True
+def _is_latte_installed():
+    return which("integrate") is not None
 
-# check whether LattE integrale is installed or not
-if which("integrate") is None:
-    latte_installed = False
+def _is_volesti_installed():
+    return which("volesti_integrate") is not None
 
-# check whether VolEsti is installed or not
-if which("volesti_integrate") is None:
-    volesti_installed = False
+def _is_symbolic_installed():
+    try:
+        from pywmi.engines import PyXaddEngine
+        return True
+    except ImportError:
+        return False
 
-if not any([latte_installed, volesti_installed]):
+IMPORT_ERR_MSG = "No integration backend installed. Run `wmipa-install --help` for more information."
+
+if not any((_is_latte_installed(), _is_volesti_installed(), _is_symbolic_installed())):
     raise ImportError(IMPORT_ERR_MSG)
 else:
-    from .integrator import Integrator
-    from .cache_integrator import CacheIntegrator
-    from .command_line_integrator import CommandLineIntegrator
     from .latte_integrator import LatteIntegrator
+    from .symbolic_integrator import SymbolicIntegrator
     from .volesti_integrator import VolestiIntegrator

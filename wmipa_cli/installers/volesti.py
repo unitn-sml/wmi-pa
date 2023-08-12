@@ -1,5 +1,5 @@
 import os
-from logging import warning
+from wmipa_cli.log import logger
 
 from wmipa_cli.installers.installer import Installer
 from wmipa_cli.utils import check_os_version
@@ -16,9 +16,9 @@ class VolestiInstaller(Installer):
         return "Volesti Integrator"
 
     def check_environment(self, yes):
-        print(f"Checking environment for {self.get_name()}...")
+        logger.info(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
-            warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
+            logger.warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
         Please install it manually from {self.git_repo}""")
             return False
         if not self.ask_dependencies_proceed(yes):
@@ -26,16 +26,16 @@ class VolestiInstaller(Installer):
         return True
 
     def ask_dependencies_proceed(self, yes):
-        print("Make sure you have the following dependencies installed:")
-        print(" ".join(self.dependencies))
-        print("Do you want to proceed? [y/n] ", end="")
+        logger.info("Make sure you have the following dependencies installed:")
+        logger.info(" ".join(self.dependencies))
+        logger.info("Do you want to proceed? [y/n] ", end="")
         return yes or input().strip().lower() == "y"
 
     def download(self):
         if os.path.exists("approximate-integration"):
-            print(f"Skipping download of {self.get_name()}, directory approximate-integration already exists.")
+            logger.info(f"Skipping download of {self.get_name()}, directory approximate-integration already exists.")
             return
-        print(f"Downloading {self.get_name()}...")
+        logger.info(f"Downloading {self.get_name()}...")
         os.system(f"git clone {self.git_repo}")
 
     def unpack(self):
