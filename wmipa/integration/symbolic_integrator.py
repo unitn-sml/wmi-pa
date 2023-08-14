@@ -6,10 +6,13 @@ from wmipa.wmiexception import WMIIntegrationException
 try:
     from pywmi.domain import Domain
     from pywmi.engines import PyXaddEngine
+
     _PYXADD_INSTALLED = True
 except ImportError:
-    _PYXADD_INSTALLED = False
+    Domain = None
+    PyXaddEngine = None
 
+    _PYXADD_INSTALLED = False
 
 from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.integration.expression import Expression

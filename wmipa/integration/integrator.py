@@ -23,7 +23,9 @@ class Integrator(ABC):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
 
         Args:
-            problem (atom_assignments, weight, aliases): The problem to integrate.
+            atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
+            weight (Weight): The weight function of the problem.
+            aliases (dict): Alias relationship between variables.
 
         Returns:
             real: The integration result.

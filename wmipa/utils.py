@@ -1,4 +1,4 @@
-"""This module implements some usefull methods used throughout the code.
+"""This module implements some useful methods used throughout the code.
 
 Credits: least common multiple code by J.F. Sebastian
     (http://stackoverflow.com/a/147539)

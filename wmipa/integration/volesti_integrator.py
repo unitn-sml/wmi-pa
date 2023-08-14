@@ -183,3 +183,5 @@ class VolestiIntegrator(CommandLineIntegrator):
                 f.write("")
             else:
                 return_value = call(cmd, stdout=f)
+                if return_value != 0:
+                    raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")

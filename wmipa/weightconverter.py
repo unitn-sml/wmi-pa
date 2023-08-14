@@ -97,13 +97,13 @@ class WeightConverterEUF(WeightConverter):
 
         if not l_has_cond:
             left = self.variables.new_weight_alias(len(self.conv_aliases))
-            f = self.variables.new_EUF_alias(self.counter)
+            f = self.variables.new_weight_alias(self.counter)
             e = Equals(left, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))
         if not r_has_cond:
             right = self.variables.new_weight_alias(len(self.conv_aliases))
-            f = self.variables.new_EUF_alias(self.counter)
+            f = self.variables.new_weight_alias(self.counter)
             e = Equals(right, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))

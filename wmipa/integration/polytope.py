@@ -204,7 +204,7 @@ class Polytope:
 
         Returns:
             str: The string representation of the polytope
-                (e.g: [(3x) + (-2y) < 7], [(5z < 10]).
+                (e.g: [(3x) + (-2y) < 7], [(5z < 10)]).
 
         """
         bounds = ["[" + str(b) + "]" for b in self.bounds]

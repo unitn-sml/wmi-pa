@@ -15,6 +15,7 @@ VERSION = "0.1.8"
 REQUIRED = [
     "networkx",
     "numpy",
+    "psutil",
     "pysmt",
     "pytest",
     "sympy",

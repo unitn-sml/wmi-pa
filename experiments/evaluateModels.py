@@ -47,7 +47,7 @@ def compute_wmi(domain, support, weight, args, q):
             domA=set(domain.get_bool_symbols()),
             domX=set(domain.get_real_symbols()),
         )
-        res = (*res, wmi.integrator.get_integration_time())
+        res = (*res, wmi.integrator.get_parallel_integration_time())
     else:
         if args.mode == "XADD":
             wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
