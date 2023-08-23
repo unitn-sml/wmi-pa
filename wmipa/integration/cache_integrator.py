@@ -82,18 +82,32 @@ class CacheIntegrator(Integrator):
     def _integrate_problem(self, integrand, polytope) -> float:
         pass
 
-    def cache_1(self, polytope, integrand, cond_assignments):
+    def _cache_1(self, polytope, integrand, cond_assignments):
         variables = list(integrand.variables.union(polytope.variables))
         return self.hashTable.key(polytope, cond_assignments, variables), polytope
 
-    def cache_2(self, polytope, integrand, _):
+    def _cache_2(self, polytope, integrand, _):
         return self.hashTable.key_2(polytope, integrand), polytope
 
-    def cache_3(self, polytope, integrand, _):
+    def _cache_3(self, polytope, integrand, _):
         polytope = self._remove_redundancy(polytope)
         if polytope is None:
             return None, None
-        return self.cache_2(polytope, integrand, _)
+        return self._cache_2(polytope, integrand, _)
+
+    def _get_cache_fn(self, cache):
+        cache_modes = {
+            -1: self._cache_1,
+            0: self._cache_1,
+            1: self._cache_1,
+            2: self._cache_2,
+            3: self._cache_3,
+        }
+        if cache not in cache_modes:
+            modes = map(str, cache_modes.keys())
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR,
+                                      f"Unsupported cache mode. Supported modes are ({', '.join(modes)})")
+        return cache_modes[cache]
 
     def integrate_batch(self, problems, cache, *args, **kwargs):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
@@ -110,18 +124,7 @@ class CacheIntegrator(Integrator):
         """
 
         EMPTY = -1
-        cache_modes = {
-            -1: self.cache_1,
-            0: self.cache_1,
-            1: self.cache_1,
-            2: self.cache_2,
-            3: self.cache_3,
-        }
-        if cache not in cache_modes:
-            modes = map(str, cache_modes.keys())
-            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR,
-                                      f"Unsupported cache mode. Supported modes are ({', '.join(modes)})")
-        cache_fn = cache_modes[cache]
+        cache_fn = self._get_cache_fn(cache)
 
         problems_to_integrate = {}
         problem_id = []
@@ -187,11 +190,16 @@ class CacheIntegrator(Integrator):
 
         Returns:
             real: The integration result.
+            bool: True if the result was cached, False otherwise.
 
         """
         integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
+        cache_fn = self._get_cache_fn(cache)
+        key, polytope = cache_fn(polytope, integrand, cond_assignments)
+        if polytope is None or polytope.is_empty():
+            return 0.0, False
         start_time = time.time()
-        value, cached = self._integrate_problem_or_cached(integrand, polytope, cond_assignments, cache)
+        value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
         integration_time = time.time() - start_time
         self.sequential_integration_time += integration_time
         self.parallel_integration_time += integration_time
