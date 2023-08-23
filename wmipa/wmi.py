@@ -20,26 +20,16 @@ __author__ = "Paolo Morettin"
 
 import math
 from collections import defaultdict
-from math import fsum
 
 import mathsat
-from pysmt.shortcuts import (
-    And,
-    Bool,
-    Iff,
-    Implies,
-    Not,
-    Real,
-    Solver,
-    serialize,
-    simplify,
-    substitute,
-)
+import numpy as np
+from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
 from wmipa import logger, _msat_version_supports_skeleton
 from wmipa.integration import LatteIntegrator
+from wmipa.integration.integrator import Integrator
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables
 from wmipa.weightconverter import SkeletonSimplifier
 from wmipa.weights import Weights
@@ -57,7 +47,7 @@ class WMI:
         variables (WMIVariables): The list of variables created and used by WMI.
         weights (Weights): The representation of the weight function.
         chi (FNode): The pysmt formula that contains the support of the formula
-        integrator (Integrator): The integrator to use.
+        integrator (Integrator or list(Integrator)): The integrator or the list of integrators to use.
 
     """
 
@@ -75,7 +65,9 @@ class WMI:
         Args:
             chi (FNode): The support of the problem.
             weight (FNode, optional): The weight function of the problem (default: 1).
-            integrator: integrator instance (default: LatteIntegrator()).
+            integrator (Integrator or list(Integrator)): integrator or list of integrators to use. If a list of
+                integrators is provided, then computeWMI will return a list of results, one for each integrator.
+                (default: LatteIntegrator())
 
         """
         self.variables = WMIVariables()
@@ -84,6 +76,9 @@ class WMI:
 
         if integrator is None:
             integrator = LatteIntegrator()
+        if not isinstance(integrator, Integrator) and not (
+                isinstance(integrator, list) and all(isinstance(i, Integrator) for i in integrator)):
+            raise TypeError("integrator must be an Integrator or a list of Integrator")
         self.integrator = integrator
 
         self.list_norm = set()
@@ -103,9 +98,13 @@ class WMI:
                 - mode: The mode to use when calculating MI.
 
         Returns:
-            list(real): The list containing the result of each computation.
-            list(int): The list containing the number of integrations for each
-                computation that have been computed.
+            list(real) or list(np.ndarray(real)): The list containing the result of each computation. If a list of
+                integrators is provided, then the result is a list of np.ndarray(real). Each np.ndarray(real) contains
+                the results computed by the different integrators on the corresponding query.
+            list(int) or list(np.ndarray(int)): The list containing the number of integrations for each computation that
+                have been computed. If a list of integrators is provided, then the result is a list of np.ndarray(int).
+                Each np.ndarray(int) contains the number of integrations computed by the different integrators on the
+                corresponding query.
 
         """
         # save the old weight
@@ -138,9 +137,13 @@ class WMI:
                 - mode: The mode to use when calculating WMI.
 
         Returns:
-            list(real): The list containing the result of each computation.
-            list(int): The list containing the number of integrations for each
-                computation that have been computed.
+            list(real) or list(np.ndarray(real)): The list containing the result of each computation. If a list of
+                integrators is provided, then the result is a list of np.ndarray(real). Each np.ndarray(real) contains
+                the results computed by the different integrators on the corresponding query.
+            list(int) or list(np.ndarray(int)): The list containing the number of integrations for each computation that
+                have been computed. If a list of integrators is provided, then the result is a list of np.ndarray(int).
+                Each np.ndarray(int) contains the number of integrations computed by the different integrators on the
+                corresponding query.
 
         """
         volumes = []
@@ -166,8 +169,11 @@ class WMI:
                 - mode: The mode to use when calculating MI.
 
         Returns:
-            real: The result of the computation.
-            int: The number of integrations that have been computed.
+            real or np.ndarray(real): The result of the computation. If a list of integrators is provided, then the
+                result is a np.ndarray(real) containing the results computed by the different integrators.
+            int or np.ndarray(real): The number of integrations that have been computed. If a list of integrators is
+                provided, then the result is a np.ndarray(int) containing the number of integrations computed by the
+                different integrators.
 
         """
         # save old weight
@@ -198,12 +204,16 @@ class WMI:
                 - domX: set of pysmt vars encoding the real integration domain
                     (optional)
                 - mode: The mode to use when calculating WMI (default: WMI.MODE_PA).
-                - cache: The cache level to use when calculating WMI (default: -1). See `wmipa.integration.CacheIntegrator` for more details.
+                - cache: The cache level to use when calculating WMI (default: -1). See wmipa.integration.CacheIntegrator`
+                    for more details.
                 - ete: Whether to use the Eager Theory Encoding or not (default: False).
 
         Returns:
-            real: The result of the computation.
-            int: The number of integrations that have been computed.
+            real or np.ndarray(real): The result of the computation. If a list of integrators is provided, then the
+                result is a np.ndarray(real) containing the results computed by the different integrators.
+            int or np.ndarray(real): The number of integrations that have been computed. If a list of integrators is
+                provided, then the result is a np.ndarray(int) containing the number of integrations computed by the
+                different integrators.
 
         """
         domA = options.get("domA")
@@ -433,6 +443,29 @@ class WMI:
         )
         return models, labels
 
+    def _integrate_batch(self, problems, cache, factors=None):
+        """Computes the integral of a batch of problems.
+
+        Args:
+            problems (list): The list of problems to integrate.
+            cache (int): The cache level to use.
+            factors (list, optional): A list of factor each problem should be multiplied by. Defaults to [1] * len(problems).
+
+        """
+        if factors is None:
+            factors = [1] * len(problems)
+        else:
+            assert isinstance(factors, list)
+            assert len(problems) == len(factors)
+        if isinstance(self.integrator, Integrator):
+            results, cached = self.integrator.integrate_batch(problems, cache)
+        else:
+            results, cached = zip(*(i.integrate_batch(problems, cache) for i in self.integrator))
+        cached = np.array(cached)
+        results = np.array(results)
+        volume = np.sum(results * factors, axis=-1)
+        return volume, cached
+
     def _compute_WMI_AllSMT(self, formula, weights, cache):
         """Computes WMI using the AllSMT algorithm.
 
@@ -446,9 +479,12 @@ class WMI:
             cache(int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         models, labels = self._compute_TTAs(formula)
@@ -463,8 +499,7 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        results, cached = self.integrator.integrate_batch(problems, cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _create_problem(self, atom_assignments, weights, on_labels=True):
@@ -482,7 +517,7 @@ class WMI:
 
         Returns:
             tuple: The problem on which to calculate the integral formed by
-                (atom assignment, actual weight, list of aliases).
+                (atom assignment, actual weight, list of aliases, weight condition assignments)
 
         """
         aliases = {}
@@ -545,9 +580,12 @@ class WMI:
             cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
@@ -558,8 +596,7 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        results, cached = self.integrator.integrate_batch(problems, cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _compute_WMI_PA_no_boolean(
@@ -608,9 +645,12 @@ class WMI:
             cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
@@ -671,8 +711,7 @@ class WMI:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
-        results, cached = self.integrator.integrate_batch(problems, cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _get_allsat(self, formula, use_ta=False, atoms=None, options=None):
@@ -905,8 +944,12 @@ class WMI:
             cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
@@ -970,10 +1013,9 @@ class WMI:
 
                         problems.append(problem)
                         n_bool_not_assigned.append(b_not_assigned)
-        results, cached = self.integrator.integrate_batch(problems, cache)
-        assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
-        volume = fsum(r * 2 ** i for i, r in zip(n_bool_not_assigned, results))
+        factors = [2 ** i for i in n_bool_not_assigned]
+        volume, cached = self._integrate_batch(problems, cache, factors)
         return volume, len(problems) - cached, cached
 
     def _compute_WMI_SA_PA_SK(self, formula, weights, cache):
@@ -986,8 +1028,12 @@ class WMI:
             cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         if not _MSAT_VERSION_SUPPORTS_SKELETON:
@@ -1052,11 +1098,9 @@ class WMI:
                     problems.append(problem)
                     n_bool_not_assigned.append(len(b_not_assigned))
 
-        results, cached = self.integrator.integrate_batch(problems, cache)
-
-        assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
-        volume = fsum(r * 2 ** i for i, r in zip(n_bool_not_assigned, results))
+        factors = [2 ** i for i in n_bool_not_assigned]
+        volume, cached = self._integrate_batch(problems, cache, factors)
         return volume, len(problems) - cached, cached
 
     def label_formula(self, formula, atoms_to_label):

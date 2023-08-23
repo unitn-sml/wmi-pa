@@ -41,5 +41,10 @@ class Integrator(ABC):
             problems (list(atom_assignments, weight, aliases)): The list of problems to
                 integrate.
 
+        Returns:
+            list(real): The list of integration results.
+            int: The number of cached results.
+
+
         """
         pass
