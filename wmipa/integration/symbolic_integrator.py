@@ -1,8 +1,18 @@
 # from pysmt.shortcuts import Bool
 import sys
 
-from pywmi.domain import Domain
-from pywmi.engines import PyXaddEngine
+from wmipa.wmiexception import WMIIntegrationException
+
+try:
+    from pywmi.domain import Domain
+    from pywmi.engines import PyXaddEngine
+
+    _PYXADD_INSTALLED = True
+except ImportError:
+    Domain = None
+    PyXaddEngine = None
+
+    _PYXADD_INSTALLED = False
 
 from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.integration.expression import Expression
@@ -59,6 +69,8 @@ class SymbolicIntegrator(CacheIntegrator):
             real: The integration result.
 
         """
+        if not _PYXADD_INSTALLED:
+            raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "Symbolic (PyXadd)")
         support = polytope.to_pysmt()
         weight = integrand.to_pysmt()
         variables = {

@@ -3,10 +3,13 @@ __author__ = "Gabriele Masina"
 
 from subprocess import call
 
+from wmipa.integration import _is_volesti_installed
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
 from wmipa.integration.expression import Expression
 from wmipa.integration.polytope import Polytope
-from wmipa.wmiexception import WMIRuntimeException
+from wmipa.wmiexception import WMIRuntimeException, WMIIntegrationException
+
+_VOLESTI_INSTALLED = _is_volesti_installed()
 
 
 class VolestiIntegrator(CommandLineIntegrator):
@@ -155,6 +158,9 @@ class VolestiIntegrator(CommandLineIntegrator):
             output_file (str): The file where to write the result of the computation.
 
         """
+        if not _VOLESTI_INSTALLED:
+            raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "VolEsti")
+
         cmd = [
             "volesti_integrate",
             polytope_file,
@@ -177,3 +183,5 @@ class VolestiIntegrator(CommandLineIntegrator):
                 f.write("")
             else:
                 return_value = call(cmd, stdout=f)
+                if return_value != 0:
+                    raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")

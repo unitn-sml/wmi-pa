@@ -17,7 +17,7 @@ from pysmt.simplifier import Simplifier
 from pysmt.typing import REAL
 from pysmt.walkers import IdentityDagWalker
 
-from wmipa.utils import is_atom
+from wmipa.utils import is_atom, is_pow, is_exp
 
 
 class WeightConverter(ABC):
@@ -67,9 +67,9 @@ class WeightConverterEUF(WeightConverter):
             return self._process_ite(formula, branch_condition, conversion_list)
         elif formula.is_times():
             return self._process_times(formula, branch_condition, conversion_list)
-        elif formula.is_pow():
+        elif is_pow(formula):
             return self._process_pow(formula, branch_condition, conversion_list)
-        elif formula.is_exp():
+        elif is_exp(formula):
             return self._process_exp(formula, branch_condition, conversion_list)
         elif len(formula.args()) == 0:
             return formula, False
@@ -97,13 +97,13 @@ class WeightConverterEUF(WeightConverter):
 
         if not l_has_cond:
             left = self.variables.new_weight_alias(len(self.conv_aliases))
-            f = self.variables.new_EUF_alias(self.counter)
+            f = self.variables.new_weight_alias(self.counter)
             e = Equals(left, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))
         if not r_has_cond:
             right = self.variables.new_weight_alias(len(self.conv_aliases))
-            f = self.variables.new_EUF_alias(self.counter)
+            f = self.variables.new_weight_alias(self.counter)
             e = Equals(right, f)
             self.counter += 1
             conversion_list.append(Or(branch_condition, e))
