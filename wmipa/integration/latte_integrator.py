@@ -130,3 +130,13 @@ class LatteIntegrator(CommandLineIntegrator):
                         # In the general case this may happen, raising an exception
                         # is not a good idea.
                     """
+            return_value = call(cmd, stdout=f, stderr=f)
+            if return_value != 0:
+                # print(open(output_file).read())
+                """
+                if return_value != 0:
+                    msg = "LattE returned with status {}"
+                    # LattE returns an exit status != 0 if the polytope is empty.
+                    # In the general case this may happen, raising an exception
+                    # is not a good idea.
+                """

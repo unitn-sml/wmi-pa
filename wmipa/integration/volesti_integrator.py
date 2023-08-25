@@ -179,9 +179,6 @@ class VolestiIntegrator(CommandLineIntegrator):
             cmd += ["--seed", str(self.seed)]
 
         with open(output_file, "w") as f:
-            if self.stub_integrate:
-                f.write("")
-            else:
-                return_value = call(cmd, stdout=f)
-                if return_value != 0:
-                    raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")
+            return_value = call(cmd, stdout=f)
+            if return_value != 0:
+                raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")

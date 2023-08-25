@@ -34,6 +34,8 @@ class CommandLineIntegrator(CacheIntegrator):
             real: The integration result.
 
         """
+        if self.stub_integrate:
+            return 0.0
         # Create a temporary folder containing the input and output files
         # possibly removing an older one
         with TemporaryDirectory(dir=".") as folder:
