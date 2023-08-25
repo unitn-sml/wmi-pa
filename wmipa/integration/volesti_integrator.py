@@ -182,3 +182,16 @@ class VolestiIntegrator(CommandLineIntegrator):
             return_value = call(cmd, stdout=f)
             if return_value != 0:
                 raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")
+
+    def to_json(self):
+        return {"name": "volesti",
+                "algorithm": self.algorithm,
+                "error": self.error,
+                "walk_type": self.walk_type,
+                "walk_length": self.walk_length,
+                "seed": self.seed,
+                "N": self.N,
+                "n_threads": self.n_threads}
+
+    def to_short_str(self):
+        return "volesti_{}_{}_{}_{}_{}_{}".format(self.algorithm, self.error, self.walk_type, self.walk_length, self.seed, self.N)

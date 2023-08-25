@@ -528,6 +528,14 @@ class CacheIntegrator(Integrator):
         obj_value = sum([(obj[i] * values[i]) for i in range(len(values))])
         return obj_value, values
 
+    @abstractmethod
+    def to_json(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_short_str(self):
+        raise NotImplementedError
+
 
 class HashTable:
     def __init__(self):

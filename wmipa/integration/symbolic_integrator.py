@@ -80,3 +80,9 @@ class SymbolicIntegrator(CacheIntegrator):
         return SymbolicIntegrator._integrator()(
             domain=domain, support=support, weight=weight
         ).compute_volume(add_bounds=False)
+
+    def to_json(self):
+        return {"name": "symbolic", "n_threads": self.n_threads}
+
+    def to_short_str(self):
+        return "symbolic"
