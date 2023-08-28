@@ -30,6 +30,8 @@ def parse_args():
     parser.add_argument("-c", "--cache", choices=[-1, 0, 1, 2, 3], default=-1, help="Cache level for WMIPA methods")
     parser.add_argument("-t", "--stub", action="store_true",
                         help="Set this flag if you only want to count the number of integrals to be computed")
+    parser.add_argument("--unweighted", action="store_true",
+                        help="Set this flag if you want to compute the (unweighted) model integration, i.e., to use 1 as weight")
 
     integration_parsers = parser.add_subparsers(title="integration", description="Type of integration to use",
                                                 dest="integration")

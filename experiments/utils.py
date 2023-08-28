@@ -6,7 +6,7 @@ from os import path
 from queue import Empty as EmptyQueueError
 
 import psutil
-from pysmt.shortcuts import Bool, reset_env, get_env
+from pysmt.shortcuts import Bool, reset_env, get_env, Real
 from pywmi import PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine, Density
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd.vtrees.vtree import balanced
@@ -106,6 +106,9 @@ def compute_wmi(args, domain, support, weight, q):
     """Computes the WMI for the given domain, support and weight, using the mode define by args. The result is put in
     the queue q to be retrieved by the main process.
     """
+
+    if args.unweighted:
+        weight = Real(1)
 
     if "PA" in args.mode:
         integrators = get_integrators(args)
