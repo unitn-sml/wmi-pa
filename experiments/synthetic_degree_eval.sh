@@ -19,4 +19,11 @@ do
     echo "Mode SAPASK volesti, error $error, 10 seeds"
     python3 evaluateModels.py $dir -o $res_dir -m SAPASK volesti -e $error --seed 666 --n-seeds 10
   done
+
+  error=0.01
+  for N in 10000 100000 1000000
+  do
+    echo "Mode SAPASK volesti, N $N, 10 seeds"
+    python3 evaluateModels.py $dir -o $res_dir -m SAPASK volesti -e $error -N $N --seed 666 --n-seeds 10
+  done
 done
