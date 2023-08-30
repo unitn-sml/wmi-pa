@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument("-m", "--mode", choices=modes, required=True, help="Mode to use")
     parser.add_argument("--n-threads", default=CacheIntegrator.DEF_N_THREADS, type=int,
                         help="Number of threads to use for WMIPA")
-    parser.add_argument("-c", "--cache", choices=[-1, 0, 1, 2, 3], default=-1, help="Cache level for WMIPA methods")
+    parser.add_argument("-c", "--cache", type=int, choices=[-1, 0, 1, 2, 3], default=-1, help="Cache level for WMIPA methods")
     parser.add_argument("-t", "--stub", action="store_true",
                         help="Set this flag if you only want to count the number of integrals to be computed")
     parser.add_argument("--unweighted", action="store_true",

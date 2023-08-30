@@ -64,10 +64,11 @@ def initialize_output_files(args, input_dir, run_id):
         wmi_id = get_wmi_id(args.mode, integrator)
         output_filename = get_output_filename(args.output, input_dir, wmi_id, run_id)
         with open(output_filename, "w") as output_file:
+            integrator_json = integrator.to_json() if integrator is not None else None
             skeleton = {
                 "wmi_id": wmi_id,
                 "mode": args.mode,
-                "integrator": integrator.to_json(),
+                "integrator": integrator_json,
                 "results": []
             }
             json.dump(skeleton, output_file)
@@ -89,7 +90,7 @@ def write_result(output_file, result_json):
 def get_integrators(args):
     """Returns the integrators to be used for the given command line arguments."""
     if "PA" not in args.mode:
-        raise ValueError(f"Cannot get integrator for mode {args.mode}")
+        return [None]
     if args.integration == "latte":
         return [LatteIntegrator(n_threads=args.n_threads, stub_integrate=args.stub)]
     elif args.integration == "volesti":
