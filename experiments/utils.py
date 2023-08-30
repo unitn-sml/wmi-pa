@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import sys
 from multiprocessing import Queue, Process
 from os import path
@@ -218,7 +219,16 @@ def problems_from_densities(input_files):
         density = Density.from_file(filename)
         queries = density.queries or [Bool(True)]
         for j, query in enumerate(queries):
-            print("Problem: {:>4} (query {:>4}/{:>4})/{:>4} ({:>100})".format(i + 1, j + 1, len(queries), len(input_files), filename),
+            print("Problem: {:>4} (query {:>4}/{:>4})/{:>4} ({:>100})".format(i + 1, j + 1, len(queries),
+                                                                              len(input_files), filename),
                   end="\r", flush=True)
             support = density.support & query
             yield filename, j + 1, density.domain, support, density.weight
+
+
+def get_random_sum(n, m):
+    """Return a list of n numbers summing to m."""
+    res = [0] * n
+    for pos in random.choices(range(n), k=m):
+        res[pos] += 1
+    return res

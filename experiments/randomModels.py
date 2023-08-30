@@ -9,9 +9,11 @@ from random import choice, randint, random, sample, seed, uniform
 from pysmt.shortcuts import BOOL, LT, REAL, And, Bool, Ite, Not, Or, Plus, Pow, Real, Symbol, Times, is_sat
 from pywmi import Density, Domain
 
+from utils import get_random_sum
+from wmipa.integration.sympy2pysmt import get_canonical_form
+
 
 class ModelGenerator:
-
     TEMPL_REALS = "x_{}"
     TEMPL_BOOLS = "A_{}"
 
@@ -23,18 +25,18 @@ class ModelGenerator:
     MAX_MONOMIALS = 3
     # maximum number of children of a formula's internal node
     MAX_BREADTH = 4
-    # maximum number of squared rational functions used to sample
-    # non-negative polynomials
+    # maximum number of squared rational functions used to sample non-negative polynomials
     MAX_SRF = 4
 
     def __init__(
-        self,
-        n_reals,
-        n_bools,
-        seedn=None,
-        templ_bools=TEMPL_BOOLS,
-        templ_reals=TEMPL_REALS,
-        initial_bounds=DOMAIN_BOUNDS,
+            self,
+            n_reals,
+            n_bools,
+            seedn=None,
+            templ_bools=TEMPL_BOOLS,
+            templ_reals=TEMPL_REALS,
+            initial_bounds=DOMAIN_BOUNDS,
+            srf_degree=None,
     ):
         assert n_reals + n_bools > 0
 
@@ -52,6 +54,8 @@ class ModelGenerator:
         if seedn is not None:
             self.seedn = seedn
             seed(seedn)
+
+        self.srf_degree = srf_degree
 
     def generate_support_tree(self, depth):
         domain = []
@@ -73,7 +77,9 @@ class ModelGenerator:
 
     def generate_weights_tree(self, depth, nonnegative=True, splits_only=False):
         if depth <= 0:
-            return self._random_polynomial(nonnegative)
+            poly = self._random_polynomial(nonnegative)
+            # self._check_polynomial_degree(poly)
+            return poly
         else:
             if splits_only:
                 op = Ite
@@ -87,6 +93,37 @@ class ModelGenerator:
                 return op(cond, left, right)
             else:
                 return op(left, right)
+
+    @staticmethod
+    def _check_polynomial_degree(polynomial):
+        canonical = get_canonical_form(polynomial)
+        print("Canonical: {}".format(canonical))
+        if not canonical.is_plus():
+            ModelGenerator._check_monomial_degree(canonical)
+            return
+        polynomial_degree = 0
+        for monomial in canonical.args():
+            monomial_degree = ModelGenerator._check_monomial_degree(monomial)
+            polynomial_degree = max(polynomial_degree, monomial_degree)
+        print("Polynomial degree: {}".format(polynomial_degree))
+
+    @staticmethod
+    def _check_monomial_degree(monomial):
+        print("Monomial: {}".format(monomial))
+        if monomial.is_real_constant():
+            monomial_degree = 0
+        elif monomial.is_pow():
+            monomial_degree = monomial.args()[1].constant_value()
+        else:
+            monomial_degree = 0
+            coeff, *terms = monomial.args()
+            for term in terms:
+                if term.is_pow():
+                    monomial_degree += term.args()[1].constant_value()
+                else:
+                    monomial_degree += 1
+        print("Degree: {}".format(monomial_degree))
+        return monomial_degree
 
     def _random_polynomial(self, nonnegative=True):
         if nonnegative:
@@ -111,8 +148,11 @@ class ModelGenerator:
         rvars = sample(self.reals, size)
         coeff = self._random_coefficient()
         pows = [coeff]
-        for rvar in rvars:
-            exponent = randint(0, self.MAX_EXPONENT)
+        if self.srf_degree is None:
+            degrees = [randint(0, self.MAX_EXPONENT) for _ in range(size)]
+        else:
+            degrees = get_random_sum(size, self.srf_degree)
+        for rvar, exponent in zip(rvars, degrees):
             pows.append(Pow(rvar, Real(exponent)))
 
         return Times(pows)
@@ -183,14 +223,14 @@ def parse_args():
         return ivalue
 
     parser = argparse.ArgumentParser(description="Generates random support and models.")
-    parser.add_argument(
-        "-o", "--output", default=os.getcwd(), help="Folder where all models will be created (default: cwd)"
-    )
+    parser.add_argument("-o", "--output", default=os.getcwd(),
+                        help="Folder where all models will be created (default: cwd)")
     parser.add_argument("-r", "--reals", default=3, type=positive, help="Maximum number of real variables (default: 3)")
-    parser.add_argument(
-        "-b", "--booleans", default=3, type=positive_0, help="Maximum number of bool variables (default: 3)"
-    )
-    parser.add_argument("-d", "--depth", default=3, type=positive, help="Depth of the formula tree (default: 3)")
+    parser.add_argument("-b", "--booleans", default=3, type=positive_0,
+                        help="Maximum number of bool variables (default: 3)")
+    parser.add_argument("--poly-degree", default=None, type=positive_0,
+                        help="Maximum degree of the polynomials (default: 4 * n_reals)")
+    parser.add_argument("-d", "--depth", default=3, type=positive_0, help="Depth of the formula tree (default: 3)")
     parser.add_argument("-m", "--models", default=20, type=positive, help="Number of model files (default: 20)")
     parser.add_argument("-s", "--seed", type=positive_0, help="Random seed (optional)")
 
@@ -217,6 +257,7 @@ def main():
     output = args.output
     n_reals = args.reals
     n_bools = args.booleans
+    srf_degree = None if args.poly_degree is None else args.poly_degree // 2
     depth = args.depth
     n_models = args.models
     seedn = args.seed
@@ -224,7 +265,8 @@ def main():
     if seedn is None:
         seedn = int(time.time())
 
-    output_dir = "models_r{}_b{}_d{}_m{}_s{}".format(n_reals, n_bools, depth, n_models, seedn)
+    degree = "" if srf_degree is None else "_pd{}".format(args.poly_degree)
+    output_dir = "models_r{}_b{}_d{}{}_m{}_s{}".format(n_reals, n_bools, depth, degree, n_models, seedn)
     output_dir = path.join(output, output_dir)
 
     check_input_output(output, output_dir)
@@ -232,7 +274,8 @@ def main():
     # init generator
     templ_bools = ModelGenerator.TEMPL_BOOLS
     templ_reals = ModelGenerator.TEMPL_REALS
-    gen = ModelGenerator(n_reals, n_bools, seedn=seedn, templ_bools=templ_bools, templ_reals=templ_reals)
+    gen = ModelGenerator(n_reals, n_bools, seedn=seedn, templ_bools=templ_bools, templ_reals=templ_reals,
+                         srf_degree=srf_degree)
 
     # generate models
     bools = [templ_bools.format(i) for i in range(n_bools)]
