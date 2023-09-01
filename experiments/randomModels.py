@@ -266,6 +266,7 @@ def main():
 
     check_path_exists(output_dir)
     check_path_not_exists(output_path)
+    os.mkdir(output_path)
 
     # init generator
     gen = ModelGenerator(n_reals, n_bools, seedn=seedn)
