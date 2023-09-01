@@ -4,7 +4,7 @@ Credits: least common multiple code by J.F. Sebastian
     (http://stackoverflow.com/a/147539)
 
 """
-
+import random
 from functools import reduce
 
 import networkx as nx
@@ -213,3 +213,11 @@ def is_cnf(formula):
     return is_clause(formula) or (
             formula.is_and() and all(is_clause(c) for c in formula.args())
     )
+
+
+def get_random_sum(n, m):
+    """Return a list of n numbers summing to m."""
+    res = [0] * n
+    for pos in random.choices(range(n), k=m):
+        res[pos] += 1
+    return res

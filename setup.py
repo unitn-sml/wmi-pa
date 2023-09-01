@@ -13,6 +13,7 @@ VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
+    "matplotlib",
     "networkx",
     "numpy",
     "pandas",

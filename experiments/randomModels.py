@@ -9,8 +9,9 @@ from random import choice, randint, random, sample, seed, uniform
 from pysmt.shortcuts import BOOL, LT, REAL, And, Bool, Ite, Not, Or, Plus, Pow, Real, Symbol, Times, is_sat
 from pywmi import Density, Domain
 
-from utils import get_random_sum
+from utils.io import check_path_exists, check_path_not_exists
 from wmipa.integration.sympy2pysmt import get_canonical_form
+from wmipa.utils import get_random_sum
 
 
 class ModelGenerator:
@@ -36,7 +37,6 @@ class ModelGenerator:
             templ_bools=TEMPL_BOOLS,
             templ_reals=TEMPL_REALS,
             initial_bounds=DOMAIN_BOUNDS,
-            srf_degree=None,
     ):
         assert n_reals + n_bools > 0
 
@@ -54,8 +54,6 @@ class ModelGenerator:
         if seedn is not None:
             self.seedn = seedn
             seed(seedn)
-
-        self.srf_degree = srf_degree
 
     def generate_support_tree(self, depth):
         domain = []
@@ -75,9 +73,9 @@ class ModelGenerator:
             support = self._random_formula(depth)
         return And(domain, support), bounds
 
-    def generate_weights_tree(self, depth, nonnegative=True, splits_only=False):
+    def generate_weights_tree(self, depth, nonnegative=True, splits_only=False, polynomials_degree=None):
         if depth <= 0:
-            poly = self._random_polynomial(nonnegative)
+            poly = self._random_polynomial(nonnegative, degree=polynomials_degree)
             # self._check_polynomial_degree(poly)
             return poly
         else:
@@ -125,12 +123,13 @@ class ModelGenerator:
         print("Degree: {}".format(monomial_degree))
         return monomial_degree
 
-    def _random_polynomial(self, nonnegative=True):
+    def _random_polynomial(self, nonnegative=True, degree=None):
         if nonnegative:
             # the sum of squared rational functions is a non-negative polynomial
             sq_sum = []
+            degree = None if degree is None else degree // 2
             for _ in range(randint(1, self.MAX_SRF)):
-                poly = self._random_polynomial(nonnegative=False)
+                poly = self._random_polynomial(nonnegative=False, degree=degree)
                 sq_sum.append(Times(poly, poly))
 
             return Plus(sq_sum)
@@ -138,20 +137,20 @@ class ModelGenerator:
         else:
             monomials = []
             for i in range(randint(1, self.MAX_MONOMIALS)):
-                monomials.append(self._random_monomial())
+                monomials.append(self._random_monomial(degree=degree))
             return Plus(monomials)
 
-    def _random_monomial(self, minsize=None, maxsize=None):
+    def _random_monomial(self, minsize=None, maxsize=None, degree=None):
         minsize = minsize if minsize else 1
         maxsize = maxsize if maxsize else len(self.reals)
         size = randint(minsize, maxsize)
         rvars = sample(self.reals, size)
         coeff = self._random_coefficient()
         pows = [coeff]
-        if self.srf_degree is None:
+        if degree is None:
             degrees = [randint(0, self.MAX_EXPONENT) for _ in range(size)]
         else:
-            degrees = get_random_sum(size, self.srf_degree)
+            degrees = get_random_sum(size, degree)
         for rvar, exponent in zip(rvars, degrees):
             pows.append(Pow(rvar, Real(exponent)))
 
@@ -254,44 +253,36 @@ def check_input_output(output_path, output_dir):
 def main():
     args = parse_args()
 
-    output = args.output
+    output_dir = args.output
     n_reals = args.reals
     n_bools = args.booleans
-    srf_degree = None if args.poly_degree is None else args.poly_degree // 2
     depth = args.depth
     n_models = args.models
-    seedn = args.seed
+    seedn = int(time.time()) if args.seed is None else args.seed
 
-    if seedn is None:
-        seedn = int(time.time())
+    degree_str = "" if args.poly_degree is None else "_pd{}".format(args.poly_degree)
+    output_filename = "models_r{}_b{}_d{}{}_m{}_s{}".format(n_reals, n_bools, depth, degree_str, n_models, seedn)
+    output_path = path.join(output_dir, output_filename)
 
-    degree = "" if srf_degree is None else "_pd{}".format(args.poly_degree)
-    output_dir = "models_r{}_b{}_d{}{}_m{}_s{}".format(n_reals, n_bools, depth, degree, n_models, seedn)
-    output_dir = path.join(output, output_dir)
-
-    check_input_output(output, output_dir)
+    check_path_exists(output_dir)
+    check_path_not_exists(output_path)
 
     # init generator
-    templ_bools = ModelGenerator.TEMPL_BOOLS
-    templ_reals = ModelGenerator.TEMPL_REALS
-    gen = ModelGenerator(n_reals, n_bools, seedn=seedn, templ_bools=templ_bools, templ_reals=templ_reals,
-                         srf_degree=srf_degree)
+    gen = ModelGenerator(n_reals, n_bools, seedn=seedn)
 
     # generate models
-    bools = [templ_bools.format(i) for i in range(n_bools)]
     print("Starting creating models")
     time_start = time.time()
     digits = int(log10(n_models)) + 1
     template = "r{r}_b{b}_d{d}_s{s}_{templ}.json".format(r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
-        weight = gen.generate_weights_tree(depth, nonnegative=True)
-        domain = Domain.make(bools, bounds)
+        weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree)
+        domain = Domain.make(gen.bools, bounds)
         density = Density(domain, support, weight)
-        density_file = path.join(output_dir, template.format(n=i + 1, d=digits))
+        density_file = path.join(output_path, template.format(n=i + 1, d=digits))
         density.to_file(density_file)
-        print("\r" * 100, end="")
-        print("Model {}/{}".format(i + 1, n_models), end="")
+        print("\rModel {:3d}/{:3d}".format(i + 1, n_models), end="")
 
     print()
     time_end = time.time()
