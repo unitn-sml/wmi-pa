@@ -22,6 +22,8 @@ sys.setrecursionlimit(10 ** 5)
 
 
 class SymbolicIntegrator(CacheIntegrator):
+    """This class handles the integration of polynomial functions over (convex) polytopes.
+    """
 
     @staticmethod
     def _integrator():

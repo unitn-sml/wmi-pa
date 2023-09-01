@@ -12,9 +12,9 @@ _LATTE_INSTALLED = _is_latte_installed()
 
 
 class LatteIntegrator(CommandLineIntegrator):
-    """This class handles the integration of polynomial functions over (convex) polytopes.
+    """This class is a wrapper for the LattE integrator.
 
-    It inherits from the abstract class CacheIntegrator.
+    It handles the integration of polynomial functions over (convex) polytopes, using an exact algorithm.
 
     LattE Integrale is required.
 
@@ -45,9 +45,7 @@ class LatteIntegrator(CommandLineIntegrator):
 
         # check that algorithm exists
         if self.algorithm not in self.ALGORITHMS:
-            err = "{}, choose one from: {}".format(
-                self.algorithm, ", ".join(self.ALGORITHMS)
-            )
+            err = "{}, choose one from: {}".format(self.algorithm, ", ".join(self.ALGORITHMS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
     @classmethod

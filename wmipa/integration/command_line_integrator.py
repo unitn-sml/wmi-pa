@@ -7,7 +7,13 @@ from wmipa.wmiexception import WMIIntegrationException
 
 
 class CommandLineIntegrator(CacheIntegrator):
-    """This class is a wrapper for an integrator that reads (writes) input (output) from (to) file."""
+    """This class is a wrapper for any command line tool that performs integration over polytopes.
+
+    The tool must be able to read the integrand and the polytope from files and write the result on a file.
+
+    It inherits from the abstract class CacheIntegrator, which handles the caching of the results of the integrations.
+    """
+
     DEF_ALGORITHM = None
     ALGORITHMS = []
     # Template name for the temporary folder
