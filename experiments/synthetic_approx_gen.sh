@@ -1,15 +1,15 @@
 #!/bin/bash
 
 SYN_DIR=synthetic_exp
-DATA_DIR=$SYN_DIR/data_degree
-RESULTS_DIR=$SYN_DIR/results_degree
+DATA_DIR=$SYN_DIR/data_approx
+RESULTS_DIR=$SYN_DIR/results_approx
 MODELS=10
 SEED=666
 
 MIN_BOOL=0
 MAX_BOOL=0
-MIN_REAL=3
-MAX_REAL=3
+MIN_REAL=2
+MAX_REAL=5
 MIN_DEGREE=0
 MAX_DEGREE=6
 DEPTH=0
