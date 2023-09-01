@@ -1,17 +1,4 @@
-from pysmt.shortcuts import (
-    GE,
-    LE,
-    LT,
-    And,
-    Bool,
-    Iff,
-    Ite,
-    Plus,
-    Pow,
-    Real,
-    Symbol,
-    Times,
-)
+from pysmt.shortcuts import GE, LE, LT, And, Bool, Iff, Ite, Plus, Pow, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
 from wmipa import WMI

@@ -18,10 +18,10 @@ phi = Bool(True)
 # w = Ite(And(A, Or(A, B, GE(x, Real(0))), Or(B, GE(x, Real(1))), GE(Plus(x, i), Real(0))), Real(1.0), Real(2.0))
 # fmt: off
 w = Ite(
-        And(A, Or(A, B, GE(x, Real(0))), Or(B, GE(x, Real(1)))),
-        Real(1.0),
-        Real(2.0)
-    )
+    And(A, Or(A, B, GE(x, Real(0))), Or(B, GE(x, Real(1)))),
+    Real(1.0),
+    Real(2.0)
+)
 
 chi = And(GE(x, Real(-2)), LE(x, Real(2)),
           GE(i, Real(-2)), LE(i, Real(2)))

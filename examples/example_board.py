@@ -19,12 +19,12 @@ chi = And(
 
 w = Ite(x >= 1,
         Ite(y >= 1,
-            x*y,
-            2*(x*y)
+            x * y,
+            2 * (x * y)
             ),
         Ite(y >= 2,
-            3*(x*y),
-            4*(x*y)
+            3 * (x * y),
+            4 * (x * y)
             ),
         )
 # fmt: on
