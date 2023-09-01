@@ -32,9 +32,9 @@ def initialize_output_files(args, output_prefix, run_id, output_suffix):
     output_files = {}
     for integrator in get_integrators(args):
         wmi_id = get_wmi_id(args.mode, integrator)
-        output_prefix = get_output_filename(args.output, output_prefix, wmi_id, run_id, output_suffix)
-        check_path_not_exists(output_prefix)
-        with open(output_prefix, "w") as output_file:
+        output_filename = get_output_filename(args.output, output_prefix, wmi_id, run_id, output_suffix)
+        check_path_not_exists(output_filename)
+        with open(output_filename, "w") as output_file:
             integrator_json = integrator.to_json() if integrator is not None else None
             skeleton = {
                 "wmi_id": wmi_id,
@@ -43,7 +43,7 @@ def initialize_output_files(args, output_prefix, run_id, output_suffix):
                 "results": []
             }
             json.dump(skeleton, output_file)
-        output_files[wmi_id] = output_prefix
+        output_files[wmi_id] = output_filename
     return output_files
 
 
@@ -112,12 +112,12 @@ def main():
     check_path_exists(args.input)
     check_path_exists(args.output)
 
-    output_filename = os.path.split(args.input.rstrip("/"))[1]
+    output_prefix = os.path.split(args.input.rstrip("/"))[1]
     run_id = int(time.time())
 
     files = [fullpath for f in os.listdir(args.input) if path.isfile(fullpath := path.join(args.input, f))]
 
-    output_files = initialize_output_files(args, output_filename, run_id, output_suffix)
+    output_files = initialize_output_files(args, output_prefix, run_id, output_suffix)
 
     print(f"Started computing. RunID: {run_id}, args:\n{args}")
     print("Output files:\n\t{}".format("\n\t".join(output_files.values())))
