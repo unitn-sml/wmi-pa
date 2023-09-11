@@ -2,7 +2,7 @@ import os
 from wmipa_cli.log import logger
 
 from wmipa_cli.installers.installer import Installer
-from wmipa_cli.utils import check_os_version
+from wmipa_cli.utils import check_os_version, safe_cmd
 
 
 class LatteInstaller(Installer):
@@ -16,6 +16,9 @@ class LatteInstaller(Installer):
 
     def get_name(self):
         return "LattE Integrale"
+
+    def get_dir(self):
+        return "latte"
 
     @staticmethod
     def get_filename(version):
@@ -40,7 +43,7 @@ class LatteInstaller(Installer):
     def ask_dependencies_proceed(self, yes):
         logger.info("Make sure you have the following dependencies installed:")
         logger.info(" ".join(self.dependencies))
-        logger.info("Do you want to proceed? [y/n] ", end="")
+        logger.info("Do you want to proceed? [y/n] ")
         return yes or input().strip().lower() == "y"
 
     def download(self):
@@ -48,23 +51,26 @@ class LatteInstaller(Installer):
             logger.info(f"Skipping download of {self.get_name()}, file {self.filename} already exists.")
             return
         logger.info(f"Downloading {self.get_name()} from {self.download_url} to {os.getcwd()}...")
-        os.system("wget %s" % self.download_url)
+        safe_cmd("wget %s" % self.download_url)
 
     def unpack(self):
         if os.path.exists(self.filename.rstrip("tar.gz")):
             logger.info(
                 f"Skipping unpacking of {self.get_name()}, directory {self.filename.rstrip('tar.gz')} already exists.")
             return
-        logger.info(f"Unpacking {self.get_name()}  to {os.getcwd()}...")
-        os.system(f"tar -xzf {self.filename}")
-        os.system(f"rm {self.filename}")
+        logger.info(f"Unpacking {self.get_name()} to {os.getcwd()}...")
+        safe_cmd(f"tar -xzf {self.filename}")
+        safe_cmd(f"rm {self.filename}")
 
-    def build(self):
+    def build(self, force):
         logger.info("Configuring and building LattE Integrale...")
         dirname = self.filename.rstrip(".tar.gz")
         os.chdir(dirname)
-        os.system(f'./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" '
-                  f'--prefix={self.install_path}/latte && make && make install')
+        bin_path = os.path.abspath(os.path.join(self.install_path, self.get_dir()))
+        if force and os.path.exists(bin_path):
+            safe_cmd(f"rm -rf {bin_path}")
+        safe_cmd(f'./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" '
+                  f'--prefix={bin_path} && make && make install')
 
     def add_to_path(self):
-        self.paths_to_export.append(f'PATH={self.install_path}/latte/bin')
+        self.paths_to_export.append(f'PATH={self.install_path}/{self.get_dir()}/bin')
