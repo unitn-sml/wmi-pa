@@ -1,6 +1,8 @@
 import os
 import sys
 
+from wmipa_cli.log import logger
+
 
 def check_os_version(sysname=None, machine=None):
     sysinfo = os.uname()
@@ -13,3 +15,10 @@ def check_os_version(sysname=None, machine=None):
 
 def check_python_version():
     return sys.version_info[0] == 3 and sys.version_info[1] == 8
+
+
+def safe_cmd(command):
+    res = os.system(command)
+    if res != 0:
+        logger.error(f"Error while executing {command}.")
+        sys.exit(1)

@@ -3,6 +3,7 @@ import sys
 
 from wmipa_cli.installers.installer import Installer
 from wmipa_cli.log import logger
+from wmipa_cli.utils import safe_cmd
 
 
 class SymbolicInstaller(Installer):
@@ -28,9 +29,10 @@ class SymbolicInstaller(Installer):
     def unpack(self):
         pass
 
-    def build(self):
+    def build(self, force):
         logger.info(f"Installing pywmi from pip...")
-        os.system(f"{sys.executable} -m pip install {self.repo_url}")
+        force_str = "--force-reinstall" if force else ""
+        safe_cmd(f"{sys.executable} -m pip install {self.repo_url} {force_str}")
 
     def add_to_path(self):
         pass
