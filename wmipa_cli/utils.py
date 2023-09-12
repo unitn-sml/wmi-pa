@@ -22,3 +22,8 @@ def safe_cmd(command):
     if res != 0:
         logger.error(f"Error while executing {command}.")
         sys.exit(1)
+
+
+def basename(text):
+    """Return the filename without the extension."""
+    return os.path.splitext(os.path.basename(text))[0]

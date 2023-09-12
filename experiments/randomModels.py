@@ -275,7 +275,9 @@ def main():
     print("Starting creating models")
     time_start = time.time()
     digits = int(log10(n_models)) + 1
-    template = "r{r}_b{b}_d{d}_s{s}_{templ}.json".format(r=n_reals, b=n_bools, d=depth, s=seedn, templ="{n:0{d}}")
+    pd = "" if args.poly_degree is None else "_pd{}".format(args.poly_degree)
+    template = "models_r{r}_b{b}_d{d}{pd}_s{s}_{templ}.json".format(r=n_reals, b=n_bools, d=depth, pd=pd, s=seedn,
+                                                                    templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
         weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree)

@@ -13,6 +13,7 @@ VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
+    "jinja2",
     "matplotlib",
     "networkx",
     "numpy",
@@ -57,7 +58,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires=REQUIRES_PYTHON,
-    packages=find_packages(exclude=("test", "examples")),
+    packages=find_packages(exclude=("test", "examples", "experiments")),
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
