@@ -24,6 +24,7 @@ def safe_cmd(command):
         sys.exit(1)
 
 
-def basename(text):
-    """Return the filename without the extension."""
-    return os.path.splitext(os.path.basename(text))[0]
+def remove_suffix(s, suffix):
+    if s.endswith(suffix):
+        return s[:-len(suffix)]
+    return s
