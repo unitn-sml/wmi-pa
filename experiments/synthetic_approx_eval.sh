@@ -2,21 +2,21 @@
 
 SYN_DIR=synthetic_exp
 DATA_DIR=$SYN_DIR/data_approx
+SEED=666
+N_VOLESTI_INSTANCES=10
+ERROR=0.01
 
 for dir in $(ls -d $DATA_DIR/*); do
   res_dir=$(sed "s+data+results+g" <<<$dir)
   mkdir -p $res_dir
   echo Evaluating $dir
-  for mode in "SAPASK latte"; do
-    echo Mode $mode
-    python3 evaluateModels.py $dir -o $res_dir -m $mode
-  done
 
-  for error in 0.005 0.01 0.05 0.1; do
-    for N in 10000 100000 1000000; do
-      echo "Mode SAPASK volesti, error $error, N $N, 10 seeds"
-      python3 evaluateModels.py $dir -o $res_dir -m SAPASK volesti -e $error -N $N --seed 666 --n-seeds 10
-    done
+  echo Mode "SAPASK latte";
+  python3 evaluateModels.py $dir -o $res_dir -m SAPASK latte
+
+  for N in 10000 100000 1000000; do
+    echo "Mode SAPASK volesti, error $ERROR, N $N, 10 seeds"
+    python3 evaluateModels.py $dir -o $res_dir -m SAPASK volesti -e ERROR -N $N --seed $SEED --n-seeds $N_VOLESTI_INSTANCES
   done
 
 done

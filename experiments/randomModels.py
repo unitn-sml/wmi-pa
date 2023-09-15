@@ -229,6 +229,8 @@ def parse_args():
                         help="Maximum number of bool variables (default: 3)")
     parser.add_argument("--poly-degree", default=None, type=positive_0,
                         help="Maximum degree of the polynomials (default: 4 * n_reals)")
+    parser.add_argument("--splits-only", action="store_true",
+                        help="The internal nodes of the weight function are only Ites")
     parser.add_argument("-d", "--depth", default=3, type=positive_0, help="Depth of the formula tree (default: 3)")
     parser.add_argument("-m", "--models", default=20, type=positive, help="Number of model files (default: 20)")
     parser.add_argument("-s", "--seed", type=positive_0, help="Random seed (optional)")
@@ -257,6 +259,7 @@ def main():
     n_reals = args.reals
     n_bools = args.booleans
     depth = args.depth
+    splits_only = args.splits_only
     n_models = args.models
     seedn = int(time.time()) if args.seed is None else args.seed
 
@@ -280,7 +283,8 @@ def main():
                                                                     templ="{n:0{d}}")
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
-        weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree)
+        weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree,
+                                           splits_only=splits_only)
         domain = Domain.make(gen.bools, bounds)
         density = Density(domain, support, weight)
         density_file = path.join(output_path, template.format(n=i + 1, d=digits))

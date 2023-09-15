@@ -9,10 +9,10 @@ SEED=666
 MIN_BOOL=0
 MAX_BOOL=0
 MIN_REAL=2
-MAX_REAL=5
+MAX_REAL=10
 MIN_DEGREE=0
 MAX_DEGREE=6
-DEPTH=0
+DEPTH=3
 
 mkdir -p $DATA_DIR $RESULTS_DIR
 
@@ -22,7 +22,7 @@ do
 	do
 		for ((degree=$MIN_DEGREE; degree<=$MAX_DEGREE; degree+=2))
 		do
-			python3 randomModels.py -b $bool -r $real -d $DEPTH --poly-degree $degree -o $DATA_DIR -m $MODELS --seed $SEED
+			python3 randomModels.py -b $bool -r $real -d $DEPTH --splits-only --poly-degree $degree -o $DATA_DIR -m $MODELS --seed $SEED
 		done
 	done
 done
