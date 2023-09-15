@@ -5,13 +5,15 @@ Credits: least common multiple code by J.F. Sebastian
 
 """
 import random
+from collections import defaultdict
 from functools import reduce
 
 import networkx as nx
 from pysmt.operators import POW
+from pysmt.shortcuts import Solver
 from pysmt.typing import BOOL, REAL
 
-from wmipa.wmiexception import WMIParsingException
+from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 
 try:
     from pysmt.operators import EXP
@@ -221,3 +223,59 @@ def get_random_sum(n, m):
     for pos in random.choices(range(n), k=m):
         res[pos] += 1
     return res
+
+
+class TermNormalizer:
+    """A class for normalizing terms."""
+
+    def __init__(self):
+        self._solver = Solver(name="msat")
+        self._cache = {}
+        self._known_aliases = defaultdict(set)
+
+    def __del__(self):
+        self._solver.exit()
+
+    def _normalize(self, term):
+        if term not in self._cache:
+            converter = self._solver.converter
+            normalized_term = converter.back(converter.convert(term))
+            self._cache[term] = normalized_term
+        return self._cache[term]
+
+    def normalize(self, term, remember_alias=False):
+        """Return a normalized representation of the term.
+
+        Args:
+            term (FNode): The term to normalize.
+            remember_alias (bool): If True, the original term is remembered to be an alias of its normalized version.
+
+        Returns:
+            FNode: The normalized term.
+            bool: True if the term was negated, False otherwise.
+        """
+        normalized_term = self._normalize(term)
+        negated = False
+        if normalized_term.is_not():
+            normalized_term = normalized_term.arg(0)
+            negated = True
+        if remember_alias:
+            self._known_aliases[normalized_term].add((term, negated))
+        return normalized_term, negated
+
+    def known_aliases(self, term):
+        """Return the set of known aliases of the term.
+
+        Args:
+            term (FNode): The term to check.
+
+        Returns:
+            set(tuple(FNode, bool)): The set of known aliases of the term. Each alias is a tuple containing the
+                normalized term and a boolean indicating whether the alias is negated.
+        """
+        if term not in self._known_aliases:
+            known_aliases_str = "\n".join(str(x) for x in self._known_aliases.keys())
+            error_str = "Term {}\nnot found in\n{}".format(term.serialize(),
+                                                           known_aliases_str)
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, error_str)
+        return self._known_aliases[term]

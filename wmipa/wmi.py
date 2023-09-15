@@ -18,7 +18,6 @@ Currently, three algorithms are supported:
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
-import math
 from collections import defaultdict
 
 import mathsat
@@ -30,7 +29,7 @@ from sympy import solve, sympify
 from wmipa import logger, _msat_version_supports_skeleton
 from wmipa.integration import LatteIntegrator
 from wmipa.integration.integrator import Integrator
-from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables
+from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
 from wmipa.weightconverter import SkeletonSimplifier
 from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
@@ -48,6 +47,9 @@ class WMI:
         weights (Weights): The representation of the weight function.
         chi (FNode): The pysmt formula that contains the support of the formula
         integrator (Integrator or list(Integrator)): The integrator or the list of integrators to use.
+        skeleton_simplifier (SkeletonSimplifier): The class that simplifies the formula, avoiding simplifications
+            that would break the skeleton.
+        normalizer (TermNormalizer): The class that normalizes LRA atoms.
 
     """
 
@@ -81,9 +83,8 @@ class WMI:
             raise TypeError("integrator must be an Integrator or a list of Integrator")
         self.integrator = integrator
 
-        self.list_norm = set()
-        self.norm_aliases = dict()
         self.skeleton_simplifier = SkeletonSimplifier()
+        self.normalizer = TermNormalizer()
 
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.
@@ -744,12 +745,15 @@ class WMI:
         if atoms is None:
             atoms = get_boolean_variables(formula)
 
+        # The current version of MathSAT returns a truth assignment on some normalized version of the atoms instead of
+        # the original ones. However, in order to simply get the value of the weight function given a truth assignment,
+        # we need to know the truth assignment on the original atoms.
         for atom in atoms:
-            if not atom.is_symbol(BOOL) and atom not in self.list_norm:
-                _ = self._normalize_atom(atom, True)
+            if not atom.is_symbol(BOOL):
+                _ = self.normalizer.normalize(atom, remember_alias=True)
+
         solver = Solver(name="msat", solver_options=solver_options)
         converter = solver.converter
-
         solver.add_assertion(formula)
 
         models = []
@@ -765,112 +769,13 @@ class WMI:
                 if atom.is_symbol(BOOL):
                     assignments[atom] = value
                 else:
-                    subterms = self._normalize_atom(atom, False)
-                    subterms = frozenset(subterms)
-
-                    assert (subterms in self.norm_aliases), (
-                        "Atom {}\n(subterms: {})\nnot found in\n{}".format(
-                            atom.serialize(), subterms, "\n".join(str(x) for x in self.norm_aliases.keys())))
-                    for element_of_normalization in self.norm_aliases[subterms]:
-                        assignments[element_of_normalization] = (
-                            not value if element_of_normalization.is_lt() else value)
+                    normalized_atom, negated = self.normalizer.normalize(atom)
+                    if negated:
+                        value = not value
+                    known_aliases = self.normalizer.known_aliases(normalized_atom)
+                    for original_atom, negated in known_aliases:
+                        assignments[original_atom] = (not value if negated else value)
             yield assignments
-
-    def _normalize_coefficient(self, val, normalizing_coefficient):
-        midvalue = round(float(val) / abs(normalizing_coefficient), 10)
-        if abs(midvalue - round(float(midvalue))) < 0.00000001:
-            return round(float(midvalue))
-        return midvalue
-
-    def _normalize_atom(self, atom, add_to_norms_aliases):
-        """Given an LRA atom, finds a normalized representation of it.
-
-        The current version of MathSAT returns a truth assignment on some normalized version of the atoms instead of the
-        original ones. However, in order to simply get the value of the weight function given a truth assignment,
-        we need to know the truth assignment on the original atoms.
-        This function tries to mimic the normalization procedure used by MathSAT.
-
-        Args:
-            atom (FNode): The LRA atom to normalize
-            add_to_norms_aliases (bool): If true, the normalized atom is added to the class dict of normalized atoms.
-
-        Returns:
-            Optional[FNode]: The normalized representation of the atom if add_to_norms_aliases is False, None otherwise.
-
-        """
-        self.list_norm.add(atom)
-        if not atom.is_lt():
-            list_terms = [(atom.args()[0], 1), (atom.args()[1], -1)]
-        else:
-            list_terms = [(atom.args()[0], -1), (atom.args()[1], 1)]
-        symbols = defaultdict(float)
-        normalizing_coefficient = 0.0
-        min_abs_coefficient = math.inf
-
-        for term, coeff in list_terms:
-            if term.is_real_constant():
-                normalizing_coefficient += term.constant_value() * coeff
-            elif term.is_plus():
-                list_terms.extend([(atom, coeff) for atom in term.args()])
-            elif term.is_minus():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
-                list_terms.append((child1, coeff))
-                list_terms.append((child2, -1.0 * coeff))
-            elif term.is_times():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
-
-                if child1.is_real_constant() and child2.is_real_constant():
-                    # constant += child1.constant_value() * child2.constant_value()
-                    list_terms.append((child1.constant_value() * child2.constant_value(), coeff))
-                elif child1.is_real_constant():
-                    list_terms.append((child2, coeff * child1.constant_value()))
-                elif child2.is_real_constant():
-                    list_terms.append((child1, coeff * child2.constant_value()))
-            else:
-                symbols[term] += coeff
-                min_abs_coefficient = min(min_abs_coefficient, abs(coeff))
-
-        normalized_atom = list()
-        normalized_atom2 = list()
-
-        if atom.is_equals():
-            normalized_atom.append("=")
-            normalized_atom2.append("=")
-        else:
-            normalized_atom.append("<=/>=")
-
-        if normalizing_coefficient == 0.0:
-            normalized_atom.append(0.0)
-            normalizing_coefficient = min_abs_coefficient
-            if atom.is_equals():
-                normalized_atom2.append(0.0)
-        else:
-            normalized_atom.append(normalizing_coefficient / abs(normalizing_coefficient))
-            if atom.is_equals():
-                normalized_atom2.append((-normalizing_coefficient / abs(normalizing_coefficient)))
-
-        for term in symbols:
-            normalized_atom.append((term, self._normalize_coefficient(symbols[term], normalizing_coefficient)))
-            if atom.is_equals():
-                normalized_atom2.append(
-                    (term, self._normalize_coefficient(-symbols[term], normalizing_coefficient),))
-
-        if add_to_norms_aliases:
-            normalized_atom_f = frozenset(normalized_atom)
-            if normalized_atom_f not in self.norm_aliases:
-                self.norm_aliases[normalized_atom_f] = list()
-            self.norm_aliases[normalized_atom_f].append(atom)
-            # print("ADDING", frozenset(normalized_atom), "for", atom)
-            if atom.is_equals():
-                normalized_atom2_f = frozenset(normalized_atom2)
-                if normalized_atom2_f not in self.norm_aliases:
-                    self.norm_aliases[normalized_atom2_f] = list()
-                self.norm_aliases[normalized_atom2_f].append(atom)
-                # print("ADDING", frozenset(normalized_atom2), "for", atom)
-
-        return None if add_to_norms_aliases else normalized_atom
 
     def _compute_WMI_PA_no_boolean_no_label(self, lra_formula, other_assignments=None):
         """Finds all the assignments that satisfy the given formula using AllSAT.
