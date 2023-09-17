@@ -84,8 +84,10 @@ class ModelGenerator:
             else:
                 op = choice([Ite, Plus, Times])
 
-            left = self.generate_weights_tree(depth - 1, nonnegative)
-            right = self.generate_weights_tree(depth - 1, nonnegative)
+            left = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits_only=splits_only,
+                                              polynomials_degree=polynomials_degree)
+            right = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits_only=splits_only,
+                                               polynomials_degree=polynomials_degree)
             if op == Ite:
                 cond = self._random_formula(depth)
                 return op(cond, left, right)
