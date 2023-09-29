@@ -73,21 +73,27 @@ class ModelGenerator:
             support = self._random_formula(depth)
         return And(domain, support), bounds
 
-    def generate_weights_tree(self, depth, nonnegative=True, splits_only=False, polynomials_degree=None):
+    def generate_weights_tree(self, depth, nonnegative=True, splits=True, plus=True, times=True,
+                              polynomials_degree=None):
         if depth <= 0:
             poly = self._random_polynomial(nonnegative, degree=polynomials_degree)
             # self._check_polynomial_degree(poly)
             return poly
         else:
-            if splits_only:
-                op = Ite
-            else:
-                op = choice([Ite, Plus, Times])
+            assert any([splits, plus, times])
+            operators = []
+            if splits:
+                operators.append(Ite)
+            if plus:
+                operators.append(Plus)
+            if times:
+                operators.append(Times)
+            op = choice(operators)
 
-            left = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits_only=splits_only,
+            left = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits=splits, plus=plus, times=times,
                                               polynomials_degree=polynomials_degree)
-            right = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits_only=splits_only,
-                                               polynomials_degree=polynomials_degree)
+            right = self.generate_weights_tree(depth - 1, nonnegative=nonnegative, splits=splits, plus=plus,
+                                               times=times, polynomials_degree=polynomials_degree)
             if op == Ite:
                 cond = self._random_formula(depth)
                 return op(cond, left, right)
@@ -231,8 +237,12 @@ def parse_args():
                         help="Maximum number of bool variables (default: 3)")
     parser.add_argument("--poly-degree", default=None, type=positive_0,
                         help="Maximum degree of the polynomials (default: 4 * n_reals)")
-    parser.add_argument("--splits-only", action="store_true",
-                        help="The internal nodes of the weight function are only Ites")
+    parser.add_argument("--no-plus", action="store_true",
+                        help="The internal nodes of the weight function are not plus")
+    parser.add_argument("--no-times", action="store_true",
+                        help="The internal nodes of the weight function are not times")
+    parser.add_argument("--no-splits", action="store_true",
+                        help="The internal nodes of the weight function are not splits")
     parser.add_argument("-d", "--depth", default=3, type=positive_0, help="Depth of the formula tree (default: 3)")
     parser.add_argument("-m", "--models", default=20, type=positive, help="Number of model files (default: 20)")
     parser.add_argument("-s", "--seed", type=positive_0, help="Random seed (optional)")
@@ -261,7 +271,6 @@ def main():
     n_reals = args.reals
     n_bools = args.booleans
     depth = args.depth
-    splits_only = args.splits_only
     n_models = args.models
     seedn = int(time.time()) if args.seed is None else args.seed
 
@@ -286,7 +295,7 @@ def main():
     for i in range(n_models):
         support, bounds = gen.generate_support_tree(depth)
         weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree,
-                                           splits_only=splits_only)
+                                           plus=not args.no_plus, times=not args.no_times, splits=not args.no_splits)
         domain = Domain.make([b.symbol_name() for b in gen.bools], bounds)
         density = Density(domain, support, weight)
         density_file = path.join(output_path, template.format(n=i + 1, d=digits))
