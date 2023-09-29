@@ -287,7 +287,7 @@ def main():
         support, bounds = gen.generate_support_tree(depth)
         weight = gen.generate_weights_tree(depth, nonnegative=True, polynomials_degree=args.poly_degree,
                                            splits_only=splits_only)
-        domain = Domain.make(gen.bools, bounds)
+        domain = Domain.make([b.symbol_name() for b in gen.bools], bounds)
         density = Density(domain, support, weight)
         density_file = path.join(output_path, template.format(n=i + 1, d=digits))
         density.to_file(density_file)
