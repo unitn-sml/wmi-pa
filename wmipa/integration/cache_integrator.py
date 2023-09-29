@@ -140,7 +140,7 @@ class CacheIntegrator(Integrator):
             int: The number of cached results.
 
         """
-
+        start_time = time.time()
         EMPTY = -1
         cache_fn = self._get_cache_fn(cache)
 
@@ -171,10 +171,11 @@ class CacheIntegrator(Integrator):
             else:
                 problem_id.append(EMPTY)
 
+        setup_time = time.time() - start_time
+        start_time = time.time()
         problems_to_integrate = problems_to_integrate.values()
         assert len(problem_id) == len(problems)
         # Handle multithreading
-        start_time = time.time()
         pool = Pool(self.n_threads)
         results = pool.map(self._integrate_wrapper, problems_to_integrate)
         pool.close()
@@ -182,8 +183,8 @@ class CacheIntegrator(Integrator):
         values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
         cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
 
-        self.sequential_integration_time = sum([results[pid][2] for pid in problem_id])
-        self.parallel_integration_time = time.time() - start_time
+        self.sequential_integration_time += setup_time + sum([results[pid][2] for pid in problem_id])
+        self.parallel_integration_time += setup_time + time.time() - start_time
 
         return values, cached
 
@@ -211,12 +212,12 @@ class CacheIntegrator(Integrator):
             bool: True if the result was cached, False otherwise.
 
         """
+        start_time = time.time()
         integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
         cache_fn = self._get_cache_fn(cache)
         key, polytope = cache_fn(polytope, integrand, cond_assignments)
         if polytope is None or polytope.is_empty():
             return 0.0, False
-        start_time = time.time()
         value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
         integration_time = time.time() - start_time
         self.sequential_integration_time += integration_time
