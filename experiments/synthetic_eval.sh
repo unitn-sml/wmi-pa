@@ -14,9 +14,10 @@ do
 		python3 evaluateModels.py $dir -o $res_dir -m $mode 
 	done
 
-	for error in 0.005 0.01 0.05 0.1
+  error=0.1
+	for N in 100 1000 10000
 	do
-    echo "Mode SAPASK volesti, error $error, 10 seeds"
-    python3 evaluateModels.py $dir -o $res_dir -m SAPASK volesti -e $error --seed 666 --n-seeds 10
+    echo "Mode SAPASK volesti, N $N, 5 seeds"
+    python3 evaluateModels.py "$dir" -o "$res_dir" -m SAPASK volesti -e $error -N $N --seed 666 --n-seeds 5
   done
 done
