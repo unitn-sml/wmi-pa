@@ -16,22 +16,64 @@ figsize = (10, 8)
 label_step = 5
 
 
+def quantile(x, q):
+    x = x.astype(np.float64)
+    if np.isnan(x).all():
+        return np.nan
+    return np.nanquantile(x, q)
+
+
+def median(x):
+    return quantile(x, 0.5)
+
+
+def q25(x):
+    return quantile(x, 0.25)
+
+
+def q75(x):
+    return quantile(x, 0.75)
+
+
+def median_field(field):
+    return f"median_{field}"
+
+
+def q25_field(field):
+    return f"q25_{field}"
+
+
+def q75_field(field):
+    return f"q75_{field}"
+
 
 def group_data(data: pd.DataFrame, cactus, timeout):
     # build a dataframe where each row is a problem and each column is a mode
-    # each mode has 4 sub-columns:
-    # - time: the average time to solve the problem (in seconds)
-    # - stdtime: the standard deviation of the time
-    # - n_integrations: the average number of integrations performed
-    # - stdn_integrations: the standard deviation of the number of integrations
+    # each mode has 9 sub-columns:
+    # - median time: median of the parallel_time column
+    # - q25 time: 25th percentile of the parallel_time column
+    # - q75 time: 75th percentile of the parallel_time column
+    # - median n_integrations: median of the n_integrations column
+    # - q25 n_integrations: 25th percentile of the n_integrations column
+    # - q75 n_integrations: 75th percentile of the n_integrations column
+    # - median error: median of the relative_error column
+    # - q25 error: 25th percentile of the relative_error column
+    # - q75 error: 75th percentile of the relative_error column
     data = (
         data.groupby(["problem", "mode_id"])
         .aggregate(
-            time=("parallel_time", "mean"),
-            stdtime=("parallel_time", "std"),
-            n_integrations=("n_integrations", "mean"),
-            stdn_integrations=("n_integrations", "std"),
+            median_time=("parallel_time", median),
+            q25_time=("parallel_time", q25),
+            q75_time=("parallel_time", q75),
+            median_n_integrations=("n_integrations", median),
+            q25_n_integrations=("n_integrations", q25),
+            q75_n_integrations=("n_integrations", q75),
+            median_error=("relative_error", median),
+            q25_error=("relative_error", q25),
+            q75_error=("relative_error", q75),
         )
+        # every non-index cell must be np.float64
+        .astype(np.float64)
         .stack(dropna=False)
         .unstack(level=(1, 2))
         .reset_index(
@@ -44,33 +86,35 @@ def group_data(data: pd.DataFrame, cactus, timeout):
 
     if cactus:
         # sort each column independently
-        for param in ("time", "n_integrations"):
+        for param in ("time", "n_integrations", "error"):
             for mode in mode_ids:
-                stdcolname = "std{}".format(param)
-                cols = data[mode][[param, stdcolname]].sort_values(
-                    by=param, ignore_index=True
+                col_names = [median_field(param), q25_field(param), q75_field(param)]
+                cols = data[mode][col_names].sort_values(
+                    by=median_field(param), ignore_index=True,
+                    na_position="last"
                 )
-                # stdcol = data[mode][stdcolname].sort_values(by=param, ignore_index=True)
-                # meancol = data[mode][param].sort_values(ignore_index=True)
-                # meancol.where(meancol < timeout, inplace=True)
-
-                # meancol.columns = pd.MultiIndex.from_tuples([(mode, param)])
-                data[(mode, param)] = np.NaN
-                data[(mode, param)].update(cols[param])
-                data[(mode, stdcolname)] = np.NaN
-                data[(mode, stdcolname)].update(cols[stdcolname])
-
+                data.loc[:, (mode, col_names)] = np.nan
+                data[mode].update(cols)
         # data = data.cumsum(axis=0)
         # start number of problems solved from 1
         data.index += 1
     else:
         # sort by increasing time
-        sort_by = [(mode, "time") for mode in modes]
+        sort_by = [(mode, median_field("time")) for mode in mode_ids]
+        print("Sorting by", sort_by)
         data.sort_values(by=sort_by, inplace=True, ignore_index=True)
     return data
 
 
-def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filename="", legend_pos=6, title=None):
+def get_modes_for_param(data, param):
+    return [(mode_id, mode) for mode_id, mode in MODE_IDS.items()
+            if mode_id in data.columns.get_level_values(0) and
+            (param != "n_integrations" or "PA" in mode_id) and
+            (param != "error" or "volesti" in mode_id)
+            ]
+
+
+def plot_data(outdir, data, param, xlabel, ylabel, timeout=0, frm=None, to=None, filename="", legend_pos=6, title=None):
     total_problems = max(data.index) + 1
     # crop from:to if necessary
     sfx = ""
@@ -93,25 +137,15 @@ def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filenam
         plt.plot(x, y, linestyle="dashed", linewidth=lw, label="timeout", color="r")
 
     # plot time for all modes, n_integrations only for *PA*
-    modes = [(mode_id, mode) for mode_id, mode in MODE_IDS.items()
-             if mode_id in data.columns.get_level_values(0) and
-             (param == "time" or "PA" in mode_id)]
+    modes = get_modes_for_param(data, param)
 
     for mode_id, mode in modes:
-        plt.plot(data[mode_id][param], color=mode.color, label=mode.label, linewidth=lw, marker="x")
-        # stddev
-        stdcol = "std{}".format(param)
-        sup = data[mode_id][param] + data[mode_id][stdcol]
-        if timeout:
-            sup.clip(upper=timeout, inplace=True)
-
-        inf = (data[mode_id][param] - data[mode_id][stdcol]).clip(lower=0)
+        plt.plot(data[mode_id][median_field(param)], color=mode.color, label=mode.label, linewidth=lw, marker="x")
+        # if timeout:
+        #     sup.clip(upper=timeout, inplace=True)
+        sup = data[mode_id][q75_field(param)]
+        inf = data[mode_id][q25_field(param)]
         plt.fill_between(data.index, sup, inf, color=mode.color, alpha=0.1)
-
-    if param == "time":
-        ylabel = "Query execution time (seconds)"
-    else:
-        ylabel = "Number of integrations"
 
     # legend
     plt.legend(loc=legend_pos, fontsize=fs)
@@ -133,8 +167,11 @@ def plot_data(outdir, data, param, xlabel, timeout=0, frm=None, to=None, filenam
     print("created {}".format(outfile))
     plt.clf()
     csvfile = os.path.join(outdir, "{}_{}{}.csv".format(param, sfx, filename))
-    csvdf = data[[(mode_id, param) for mode_id, _ in modes]]
-    csvdf.columns = csvdf.columns.droplevel(1)
+    csvdf = data[[(mode_id, param_q) for mode_id, _ in modes for param_q in
+                  [median_field(param), q25_field(param), q75_field(param)]]]
+    # flatten multiindex by joining the two levels with "_"
+    csvdf.columns = ["_".join(col) for col in csvdf.columns]
+    # csvdf.columns = csvdf.columns.droplevel(1)
     csvdf.to_csv(csvfile, index_label="instance")
     print("created {}".format(csvfile))
 
@@ -160,6 +197,18 @@ def parse_args():
     return parser.parse_args()
 
 
+def add_relative_error(data, ref_mode="SAPASK_latte"):
+    # for each problem, compute the relative error on the "value" column w.r.t. the reference mode
+    # and add it as a new column
+    ref_value = data[data["mode_id"] == ref_mode][["problem", "value"]]
+    # merge on the problem column
+    data = data.merge(ref_value, on="problem", suffixes=("", "_ref"))
+    data["relative_error"] = (np.abs(data["value"] - data["value_ref"]) / data["value_ref"]).astype(np.float64)
+    # drop tmp columns
+    data.drop(columns=["value_ref"], inplace=True)
+    return data
+
+
 def main():
     args = parse_args()
     inputs = args.input
@@ -171,12 +220,16 @@ def main():
     title = args.title
 
     xlabel = "Problem instances"
+    ylabel_time = "Query execution time (seconds)"
+    ylabel_n_integrations = "Number of integrations"
+    ylabel_error = "Relative error"
 
     check_path_exists(output_dir)
 
     input_files = get_input_files(inputs)
     data = parse_inputs(input_files, timeout)
     check_values(data)
+    data = add_relative_error(data)
 
     data = group_data(data, args.cactus, args.timeout)
     # print("Grouped data:")
@@ -184,49 +237,19 @@ def main():
 
     for interval in intervals:
         frm, to = parse_interval(interval)
-        plot_data(
-            output_dir,
-            data,
-            "parallel_time",
-            xlabel,
-            timeout=timeout,
-            frm=frm,
-            to=to,
-            filename=filename,
-            legend_pos=legend_pos,
-            title=title,
-        )
-        plot_data(
-            output_dir,
-            data,
-            "n_integrations",
-            xlabel,
-            frm=frm,
-            to=to,
-            filename=filename,
-            legend_pos=legend_pos,
-            title=title,
-        )
+        plot_data(output_dir, data, "time", xlabel, ylabel_time,
+                  timeout=timeout, frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
+        plot_data(output_dir, data, "n_integrations", xlabel, ylabel_n_integrations,
+                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
+        plot_data(output_dir, data, "error", xlabel, ylabel_error,
+                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
 
-    plot_data(
-        output_dir,
-        data,
-        "time",
-        xlabel,
-        timeout=timeout,
-        filename=filename,
-        legend_pos=legend_pos,
-        title=title,
-    )
-    plot_data(
-        output_dir,
-        data,
-        "n_integrations",
-        xlabel,
-        filename=filename,
-        legend_pos=legend_pos,
-        title=title,
-    )
+    plot_data(output_dir, data, "time", xlabel, ylabel_time,
+              timeout=timeout, filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "n_integrations", xlabel, ylabel_n_integrations,
+              filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "error", xlabel, ylabel_error,
+              filename=filename, legend_pos=legend_pos, title=title)
 
 
 if __name__ == "__main__":

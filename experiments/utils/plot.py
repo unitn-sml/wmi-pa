@@ -37,20 +37,20 @@ MODE_IDS = OrderedDict([
     (get_mode_id(WMI.MODE_PA, LatteIntegrator()), ModeIdInfo(COLORS[3], "WMI-PA")),
     (get_mode_id(WMI.MODE_SA_PA, LatteIntegrator()), ModeIdInfo(COLORS[4], "SA-WMI-PA")),
     (get_mode_id(WMI.MODE_SA_PA_SK, LatteIntegrator()), ModeIdInfo(COLORS[5], "SA-WMI-PA-SK")),
+    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=100)),
+     ModeIdInfo(COLORS[6], "SA-WMI-PA-SK(VolEsti, error=0.1, N=100)")),
     (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=1000)),
-     ModeIdInfo(COLORS[6], "SA-WMI-PA-SK(VolEsti, error=0.1, N=1000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.05, N=1000)),
-     ModeIdInfo(COLORS[7], "SA-WMI-PA-SK(VolEsti, error=0.05, N=1000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=1000)),
-     ModeIdInfo(COLORS[8], "SA-WMI-PA-SK(VolEsti, error=0.01, N=1000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=10000)),
-     ModeIdInfo(COLORS[11], "SA-WMI-PA-SK(VolEsti, error=0.01, N=10000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=100000)),
-     ModeIdInfo(COLORS[12], "SA-WMI-PA-SK(VolEsti, error=0.01, N=100000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=1000000)),
-     ModeIdInfo(COLORS[13], "SA-WMI-PA-SK(VolEsti, error=0.01, N=1000000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.005, N=1000)),
-     ModeIdInfo(COLORS[9], "SA-WMI-PA-SK(VolEsti, error=0.005)")),
+     ModeIdInfo(COLORS[7], "SA-WMI-PA-SK(VolEsti, error=0.1, N=1000)")),
+    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=10000)),
+     ModeIdInfo(COLORS[8], "SA-WMI-PA-SK(VolEsti, error=0.1, N=10000)")),
+    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=100000)),
+     ModeIdInfo(COLORS[11], "SA-WMI-PA-SK(VolEsti, error=0.1, N=100000)")),
+    # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=100000)),
+    #  ModeIdInfo(COLORS[12], "SA-WMI-PA-SK(VolEsti, error=0.01, N=100000)")),
+    # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=1000000)),
+    #  ModeIdInfo(COLORS[13], "SA-WMI-PA-SK(VolEsti, error=0.01, N=1000000)")),
+    # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.005, N=1000)),
+    #  ModeIdInfo(COLORS[9], "SA-WMI-PA-SK(VolEsti, error=0.005)")),
     (get_mode_id(WMI.MODE_SA_PA_SK, SymbolicIntegrator()),
      ModeIdInfo(COLORS[10], "SA-WMI-PA-SK(Symbolic)")),
 ])
@@ -83,9 +83,14 @@ def parse_inputs(input_files, timeout):
         with open(filename) as f:
             result_out = json.load(f)
         mode = result_out["mode"]
+        if "integrator" not in result_out:
+            print("Skipping file " + filename + " because it does not contain integrator key")
+            continue
         integrator_info = result_out["integrator"]
         if integrator_info is not None:
             integrator_info = {f"integrator_{k}": v for k, v in result_out["integrator"].items()}
+        else:
+            integrator_info = {}
 
         assert "wmi_id" in result_out, f"File " + filename + " does not contain wmi_id key"
         wmi_id = result_out["wmi_id"]
@@ -128,19 +133,25 @@ def check_values(data: pd.DataFrame, ref="SAPASK_latte"):
         .aggregate(time=("parallel_time", "first"),
                    value=("value", "first"),
                    count=("parallel_time", "count"))
+        .astype({"value": np.float64})
         .unstack()
     )
 
     # ensure we have no duplicated output
-    assert (data["count"] == 1).all().all(), "Some output are duplicated"
+    assert (data["count"] == 1).all().all(), "Some output are duplicated: {}".format(
+        data[data["count"] != 1]["count"]
+    )
 
     # check values match with the reference mode "ref" (where not NaN)
     ii = data["value", ref].notna()
-    for mode in data.columns.get_level_values(1).unique():
+    modes = data.columns.get_level_values(1).unique()
+    print(modes)
+    for mode in modes:
         indexes = ii & data["value", mode].notna()
         # check if results agree with "ref" with a relative tolerance of ERR_TOLERANCE.
         # TODO: maybe we should check using the integrator_error instead of ERR_TOLERANCE, but currently we cannot
         #  trust the guarantees given by VolEsti.
+
         diff = ~np.isclose(
             data[indexes]["value", mode].values,
             data[indexes]["value", ref].values,
