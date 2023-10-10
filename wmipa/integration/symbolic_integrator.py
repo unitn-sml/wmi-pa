@@ -3,27 +3,34 @@ import sys
 
 from wmipa.wmiexception import WMIIntegrationException
 
-try:
-    from pywmi.domain import Domain
-    from pywmi.engines import PyXaddEngine
-
-    _PYXADD_INSTALLED = True
-except ImportError:
-    Domain = None
-    PyXaddEngine = None
-
-    _PYXADD_INSTALLED = False
-
 from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.integration.expression import Expression
 from wmipa.integration.polytope import Polynomial, Polytope
 
 sys.setrecursionlimit(10 ** 5)
 
+_PYXADD_INSTALLED = False
+Domain = None
+PyXaddEngine = None
+
 
 class SymbolicIntegrator(CacheIntegrator):
     """This class handles the integration of polynomial functions over (convex) polytopes.
     """
+
+    def __init__(self, **options):
+        super().__init__(**options)
+        # trick to avoid circular import, maybe there is a better way
+        global _PYXADD_INSTALLED
+        if not _PYXADD_INSTALLED:
+            global Domain, PyXaddEngine
+            try:
+                from pywmi.domain import Domain
+                from pywmi.engines import PyXaddEngine
+
+                _PYXADD_INSTALLED = True
+            except ImportError:
+                raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "Symbolic (PyXadd)")
 
     @staticmethod
     def _integrator():
@@ -71,8 +78,6 @@ class SymbolicIntegrator(CacheIntegrator):
             real: The integration result.
 
         """
-        if not _PYXADD_INSTALLED:
-            raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "Symbolic (PyXadd)")
         support = polytope.to_pysmt()
         weight = integrand.to_pysmt()
         variables = {
