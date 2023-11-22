@@ -341,7 +341,9 @@ class LabelCNFizer(CNFizer):
 
 
 class SkeletonSimplifier(Simplifier):
-    """Simplifier that does not simplify formulas like Or(phi, Not(phi))"""
+    """Simplifier that does not simplify formulas like Or(phi, Not(phi)).
+    Only perform Boolean simplifications.
+    """
 
     def walk_or(self, formula, args, **kwargs):
         if len(args) == 2 and args[0] == args[1]:
