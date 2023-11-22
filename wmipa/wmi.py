@@ -73,6 +73,7 @@ class WMI:
 
         """
         self.variables = WMIVariables()
+        self.normalizer = TermNormalizer()
         self.weights = Weights(weight, self.variables)
         self.chi = chi
 
@@ -84,7 +85,6 @@ class WMI:
         self.integrator = integrator
 
         self.skeleton_simplifier = SkeletonSimplifier()
-        self.normalizer = TermNormalizer()
 
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.
@@ -1060,9 +1060,7 @@ class WMI:
             else:
                 value = True
                 atom = literal
-            assert atom.is_theory_relation or (
-                    atom.is_symbol() and atom.get_type() == BOOL
-            )
+            assert atom.is_theory_relation or (atom.is_symbol() and atom.get_type() == BOOL)
             assignments[atom] = value
 
         return assignments

@@ -243,25 +243,25 @@ class TermNormalizer:
             self._cache[term] = normalized_term
         return self._cache[term]
 
-    def normalize(self, term, remember_alias=False):
+    def normalize(self, phi, remember_alias=False):
         """Return a normalized representation of the term.
 
         Args:
-            term (FNode): The term to normalize.
-            remember_alias (bool): If True, the original term is remembered to be an alias of its normalized version.
+            phi (FNode): The formula to normalize.
+            remember_alias (bool): If True, the original formula is remembered to be an alias of its normalized version.
 
         Returns:
-            FNode: The normalized term.
-            bool: True if the term was negated, False otherwise.
+            FNode: The normalized formula.
+            bool: True if the formula was negated, False otherwise.
         """
-        normalized_term = self._normalize(term)
+        normalized_phi = self._normalize(phi)
         negated = False
-        if normalized_term.is_not():
-            normalized_term = normalized_term.arg(0)
+        if normalized_phi.is_not():
+            normalized_phi = normalized_phi.arg(0)
             negated = True
         if remember_alias:
-            self._known_aliases[normalized_term].add((term, negated))
-        return normalized_term, negated
+            self._known_aliases[normalized_phi].add((phi, negated))
+        return normalized_phi, negated
 
     def known_aliases(self, term):
         """Return the set of known aliases of the term.

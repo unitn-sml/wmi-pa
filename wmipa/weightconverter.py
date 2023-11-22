@@ -365,3 +365,10 @@ class SkeletonSimplifier(Simplifier):
             return next(iter(new_args))
         else:
             return self.manager.Or(new_args)
+
+    @handles(op.IRA_OPERATORS)
+    @handles(op.IRA_RELATIONS)
+    def walk_identity(self, formula, args, **kwargs):
+        return self.manager.create_node(
+            formula.node_type(), args=tuple(map(self.walk, args))
+        )

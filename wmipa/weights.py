@@ -1,7 +1,7 @@
 from itertools import product
 
 from pysmt.fnode import FNode
-from pysmt.shortcuts import And, Bool, Iff, get_env, serialize, simplify, substitute
+from pysmt.shortcuts import And, Bool, Iff, get_env, serialize
 from pysmt.typing import REAL
 
 from wmipa.weightconverter import WeightConverterEUF, WeightConverterSkeleton
@@ -151,8 +151,8 @@ class Weights:
 
         """
         # recursively find all the conditions and create a label for all of them
-        subs = self._find_conditions(weight_func, subs={})
-
+        subs = {}
+        self._find_conditions(weight_func, subs)
         # perform labelling
         labelled_weight_func = weight_func.substitute(subs)
 
@@ -188,14 +188,9 @@ class Weights:
                 applied to the given assignment.
 
         """
-        # print("NODE", serialize(node), node.is_ite(), len(node.args()))
-        # print()
-        # print("CONDITIONS")
-        # for c in conditions:
         if node.is_ite():
             cond, then, _else = node.args()
-            # gets the index of the label to retrieve the truth value of that specific
-            # label
+            # gets the index of the label to retrieve the truth value of that specific label
             index_cond = conditions[cond]
             # assert assignment[index_cond] is not None, cond
             if assignment[index_cond] is None:
@@ -203,13 +198,9 @@ class Weights:
             # iteratively retrieve the leaf nodes from the 'then' or 'else' part,
             # depending on the truth value of the condition
             if assignment[index_cond]:
-                return self._evaluate_weight(
-                    then, assignment, conditions, atom_assignment
-                )
+                return self._evaluate_weight(then, assignment, conditions, atom_assignment)
             else:
-                return self._evaluate_weight(
-                    _else, assignment, conditions, atom_assignment
-                )
+                return self._evaluate_weight(_else, assignment, conditions, atom_assignment)
 
         # found a leaf, return it
         elif len(node.args()) == 0:
@@ -220,11 +211,7 @@ class Weights:
             new_children = []
 
             for child in node.args():
-                new_children.append(
-                    self._evaluate_weight(
-                        child, assignment, conditions, atom_assignment
-                    )
-                )
+                new_children.append(self._evaluate_weight(child, assignment, conditions, atom_assignment))
 
             # after retrieving all the leaf nodes of the children it creates a new
             # node with these particular leafs
@@ -241,10 +228,6 @@ class Weights:
             subs (dict {FNode : FNode}): The dictionary that will contain the
                 correlations between each condition and their labels.
 
-        Returns:
-            dict {FNode : FNode}: The dictionary containing the correlations between
-                each conditions of the given formula and their labels.
-
         Raises:
             WMIParsingException: If the weight formula does not represent a weight
                 function.
@@ -259,28 +242,22 @@ class Weights:
                 subs[cond] = label
 
             # recursively finds all the conditions in both the 'then' and 'else' term
-            subs = self._find_conditions(then, subs)
-            subs = self._find_conditions(_else, subs)
+            self._find_conditions(then, subs)
+            self._find_conditions(_else, subs)
 
         elif node.is_ira_op():
             # recursively finds all the conditions in all the children of the formula
             # (i.e: PLUS, MINUS, TIMES, DIV, POW)
             for child in node.args():
-                subs = self._find_conditions(child, subs)
+                self._find_conditions(child, subs)
         elif len(node.args()) != 0 or not (node.is_symbol(REAL) or node.is_constant()):
             # other possible types of admitted nodes are symbol or constant else an
             # exception is raised
             raise WMIParsingException(WMIParsingException.INVALID_WEIGHT_FUNCTION, node)
 
-        return subs
-
-    def _evaluate_condition(self, condition, assignment):
-        temp1 = condition.substitute(assignment)
-        val = simplify(temp1)
-        for _ in range(9):
-            if val.is_bool_constant():
-                break
-            val = simplify(substitute(val, assignment))
+    @staticmethod
+    def _evaluate_condition(condition, assignment):
+        val = condition.substitute(assignment).simplify()
         assert val.is_bool_constant(), (
                 "Weight condition "
                 + serialize(condition)
@@ -292,11 +269,20 @@ class Weights:
         return val.constant_value()
 
     def __str__(self):
-        ret = "Weight object {\n"
-        ret += "\tlabelled weight: " + serialize(self.weights) + "\n"
-        ret += "\tlabels: " + ", ".join([serialize(s) for s in self.labels]) + "\n"
-        ret += "\tlabelling: " + serialize(self.labelling) + "\n"
-        ret += "\tnumber of conditions: " + str(self.n_conditions) + "\n"
-        ret += "}"
-
-        return ret
+        return ("Weight object {"
+                "\tweight: {weight},\n"
+                "\tlabelled_weight: {labelled_weight},\n"
+                "\tlabels: {labels},\n"
+                "\tlabelling: {labelling},\n"
+                "\tnumber of conditions: {n_conditions}\n"
+                "\tw_as_euf: {w_as_euf},\n"
+                "\tw_as_sk: {w_as_sk},\n"
+                "}").format(
+            weight=serialize(self.weights),
+            labelled_weight=serialize(self.labelled_weights),
+            labels=", ".join([serialize(s) for s in self.labels]),
+            labelling=serialize(self.labelling),
+            n_conditions=str(self.n_conditions),
+            w_as_euf=serialize(self.weights_as_formula_euf),
+            w_as_sk=serialize(self.weights_as_formula_sk)
+        )
