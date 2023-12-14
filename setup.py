@@ -13,19 +13,15 @@ VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    "jinja2",
-    "matplotlib",
     "networkx",
     "numpy",
-    "pandas",
-    "psutil",
-    "pysmt",
-    "pytest",
+    "PySMT>=0.9.6.dev53",
     "sympy",
 ]
 
 # What packages are optional?
 EXTRAS = {
+    "dev": ["pytest", "pytest-runner", "matplotlib", "pandas", "psutil"],
     #        'sdd': ["pysdd"]
     # "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
@@ -62,8 +58,6 @@ setup(
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
-    setup_requires=["pytest-runner"],
-    tests_require=["pytest"],
     cmdclass={
         #        'upload': UploadCommand,
         #        'install': PostInstallCommand,

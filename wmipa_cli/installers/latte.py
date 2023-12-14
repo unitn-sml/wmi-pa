@@ -1,12 +1,8 @@
 import os
 
 from wmipa_cli.installers.installer import Installer
-<<<<<<< HEAD
-from wmipa_cli.utils import check_os_version, safe_cmd
-=======
 from wmipa_cli.log import logger
 from wmipa_cli.utils import check_os_version, safe_cmd, remove_suffix
->>>>>>> journal
 
 
 class LatteInstaller(Installer):
@@ -37,7 +33,7 @@ class LatteInstaller(Installer):
     def check_environment(self, yes):
         logger.info(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
-            logger.warning(f"""Automatic installation of {self.get_name()} is supported only for Linux.
+            logger.error(f"""Automatic installation of {self.get_name()} is supported only for Linux.
         Please install it manually from {self.download_url}""")
             return False
         if not self.ask_dependencies_proceed(yes):
@@ -75,14 +71,10 @@ class LatteInstaller(Installer):
         if force and os.path.exists(bin_path):
             safe_cmd(f"rm -rf {bin_path}")
         safe_cmd(f'./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" '
-<<<<<<< HEAD
-                  f'--prefix={bin_path} && make && make install')
-=======
                  f'--prefix={bin_path} && make && make install')
 
     def _dirname(self):
         return remove_suffix(os.path.basename(self.filename), ".tar.gz")
->>>>>>> journal
 
     def add_to_path(self):
         self.paths_to_export.append(f'PATH={self.install_path}/{self.get_dir()}/bin')

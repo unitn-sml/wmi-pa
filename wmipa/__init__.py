@@ -1,5 +1,4 @@
 # check whether MathSAT is installed or not
-from logging import warning
 
 
 def _msat_version_supports_skeleton():
@@ -14,10 +13,10 @@ MathSAT needs to be manually installed via:
     pysmt-install --msat"""
     raise ImportError(IMPORT_ERR_MSG)
 
-if not _msat_version_supports_skeleton():
-    IMPORT_WARN_MSG = """The installed version of MathSAT doesn't support the SA-PA-SK algorithm.
-    run `wmipa-install --msat-custom` to install a custom version of MathSAT."""
-    warning(IMPORT_WARN_MSG)
+# if not _msat_version_supports_skeleton():
+#     IMPORT_WARN_MSG = """The installed version of MathSAT doesn't support the SA-PA-SK algorithm.
+#     run `wmipa-install --msat-custom` to install a custom version of MathSAT."""
+#     warning(IMPORT_WARN_MSG)
 
 from .log import logger
 from .wmi import WMI

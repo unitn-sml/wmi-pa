@@ -64,11 +64,11 @@ def parse_args(args):
 def install_msat_sk(force_reinstall):
     sysname, machine = "Linux", "x86_64"
     if not check_os_version(sysname, machine):
-        logger.warning(f"""The algorithm SA-WMI-PA-SK is supported only for {sysname} {machine}. 
+        logger.error(f"""The algorithm SA-WMI-PA-SK is supported only for {sysname} {machine}. 
     The installation will continue, but this algorithm will not work correctly.""")
         return
     if not check_python_version():
-        logger.warning("""The algorithm SA-WMI-PA-SK is supported only for Python 3.8.
+        logger.error("""The algorithm SA-WMI-PA-SK is supported only for Python 3.8.
     The installation will continue, but this algorithm will not work correctly.""")
         return
     install_msat(force_reinstall)
