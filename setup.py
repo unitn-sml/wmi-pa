@@ -17,11 +17,17 @@ REQUIRED = [
     "numpy",
     "PySMT>=0.9.6.dev53",
     "sympy",
+    # test
+    "pytest",
+    "pytest-runner",
+    # experiments
+    "matplotlib",
+    "pandas",
+    "psutil"
 ]
 
 # What packages are optional?
 EXTRAS = {
-    "dev": ["pytest", "pytest-runner", "matplotlib", "pandas", "psutil"],
     #        'sdd': ["pysdd"]
     # "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
