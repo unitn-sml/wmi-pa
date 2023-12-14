@@ -1,21 +1,12 @@
 from abc import ABC, abstractmethod
 from functools import reduce
 
-from pysmt.rewritings import CNFizer, nnf
-from pysmt.shortcuts import (
-    And,
-    Bool,
-    Equals,
-    FreshSymbol,
-    FunctionType,
-    Not,
-    Or,
-    Real,
-    Times,
-    get_env, )
+import pysmt.operators as op
+from pysmt.rewritings import nnf
+from pysmt.shortcuts import And, Bool, Equals, FreshSymbol, FunctionType, Not, Or, Real, Times, get_env
 from pysmt.simplifier import Simplifier
 from pysmt.typing import REAL
-from pysmt.walkers import IdentityDagWalker
+from pysmt.walkers import IdentityDagWalker, handles, DagWalker
 
 from wmipa.utils import is_atom, is_pow, is_exp
 
@@ -218,7 +209,7 @@ class WeightConverterSkeleton(WeightConverter):
 
 class CNFPreprocessor(IdentityDagWalker):
     """
-    Convert nested ORs and ANDs into flat lists of ORs and ANDs.
+    Convert nested ORs and ANDs into flat lists of ORs and ANDs, and Implies into Or.
     """
 
     def walk_or(self, formula, args, **kwargs):
@@ -257,14 +248,18 @@ class CNFPreprocessor(IdentityDagWalker):
         return self.walk_or(self.mgr.Or(self.mgr.Not(left), right), (self.mgr.Not(left_a), right_a), **kwargs)
 
 
-class LabelCNFizer(CNFizer):
-    def walk_quantifier(self, formula, args, **kwargs):
-        pass
+class LabelCNFizer(DagWalker):
+    """Implements the Plaisted&Greenbaum CNF conversion algorithm."""
 
     def __init__(self, wmi_variables, environment=None):
-        super().__init__(environment)
-        self.preprocessor = CNFPreprocessor(env=environment)
+        super().__init__(environment, invalidate_memoization=True)
+        self.mgr = self.env.formula_manager
+        self.preprocessor = CNFPreprocessor(env=self.env)
         self.wmi_variables = wmi_variables
+        self._introduced_variables = {}
+
+    def _get_key(self, formula, cnf=None, **kwargs):
+        return formula
 
     def _key_var(self, formula):
         if formula in self._introduced_variables:
@@ -274,21 +269,27 @@ class LabelCNFizer(CNFizer):
             self._introduced_variables[formula] = res
         return res
 
+    def _neg(self, formula):
+        if formula.is_not():
+            return formula.arg(0)
+        else:
+            return self.mgr.Not(formula)
+
     def convert(self, formula):
         """Convert formula into an equisatisfiable CNF.
 
         Returns a set of clauses: a set of sets of literals.
         """
-
         formula = self.preprocessor.walk(formula)
-        tl, _cnf = self.walk(formula)
+        cnf = list()
+        tl = self.walk(formula, cnf=cnf)
 
-        if not _cnf:
-            return [frozenset([tl])]
+        if not cnf:
+            return frozenset((frozenset(),))
         res = []
-        for clause in _cnf:
+        for clause in cnf:
             if len(clause) == 0:
-                return CNFizer.FALSE_CNF
+                return {frozenset()}
             simp = []
             for lit in clause:
                 if lit is tl or lit.is_true():
@@ -296,7 +297,7 @@ class LabelCNFizer(CNFizer):
                     # and clauses containing the top level label
                     simp = None
                     break
-                elif not lit.is_false() and lit is not Not(tl):
+                elif not lit.is_false() and lit is not self._neg(tl):
                     # Prune FALSE literals
                     simp.append(lit)
             if simp:
@@ -304,44 +305,58 @@ class LabelCNFizer(CNFizer):
 
         return frozenset(res)
 
-    def walk_not(self, formula, args, **kwargs):
-        a, _cnf = args[0]
+    def walk_not(self, formula, args, cnf=None, **kwargs):
+        a = args[0]
         if a.is_true():
-            return self.mgr.Bool(False), CNFizer.TRUE_CNF
+            return self.mgr.Bool(False)
         elif a.is_false():
-            return self.mgr.Bool(True), CNFizer.TRUE_CNF
+            return self.mgr.Bool(True)
         else:
-            return Not(a), _cnf
+            return self._neg(a)
 
-    def walk_and(self, formula, args, **kwargs):
-        if len(args) == 1:
-            return args[0]
-
-        k = self._key_var(formula)
-
-        _cnf = []
-        for a, c in args:
-            _cnf.append(frozenset([a, self.mgr.Not(k)]))
-            for clause in c:
-                _cnf.append(clause)
-
-        return k, frozenset(_cnf)
-
-    def walk_or(self, formula, args, **kwargs):
+    def walk_and(self, formula, args, cnf=None, **kwargs):
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
 
-        _cnf = [frozenset([self.mgr.Not(k)] + [a for a, _ in args])]
-        for a, c in args:
-            for clause in c:
-                _cnf.append(clause)
+        for a in args:
+            cnf.append([a, self._neg(k)])
 
-        return k, frozenset(_cnf)
+        return k
+
+    def walk_or(self, formula, args, cnf=None, **kwargs):
+        if len(args) == 1:
+            return args[0]
+        k = self._key_var(formula)
+
+        cnf.append([self._neg(k)] + args)
+
+        return k
+
+    def walk_iff(self, formula, args, cnf=None, **kwargs):
+        left, right = args
+        if left == right:
+            return self.mgr.Bool(True)
+        k = self._key_var(formula)
+        cnf.append([self._neg(k), self._neg(left), right])
+        cnf.append([self._neg(k), left, self._neg(right)])
+        cnf.append([k, left, right])
+        cnf.append([k, self._neg(left), self._neg(right)])
+
+        return k
+
+    @handles(op.SYMBOL)
+    @handles(op.CONSTANTS)
+    @handles(op.RELATIONS)
+    @handles(op.THEORY_OPERATORS)
+    def walk_identity(self, formula, cnf=None, **kwargs):
+        return formula
 
 
 class SkeletonSimplifier(Simplifier):
-    """Simplifier that does not simplify formulas like Or(phi, Not(phi))"""
+    """Simplifier that does not simplify formulas like Or(phi, Not(phi)).
+    Only perform Boolean simplifications.
+    """
 
     def walk_or(self, formula, args, **kwargs):
         if len(args) == 2 and args[0] == args[1]:
@@ -365,3 +380,10 @@ class SkeletonSimplifier(Simplifier):
             return next(iter(new_args))
         else:
             return self.manager.Or(new_args)
+
+    @handles(op.IRA_OPERATORS)
+    @handles(op.IRA_RELATIONS)
+    def walk_identity(self, formula, args, **kwargs):
+        return self.manager.create_node(
+            formula.node_type(), args=tuple(map(self.walk, args))
+        )

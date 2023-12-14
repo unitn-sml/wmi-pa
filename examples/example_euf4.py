@@ -15,8 +15,8 @@ phi = Bool(True)
 # weight function definition
 w = Plus(Ite(GE(x1, Real(0)),
              Ite(GE(x1, Real((1, 2))),
-             Times(x1, Real(3)),
-             Times(Real(-2), x1)),
+                 Times(x1, Real(3)),
+                 Times(Real(-2), x1)),
              Times(Real(-1), x1)
              ),
          Ite(a,

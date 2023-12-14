@@ -22,3 +22,9 @@ def safe_cmd(command):
     if res != 0:
         logger.error(f"Error while executing {command}.")
         sys.exit(1)
+
+
+def remove_suffix(s, suffix):
+    if s.endswith(suffix):
+        return s[:-len(suffix)]
+    return s

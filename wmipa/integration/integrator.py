@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 class Integrator(ABC):
     """This class represents the general integrator with which to compute integrals.
 
-    For the moment there is only one integrator that uses LattE Integrale.
-
     """
 
     @abstractmethod

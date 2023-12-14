@@ -13,19 +13,36 @@ _VOLESTI_INSTALLED = _is_volesti_installed()
 
 
 class VolestiIntegrator(CommandLineIntegrator):
-    """This class handles the approximated integration of polynomial functions
-    over (convex) polytopes.
+    """This class is a wrapper for the VolEsti integrator.
 
-    It inherits from the abstract class CacheIntegrator.
+    It handles the integration of polynomial functions over (convex) polytopes, using an approximation algorithm.
+    The estimation is based on a Monte Carlo approach, as:
+        I(P) = V(P) * E[f(X)] ~ V(P) * 1/N * sum_{i=1}^N f(X_i)
+    where:
+        - V(P) is the volume of the polytope P, approximated with relative error "error". The volume is computed using
+            one of the following algorithms:
+                - Sequence of balls (SOB);
+                - Cooling balls (CB);
+                - Cooling Gaussians (CG).
+        - f is the integrand;
+        - N is the number of samples;
+        - X_i are samples drawn from the uniform distribution over P. The points are generated using a random walk.
+            The type of random walk can be chosen among the following:
+                - Ball walk (Ba);
+                - Random direction hit-and-run (RDHR);
+                - Coordinate direction hit-and-run (CDHR);
+                - Billiard walk (Bi);
+                - Accelerated billiard walk (ABi).
+            The length of the random walk can be specified, otherwise it is chosen automatically.
 
-    VolEsti is required.
+    The tool volesti_integrate is required.
 
     Attributes:
-        algorithm (str): The algorithm to use when computing the integrals.
-        n_threads (int): The number of threads to use.
-        error (int): The relative error tolerated (in (0.0, 1.0))
+        algorithm (str): The algorithm to use to compute the volume.
+        n_threads (int): The number of threads to use for parallel computation of a batch of problems.
+        error (int): The relative error tolerated for the volume computation (in (0.0, 1.0))
         walk_type (str): The type of random walk to use.
-        N (int): Number of samples.
+        N (int): Number of samples used in the Monte Carlo approach.
         walk_length (int): Length of random walk.
 
     """
@@ -85,9 +102,7 @@ class VolestiIntegrator(CommandLineIntegrator):
 
         self.algorithm = algorithm
         if self.algorithm not in self.ALGORITHMS:
-            err = "{}, choose one from: {}".format(
-                self.algorithm, ", ".join(self.ALGORITHMS)
-            )
+            err = "{}, choose one from: {}".format(self.algorithm, ", ".join(self.ALGORITHMS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
         self.error = error
@@ -97,16 +112,12 @@ class VolestiIntegrator(CommandLineIntegrator):
 
         self.walk_type = walk_type
         if self.walk_type not in self.RANDOM_WALKS:
-            err = "{}, choose one from: {}".format(
-                self.walk_type, ", ".join(self.RANDOM_WALKS)
-            )
+            err = "{}, choose one from: {}".format(self.walk_type, ", ".join(self.RANDOM_WALKS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
         self.walk_length = walk_length
         if self.walk_length is not None and self.walk_length < 0:
-            err = "{}, walk_length must be a non-negative number".format(
-                self.walk_length
-            )
+            err = "{}, walk_length must be a non-negative number".format(self.walk_length)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, err)
 
         self.N = N
@@ -179,9 +190,20 @@ class VolestiIntegrator(CommandLineIntegrator):
             cmd += ["--seed", str(self.seed)]
 
         with open(output_file, "w") as f:
-            if self.stub_integrate:
-                f.write("")
-            else:
-                return_value = call(cmd, stdout=f)
-                if return_value != 0:
-                    raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")
+            return_value = call(cmd, stdout=f)
+            if return_value != 0:
+                raise WMIIntegrationException(WMIIntegrationException.OTHER_ERROR, "Error while calling VolEsti")
+
+    def to_json(self):
+        return {"name": "volesti",
+                "algorithm": self.algorithm,
+                "error": self.error,
+                "walk_type": self.walk_type,
+                "walk_length": self.walk_length,
+                "seed": self.seed,
+                "N": self.N,
+                "n_threads": self.n_threads}
+
+    def to_short_str(self):
+        return "volesti_{}_{}_{}_{}_{}_{}".format(self.algorithm, self.error, self.walk_type, self.walk_length,
+                                                  self.seed, self.N)

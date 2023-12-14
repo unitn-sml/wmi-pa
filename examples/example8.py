@@ -15,7 +15,6 @@ H = Symbol("H", BOOL)
 I = Symbol("I", BOOL)
 x = Symbol("x", REAL)
 
-
 # formula definition
 # fmt: off
 phi = Bool(True)

@@ -1,8 +1,12 @@
 import os
-from wmipa_cli.log import logger
 
 from wmipa_cli.installers.installer import Installer
+<<<<<<< HEAD
 from wmipa_cli.utils import check_os_version, safe_cmd
+=======
+from wmipa_cli.log import logger
+from wmipa_cli.utils import check_os_version, safe_cmd, remove_suffix
+>>>>>>> journal
 
 
 class LatteInstaller(Installer):
@@ -47,16 +51,17 @@ class LatteInstaller(Installer):
         return yes or input().strip().lower() == "y"
 
     def download(self):
-        if os.path.exists(self.filename) or os.path.exists(self.filename.rstrip("tar.gz")):
+        filename = os.path.basename(self.filename)
+        if os.path.exists(self.filename):
             logger.info(f"Skipping download of {self.get_name()}, file {self.filename} already exists.")
             return
         logger.info(f"Downloading {self.get_name()} from {self.download_url} to {os.getcwd()}...")
         safe_cmd("wget %s" % self.download_url)
 
     def unpack(self):
-        if os.path.exists(self.filename.rstrip("tar.gz")):
-            logger.info(
-                f"Skipping unpacking of {self.get_name()}, directory {self.filename.rstrip('tar.gz')} already exists.")
+        dirname = self._dirname()
+        if os.path.exists(dirname):
+            logger.info(f"Skipping unpacking of {self.get_name()}, directory {dirname} already exists.")
             return
         logger.info(f"Unpacking {self.get_name()} to {os.getcwd()}...")
         safe_cmd(f"tar -xzf {self.filename}")
@@ -64,13 +69,20 @@ class LatteInstaller(Installer):
 
     def build(self, force):
         logger.info("Configuring and building LattE Integrale...")
-        dirname = self.filename.rstrip(".tar.gz")
+        dirname = self._dirname()
         os.chdir(dirname)
         bin_path = os.path.abspath(os.path.join(self.install_path, self.get_dir()))
         if force and os.path.exists(bin_path):
             safe_cmd(f"rm -rf {bin_path}")
         safe_cmd(f'./configure GXX="g++ -std=c++11" CXX="g++ -std=c++11" '
+<<<<<<< HEAD
                   f'--prefix={bin_path} && make && make install')
+=======
+                 f'--prefix={bin_path} && make && make install')
+
+    def _dirname(self):
+        return remove_suffix(os.path.basename(self.filename), ".tar.gz")
+>>>>>>> journal
 
     def add_to_path(self):
         self.paths_to_export.append(f'PATH={self.install_path}/{self.get_dir()}/bin')

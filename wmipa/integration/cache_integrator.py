@@ -15,21 +15,27 @@ from wmipa.wmiexception import WMIRuntimeException
 
 
 class CacheIntegrator(Integrator):
-    """This class handles the integration of polynomial functions over (convex) polytopes, using caching.
+    """This class handles the integration of polynomial functions over (convex) polytopes, using caching and parallel
+    computation.
 
     It implements different levels of caching (-1, 0, 1, 2, 3):
 
-    -1: no caching
-     0: * the problem key is defined as the tuple (polytope, cond_assignments).
+     - Level -1:
+        no caching
+     - Level 0:
+        * the problem key is defined as the tuple (polytope, cond_assignments).
         * duplicates are recognized only once the integrator is called.
             If a batch of problems is integrated in parallel, the same problem may be integrated multiple times.
-     1: * the problem key is defined as the tuple (polytope, cond_assignments).
+     - Level 1:
+        * the problem key is defined as the tuple (polytope, cond_assignments).
         * duplicates are recognized before the integrator is called.
             If a batch of problems is integrated in parallel, the same problem is integrated only once.
-     2: * the problem key is defined as the tuple (polytope, integrand). This strategy is better than using the
+     - Level 2:
+        * the problem key is defined as the tuple (polytope, integrand). This strategy is better than using the
             cond_assignments because multiple cond_assignments may correspond to the same integrand.
         * duplicates are recognized before the integrator is called.
-     3: * the problem key is defined as the tuple (polytope, integrand). The polytope is simplified before the key is
+     - Level 3:
+        * the problem key is defined as the tuple (polytope, integrand). The polytope is simplified before the key is
          computed, by removing redundant constraints. This method is based on OptiMathSAT, and requires the tool to be
          installed.
         * duplicates are recognized before the integrator is called.
@@ -38,7 +44,7 @@ class CacheIntegrator(Integrator):
     It inherits from the abstract class Integrator.
 
     Attributes:
-        n_threads (int): The number of threads to use.
+        n_threads (int): The number of threads to use when integrating a batch of problems.
         stub_integrate (bool): If True, the values will not be computed (0 is returned)
         hashTable (HashTable): The hash table used for caching.
         parallel_integration_time (float): The time spent in integration, accounting for parallelization.
@@ -96,6 +102,18 @@ class CacheIntegrator(Integrator):
         return self._cache_2(polytope, integrand, _)
 
     def _get_cache_fn(self, cache):
+        """Returns the cache function corresponding to the given cache level.
+
+        Args:
+            cache (int): The cache level.
+
+        Returns:
+            function (Polytope, Integrand, tuple) -> (key, Polytope):
+                The cache function. Given a polytope, an integrand and a tuple of boolean representing the truth values
+                of the conditions of the weight function, it returns a tuple (key, polytope). The key identifies the
+                problem to integrate, and the polytope is equivalent to the given one, possibly simplified by
+                removing redundant constraints.
+        """
         cache_modes = {
             -1: self._cache_1,
             0: self._cache_1,
@@ -122,7 +140,7 @@ class CacheIntegrator(Integrator):
             int: The number of cached results.
 
         """
-
+        start_time = time.time()
         EMPTY = -1
         cache_fn = self._get_cache_fn(cache)
 
@@ -153,10 +171,11 @@ class CacheIntegrator(Integrator):
             else:
                 problem_id.append(EMPTY)
 
+        setup_time = time.time() - start_time
+        start_time = time.time()
         problems_to_integrate = problems_to_integrate.values()
         assert len(problem_id) == len(problems)
         # Handle multithreading
-        start_time = time.time()
         pool = Pool(self.n_threads)
         results = pool.map(self._integrate_wrapper, problems_to_integrate)
         pool.close()
@@ -164,8 +183,8 @@ class CacheIntegrator(Integrator):
         values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
         cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
 
-        self.sequential_integration_time = sum([results[pid][2] for pid in problem_id])
-        self.parallel_integration_time = time.time() - start_time
+        self.sequential_integration_time += setup_time + sum([results[pid][2] for pid in problem_id])
+        self.parallel_integration_time += setup_time + time.time() - start_time
 
         return values, cached
 
@@ -193,12 +212,12 @@ class CacheIntegrator(Integrator):
             bool: True if the result was cached, False otherwise.
 
         """
+        start_time = time.time()
         integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
         cache_fn = self._get_cache_fn(cache)
         key, polytope = cache_fn(polytope, integrand, cond_assignments)
         if polytope is None or polytope.is_empty():
             return 0.0, False
-        start_time = time.time()
         value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
         integration_time = time.time() - start_time
         self.sequential_integration_time += integration_time
@@ -368,7 +387,6 @@ class CacheIntegrator(Integrator):
 
     @staticmethod
     def _evaluate_polytope_inequalities(polytope, point):
-
         values = []
         variables = list(polytope.variables)
 
@@ -527,6 +545,14 @@ class CacheIntegrator(Integrator):
         assert len(values) == len(variable_names)
         obj_value = sum([(obj[i] * values[i]) for i in range(len(values))])
         return obj_value, values
+
+    @abstractmethod
+    def to_json(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_short_str(self):
+        raise NotImplementedError
 
 
 class HashTable:

@@ -21,29 +21,29 @@ w = Ite(a & (x1 >= 1.5),
         Times(
             Ite(b | (x2 >= 1),
                 x1,
-                2*x1
+                2 * x1
                 ),
             Ite((x2 <= 1),
                 Plus(
                     Ite(x2 <= 0.5, x1 * x1, x1 * x2),
                     Ite(x1 + x2 <= 1, x2 * x2, x1 * x2)
-                    ),
+                ),
                 Plus(
                     Ite(x2 <= 0.5, x1 * x1, x1 * x2),
                     Ite(x1 + x2 <= 1, x2 * x2, x1 * x2)
-                    )
                 )
-            ),
+                )
+        ),
         Times(
-                Ite((x2 <= 1.5),
-                    3*(x1*x1),
-                    4*(x1)
-                    ),
-                Ite(d & (x2 + x1 >= 1),
-                    3*(x2*x2),
-                    4*(x2)
-                    )
-            )
+            Ite((x2 <= 1.5),
+                3 * (x1 * x1),
+                4 * (x1)
+                ),
+            Ite(d & (x2 + x1 >= 1),
+                3 * (x2 * x2),
+                4 * (x2)
+                )
+        )
         )
 
 chi = And(LE(Real(0), x1), LT(x1, Real(1)),
