@@ -79,7 +79,7 @@ def copy_sk_msat_binary(force_reinstall):
     msat_install_dir = sysconfig.get_path("purelib")
     msat_so = "_mathsat.cpython-38-x86_64-linux-gnu.so"
     msat_py = "mathsat.py"
-    url = "https://github.com/masinag/wmi-pa/raw/master/bin/{}"
+    url = "https://github.com/unitn-sml/wmi-pa/raw/master/bin/{}"
     msat_so_url = url.format(msat_so)
     msat_py_url = url.format(msat_py)
 
