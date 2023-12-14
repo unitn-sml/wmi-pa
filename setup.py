@@ -9,18 +9,25 @@ URL = "http://github.com/unitn-sml/wmi-pa"
 EMAIL = "paolo.morettin@unitn.it"
 AUTHOR = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 REQUIRES_PYTHON = ">=3.5.0"
-VERSION = "0.1.6"
+VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
-REQUIRED = ["pysmt @ git+ssh://git@github.com/masinag/pysmt@nrat#egg=pysmt",
-            "pywmi",
-            "numpy",
-            "sympy",
-            "networkx"]
+REQUIRED = [
+    "jinja2",
+    "matplotlib",
+    "networkx",
+    "numpy",
+    "pandas",
+    "psutil",
+    "pysmt",
+    "pytest",
+    "sympy",
+]
 
 # What packages are optional?
 EXTRAS = {
     #        'sdd': ["pysdd"]
+    # "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -51,7 +58,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires=REQUIRES_PYTHON,
-    packages=find_packages(exclude=("test", "examples")),
+    packages=find_packages(exclude=("test", "examples", "experiments")),
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
@@ -60,5 +67,10 @@ setup(
     cmdclass={
         #        'upload': UploadCommand,
         #        'install': PostInstallCommand,
+    },
+    entry_points={
+        "console_scripts": [
+            "wmipa-install = wmipa_cli.install:run",
+        ]
     },
 )

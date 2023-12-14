@@ -1,143 +1,54 @@
 import argparse
 import json
 import os
-import sys
 import time
-from multiprocessing import Process, Queue
 from os import path
-from queue import Empty as EmptyQueueError
 
-import psutil
-from pysmt.shortcuts import Bool, get_env, reset_env
-from pywmi import Density
-from pywmi.engines import PyXaddAlgebra, PyXaddEngine, RejectionEngine, XsddEngine
-from pywmi.engines.algebraic_backend import SympyAlgebra
-from pywmi.engines.xsdd import FactorizedXsddEngine as FXSDD
-from pywmi.engines.xsdd.vtrees.vtree import balanced
-
+from utils.io import check_path_exists, check_path_not_exists, problems_from_densities, write_result, Formatter
+from utils.run import get_integrators, get_wmi_id, compute_wmi, run_fn_with_timeout, WMIResult
 from wmipa import WMI
-from wmipa.integration.latte_integrator import LatteIntegrator
-from wmipa.integration.symbolic_integrator import SymbolicIntegrator
+from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.integration.volesti_integrator import VolestiIntegrator
 
 
-def compute_wmi(domain, support, weight, args, q):
-    if "PA" in args.mode:
-        if args.integration == "latte":
-            integrator = LatteIntegrator()
-        elif args.integration == "volesti":
-            integrator = VolestiIntegrator(
-                algorithm=args.algorithm,
-                error=args.error,
-                walk_type=args.walk_type,
-                walk_length=args.walk_length,
-                seed=0,
-                N=args.N
-            )
-        elif args.integration == "symbolic":
-            integrator = SymbolicIntegrator()
-        else:
-            raise ValueError(f"Invalid integrator {args.integrator}")
-
-        wmi = WMI(support, weight, integrator=integrator)
-        res = wmi.computeWMI(
-            Bool(True),
-            mode=args.mode,
-            cache=args.cache,
-            domA=set(domain.get_bool_symbols()),
-            domX=set(domain.get_real_symbols()),
-        )
-        res = (*res, wmi.integrator.get_integration_time())
-    else:
-        if args.mode == "XADD":
-            wmi = PyXaddEngine(support=support, weight=weight, domain=domain)
-        elif args.mode == "XSDD":
-            wmi = XsddEngine(
-                support=support,
-                weight=weight,
-                domain=domain,
-                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
-                ordered=False,
-            )
-        elif args.mode == "FXSDD":
-            wmi = FXSDD(
-                domain,
-                support,
-                weight,
-                vtree_strategy=balanced,
-                algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
-                ordered=False,
-            )
-        elif args.mode == "Rejection":
-            wmi = RejectionEngine(domain, support, weight, sample_count=10 ** 6)
-        else:
-            raise ValueError(f"Invalid mode {args.mode}")
-
-        res = (wmi.compute_volume(add_bounds=False), 0, 0)
-
-    # it = wmi.integrator.get_integration_time()
-    q.put(res)
+def get_output_filename(output_dir, output_filename, wmi_id, run_id, output_suffix):
+    return path.join(output_dir, f"{output_filename}_{wmi_id}_{run_id}{output_suffix}.json")
 
 
-def check_input_output(input_dir, output_dir, output_file):
-    # check if input dir exists
-    if not path.exists(input_dir):
-        print("Folder '{}' does not exists".format(input_dir))
-        sys.exit(1)
+def initialize_output_files(args, output_prefix, run_id, output_suffix):
+    """Initializes output files for each mode and integrator.
 
-    # check if output dir exists
-    if not path.exists(output_dir):
-        print("Folder '{}' does not exists".format(output_dir))
-        sys.exit(1)
+    Args:
+        args (Namespace): command line arguments
+        output_prefix (str): prefix of the output filename
+        run_id (int): Run ID
+        output_suffix (str): suffix of the output filename
 
-    if output_file is not None:
-        output_file = path.join(output_dir, output_file)
-        if path.exists(output_file):
-            print("File '{}' already exists".format(output_file))
+    Returns:
+        A dictionary mapping each wmi_id (identifying a pair <mode, integrator>) to the corresponding output file
 
+    """
 
-def problems_from_densities(input_files):
-    input_files = sorted(
-        [f for f in input_files if path.splitext(f)[1] == ".json"],
-        # key=lambda f: int(os.path.splitext(os.path.basename(f))[0].split('_')[2])
-    )
-    if len(input_files) == 0:
-        print("There are no .json files in the input folder")
-        sys.exit(1)
-
-    for i, filename in enumerate(input_files):
-        # try:
-        # reset pysmt environment
-        reset_env()
-        get_env().enable_infix_notation = True
-        density = Density.from_file(filename)
-        # except :
-        #     print("Error on parsing", filename)
-        #     # traceback.print_exception(type(ex), ex, ex.__traceback__)
-        #     continue
-        queries = density.queries or [Bool(True)]
-        for j, query in enumerate(queries):
-            print("\r" * 300, end="")
-            print(
-                "Problem: {} (query {}/{})/{} ({})".format(
-                    i + 1, j + 1, len(queries), len(input_files), filename
-                ),
-                end="",
-            )
-            support = density.support & query
-            yield filename, j + 1, density.domain, support, density.weight
+    output_files = {}
+    for integrator in get_integrators(args):
+        wmi_id = get_wmi_id(args.mode, integrator)
+        output_filename = get_output_filename(args.output, output_prefix, wmi_id, run_id, output_suffix)
+        check_path_not_exists(output_filename)
+        with open(output_filename, "w") as output_file:
+            integrator_json = integrator.to_json() if integrator is not None else None
+            skeleton = {
+                "wmi_id": wmi_id,
+                "mode": args.mode,
+                "integrator": integrator_json,
+                "results": []
+            }
+            json.dump(skeleton, output_file)
+        output_files[wmi_id] = output_filename
+    return output_files
 
 
-def write_result(mode, res, output_file):
-    if not os.path.exists(output_file):
-        info = {"mode": mode, "results": [res]}
-    else:
-        with open(output_file, "r") as f:
-            info = json.load(f)
-        info["results"].append(res)
-
-    with open(output_file, "w") as f:
-        json.dump(info, f, indent=4)
+def run_wmi_with_timeout(args, domain, support, weight):
+    return run_fn_with_timeout(compute_wmi, args.timeout, args, domain, support, weight)
 
 
 def parse_args():
@@ -145,161 +56,103 @@ def parse_args():
 
     parser = argparse.ArgumentParser(
         description="Compute WMI on models",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        formatter_class=Formatter,
     )
     parser.add_argument("input", help="Folder with .json files")
-    # parser.add_argument('-i', '--input-type', required=True,
-    #                     help='Input type', choices=input_types.keys())
-    parser.add_argument(
-        "-o",
-        "--output",
-        default=os.getcwd(),
-        help="Output folder where to save the result (default: cwd)",
-    )
-    parser.add_argument("-f", "--filename", help="Name of the result file (optional)")
+    parser.add_argument("-o", "--output", default=os.getcwd(),
+                        help="Output folder where to save the results")
+    parser.add_argument("-f", "--filename", help="Suffix for the result file", default="")
+    parser.add_argument("--timeout", type=int, default=3600, help="Max time (in seconds)")
+    parser.add_argument("-m", "--mode", choices=modes, required=True, help="Mode to use")
+    parser.add_argument("--n-threads", default=CacheIntegrator.DEF_N_THREADS, type=int,
+                        help="Number of threads to use for WMIPA")
+    parser.add_argument("-c", "--cache", type=int, choices=[-1, 0, 1, 2, 3], default=-1,
+                        help="Cache level for WMIPA methods")
+    parser.add_argument("-t", "--stub", action="store_true",
+                        help="Set this flag if you only want to count the number of integrals to be computed")
+    parser.add_argument("--unweighted", action="store_true",
+                        help="Set this flag if you want to compute the (unweighted) model integration, "
+                             "i.e., to use 1 as weight")
 
-    parser.add_argument(
-        "--timeout", type=int, default=3600, help="Max time (in seconds)"
-    )
-
-    parser.add_argument(
-        "-m", "--mode", choices=modes, required=True, help="Mode to use"
-    )
-    parser.add_argument(
-        "--threads", default=None, type=int, help="Number of threads to use for WMIPA"
-    )
-
-    parser.add_argument(
-        "-c",
-        "--cache",
-        choices=[-1, 0, 1, 2, 3],
-        default=-1,
-        help="Cache level for WMIPA methods",
-    )
-    parser.add_argument(
-        "-t",
-        "--stub",
-        action="store_true",
-        help="Set this flag if you only want to count the number of integrals to be computed",
-    )
-    integration_parsers = parser.add_subparsers(
-        title="integration",
-        description="Type of integration to use",
-        dest="integration",
-    )
-    latte_parser = integration_parsers.add_parser(
-        "latte", formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    symbolic_parser = integration_parsers.add_parser(
-        "symbolic", formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    volesti_parser = integration_parsers.add_parser(
-        "volesti", formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    volesti_parser.add_argument(
-        "-e",
-        "--error",
-        default=0.1,
-        type=float,
-        help="Relative error acceptable [in (0, 1)]",
-    )
-    volesti_parser.add_argument(
-        "--algorithm",
-        choices=VolestiIntegrator.ALGORITHMS,
-        default=VolestiIntegrator.DEF_ALGORITHM,
-        help=f"Volume computation method: {', '.join(VolestiIntegrator.ALGORITHMS)}",
-    )
-    volesti_parser.add_argument(
-        "--walk_type",
-        choices=VolestiIntegrator.RANDOM_WALKS,
-        default=VolestiIntegrator.DEF_RANDOM_WALK,
-        help="Type of random walk: {', '.join(VolestiIntegrator.RANDOM_WALKS)}",
-    )
-    volesti_parser.add_argument(
-        "-N", type=int, default=VolestiIntegrator.DEF_N, help="Number of samples"
-    )
-    volesti_parser.add_argument(
-        "--walk_length",
-        type=int,
-        default=VolestiIntegrator.DEF_WALK_LENGTH,
-        help="Length of random walk (0 for default value)",
-    )
+    integration_parsers = parser.add_subparsers(title="integrator", description="Integrator to use for WMIPA methods",
+                                                dest="integrator")
+    latte_parser = integration_parsers.add_parser("latte", formatter_class=Formatter)
+    symbolic_parser = integration_parsers.add_parser("symbolic", formatter_class=Formatter)
+    volesti_parser = integration_parsers.add_parser("volesti", formatter_class=Formatter)
+    volesti_parser.add_argument("-e", "--error", default=0.1, type=float,
+                                help="Relative error for the volume computation [in (0, 1)]")
+    volesti_parser.add_argument("--algorithm", choices=VolestiIntegrator.ALGORITHMS,
+                                default=VolestiIntegrator.DEF_ALGORITHM,
+                                help=f"Volume computation method: {', '.join(VolestiIntegrator.ALGORITHMS)}")
+    volesti_parser.add_argument("--walk_type", choices=VolestiIntegrator.RANDOM_WALKS,
+                                default=VolestiIntegrator.DEF_RANDOM_WALK,
+                                help="Type of random walk: {', '.join(VolestiIntegrator.RANDOM_WALKS)}")
+    volesti_parser.add_argument("-N", type=int, default=VolestiIntegrator.DEF_N, help="Number of samples")
+    volesti_parser.add_argument("--walk_length", type=int, default=VolestiIntegrator.DEF_WALK_LENGTH,
+                                help="Length of random walk (0 for default value)")
+    volesti_parser.add_argument("--seed", type=int, default=666,
+                                help="Random seed for (the first instance of) VolEsti integrator")
+    volesti_parser.add_argument("--n-seeds", type=int, default=1,
+                                help="Number of seeds to use. A list of VolEsti integrator will be used "
+                                     "with seeds [seed, seed + 1, ..., seed + n_seeds - 1]")
+    print()
+    parser.epilog = (
+        f"""See more options for each integrator with:
+\t{latte_parser.format_usage()}
+\t{symbolic_parser.format_usage()}
+\t{volesti_parser.format_usage()}
+""")
 
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    # input_type = args.input_type
-    output_file = args.filename
-    long_mode = args.mode
-    if "PA" in args.mode:
-        long_mode += "_" + args.integration
-        if args.cache > -1:
-            long_mode += "_cache_" + str(args.cache)
-    # equals = args.equals
+    output_suffix = args.filename
+    check_path_exists(args.input)
+    check_path_exists(args.output)
 
-    check_input_output(args.input, args.output, args.filename)
-    output_file = output_file or "{}_{}_{}.json".format(
-        os.path.split(args.input.rstrip("/"))[1], long_mode, int(time.time())
-    )
-    output_file = path.join(args.output, output_file)
-    print("Creating... {}".format(output_file))
+    output_prefix = os.path.split(args.input.rstrip("/"))[1]
+    run_id = int(time.time())
 
-    elements = [path.join(args.input, f) for f in os.listdir(args.input)]
-    files = [e for e in elements if path.isfile(e)]
+    files = [fullpath for f in os.listdir(args.input) if path.isfile(fullpath := path.join(args.input, f))]
 
-    print("Started computing, mode: ", long_mode)
+    output_files = initialize_output_files(args, output_prefix, run_id, output_suffix)
+
+    print(f"Started computing. RunID: {run_id}, args:\n{args}")
+    print("Output files:\n\t{}".format("\n\t".join(output_files.values())))
     time_start = time.time()
 
-    for i, (filename, query_n, domain, support, weight) in enumerate(
-            problems_from_densities(files)
-    ):
-
-        time_init = time.time()
-        q = Queue()
-
-        timed_proc = Process(
-            target=compute_wmi,
-            args=(domain, support, weight, args, q),
-        )
-        timed_proc.start()
-        timed_proc.join(args.timeout)
-        if timed_proc.is_alive():
-            res = (None, None, args.timeout)
+    i = -1
+    for i, (filename, query_n, domain, support, weight) in enumerate(problems_from_densities(files)):
+        try:
+            time_init = time.time()
+            results = run_wmi_with_timeout(args, domain, support, weight)
+            time_total = time.time() - time_init
+        except TimeoutError:
+            results = [WMIResult(wmi_id=wmi_id, value=None, n_integrations=None, parallel_integration_time=0,
+                                 sequential_integration_time=0) for wmi_id in output_files.keys()]
             time_total = args.timeout
 
-            # kill the process and its children
-            pid = timed_proc.pid
-            proc = psutil.Process(pid)
-            for subproc in proc.children(recursive=True):
-                try:
-                    subproc.kill()
-                except psutil.NoSuchProcess:
-                    continue
-            try:
-                proc.kill()
-            except psutil.NoSuchProcess:
-                pass
-        else:
-            try:
-                res = q.get(block=False)
-                time_total = time.time() - time_init
-            except EmptyQueueError:
-                # killed because of exceeding resources
-                res = (None, None, args.timeout)
-                time_total = args.timeout
+        enumeration_time = time_total - sum(result.parallel_integration_time for result in results)
 
-        value, n_integrations, integration_time = res
-        res = {
-            "filename": filename,
-            "query": query_n,
-            "value": value,
-            "n_integrations": n_integrations,
-            "time": time_total,
-            "integration_time": integration_time,
-        }
-        write_result(long_mode, res, output_file)
+        for result in results:
+            effective_sequential_time = enumeration_time + result.sequential_integration_time
+            effective_parallel_time = enumeration_time + result.parallel_integration_time
+
+            result_json = {
+                "filename": filename,
+                "query": query_n,
+                "value": result.value,
+                "n_integrations": result.n_integrations,
+                "sequential_integration_time": result.sequential_integration_time,
+                "parallel_integration_time": result.parallel_integration_time,
+                "sequential_time": effective_sequential_time,
+                "parallel_time": effective_parallel_time,
+            }
+
+            output_file = output_files[result.wmi_id]
+            write_result(output_file, result_json)
 
     print()
     print("Computed {} WMI".format(i + 1))

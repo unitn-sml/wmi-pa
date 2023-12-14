@@ -23,7 +23,8 @@ def test_find_conditions_count():
     formula = Ite(a, Ite(LT(x, v1), v2, v3), Ite(b, v1, v2))
     variables = WMIVariables()
     w = Weights(formula, variables)
-    subs = w._find_conditions(formula, {})
+    subs = {}
+    w._find_conditions(formula, subs)
     assert len(subs) == 3
 
 
@@ -31,7 +32,8 @@ def test_find_conditions_count_no_conditions():
     formula = Times(v1, Plus(v2, v3))
     variables = WMIVariables()
     w = Weights(formula, variables)
-    subs = w._find_conditions(formula, {})
+    subs = {}
+    w._find_conditions(formula, subs)
     assert len(subs) == 0
 
 
@@ -39,7 +41,8 @@ def test_find_conditions_with_subs():
     formula = Ite(a, Ite(LT(x, v1), v2, v3), Ite(b, v1, v2))
     variables = WMIVariables()
     w = Weights(formula, variables)
-    subs = w._find_conditions(formula, {a: Symbol("cond_0"), y: Symbol("cond_1")})
+    subs = {a: Symbol("cond_0"), y: Symbol("cond_1")}
+    w._find_conditions(formula, subs)
     assert len(subs) == 4
 
 

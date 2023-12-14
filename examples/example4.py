@@ -1,17 +1,4 @@
-from pysmt.shortcuts import (
-    GE,
-    LE,
-    And,
-    Bool,
-    Iff,
-    Implies,
-    Ite,
-    Not,
-    Or,
-    Real,
-    Symbol,
-    Times,
-)
+from pysmt.shortcuts import GE, LE, And, Bool, Iff, Implies, Ite, Not, Or, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
 from wmipa import WMI
@@ -29,7 +16,6 @@ phis = [Bool(True), Iff(a, Bool(True)), LE(x, Real(3))]
 # weight function definition
 w = Ite(a, x, Times(Real(2), x))
 
-
 chi = And(Or(a, b, c),
           GE(x, Real(-5)), LE(x, Real(5)),
           Implies(a, GE(x, Real(0))),
@@ -40,7 +26,6 @@ chi = And(Or(a, b, c),
 
 print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
-
 
 print()
 for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:

@@ -2,9 +2,9 @@ from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
 from wmipa import WMI
-from wmipa.integration.latte_integrator import LatteIntegrator
-from wmipa.integration.symbolic_integrator import SymbolicIntegrator
-from wmipa.integration.volesti_integrator import VolestiIntegrator
+from wmipa.integration import LatteIntegrator
+from wmipa.integration import SymbolicIntegrator
+from wmipa.integration import VolestiIntegrator
 
 # from wmipa.integration.symbolic_integrator import SymbolicIntegrator
 

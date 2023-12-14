@@ -22,8 +22,8 @@ w = Ite(b,
         Ite(x >= 0.5,
             x * y,
             Ite((x >= 1),
-                x + 2*y,
-                2*x + y
+                x + 2 * y,
+                2 * x + y
                 )
             ),
         Ite(a | c,

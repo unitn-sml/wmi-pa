@@ -1,4 +1,5 @@
 import re
+import shutil
 import time
 from abc import abstractmethod
 from fractions import Fraction
@@ -10,18 +11,45 @@ from pysmt.shortcuts import LE, LT
 
 from wmipa.integration.integrator import Integrator
 from wmipa.integration.polytope import Polynomial
+from wmipa.wmiexception import WMIRuntimeException
 
 
 class CacheIntegrator(Integrator):
-    """This class handles the integration of polynomial functions over (convex) polytopes.
-    It is a wrapper for an integrator that reads (writes) input (output) from (to) file.
-    It implements different levels of caching (-1, 0, 1, 2, 3).
+    """This class handles the integration of polynomial functions over (convex) polytopes, using caching and parallel
+    computation.
+
+    It implements different levels of caching (-1, 0, 1, 2, 3):
+
+     - Level -1:
+        no caching
+     - Level 0:
+        * the problem key is defined as the tuple (polytope, cond_assignments).
+        * duplicates are recognized only once the integrator is called.
+            If a batch of problems is integrated in parallel, the same problem may be integrated multiple times.
+     - Level 1:
+        * the problem key is defined as the tuple (polytope, cond_assignments).
+        * duplicates are recognized before the integrator is called.
+            If a batch of problems is integrated in parallel, the same problem is integrated only once.
+     - Level 2:
+        * the problem key is defined as the tuple (polytope, integrand). This strategy is better than using the
+            cond_assignments because multiple cond_assignments may correspond to the same integrand.
+        * duplicates are recognized before the integrator is called.
+     - Level 3:
+        * the problem key is defined as the tuple (polytope, integrand). The polytope is simplified before the key is
+         computed, by removing redundant constraints. This method is based on OptiMathSAT, and requires the tool to be
+         installed.
+        * duplicates are recognized before the integrator is called.
+
 
     It inherits from the abstract class Integrator.
 
     Attributes:
-        n_threads (int): The number of threads to use.
+        n_threads (int): The number of threads to use when integrating a batch of problems.
         stub_integrate (bool): If True, the values will not be computed (0 is returned)
+        hashTable (HashTable): The hash table used for caching.
+        parallel_integration_time (float): The time spent in integration, accounting for parallelization.
+        sequential_integration_time (float): The time spent in integration, excluding parallelization (i.e., the sum
+            of the times spent by each thread).
     """
 
     DEF_N_THREADS = 7
@@ -30,20 +58,22 @@ class CacheIntegrator(Integrator):
         """Default constructor.
 
         Args:
-            **options:
-                - algorithm: Defines the algorithm to use when integrating.
-                - n_threads: Defines the number of threads to use.
-                - stub_integrate: If True the integrals will not be computed
+            n_threads: Defines the number of threads to use.
+            stub_integrate: If True the integrals will not be computed
 
         """
 
         self.n_threads = n_threads
         self.stub_integrate = stub_integrate
         self.hashTable = HashTable()
-        self.integration_time = 0.0
+        self.parallel_integration_time = 0.0
+        self.sequential_integration_time = 0.0
 
-    def get_integration_time(self):
-        return self.integration_time
+    def get_parallel_integration_time(self):
+        return self.parallel_integration_time
+
+    def get_sequential_integration_time(self):
+        return self.sequential_integration_time
 
     def _integrate_problem_or_cached(self, integrand, polytope, key, cache):
         value = self.hashTable.get(key)
@@ -58,18 +88,44 @@ class CacheIntegrator(Integrator):
     def _integrate_problem(self, integrand, polytope) -> float:
         pass
 
-    def cache_1(self, polytope, integrand, cond_assignments):
+    def _cache_1(self, polytope, integrand, cond_assignments):
         variables = list(integrand.variables.union(polytope.variables))
         return self.hashTable.key(polytope, cond_assignments, variables), polytope
 
-    def cache_2(self, polytope, integrand, _):
+    def _cache_2(self, polytope, integrand, _):
         return self.hashTable.key_2(polytope, integrand), polytope
 
-    def cache_3(self, polytope, integrand, _):
+    def _cache_3(self, polytope, integrand, _):
         polytope = self._remove_redundancy(polytope)
         if polytope is None:
             return None, None
-        return self.cache_2(polytope, integrand, _)
+        return self._cache_2(polytope, integrand, _)
+
+    def _get_cache_fn(self, cache):
+        """Returns the cache function corresponding to the given cache level.
+
+        Args:
+            cache (int): The cache level.
+
+        Returns:
+            function (Polytope, Integrand, tuple) -> (key, Polytope):
+                The cache function. Given a polytope, an integrand and a tuple of boolean representing the truth values
+                of the conditions of the weight function, it returns a tuple (key, polytope). The key identifies the
+                problem to integrate, and the polytope is equivalent to the given one, possibly simplified by
+                removing redundant constraints.
+        """
+        cache_modes = {
+            -1: self._cache_1,
+            0: self._cache_1,
+            1: self._cache_1,
+            2: self._cache_2,
+            3: self._cache_3,
+        }
+        if cache not in cache_modes:
+            modes = map(str, cache_modes.keys())
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR,
+                                      f"Unsupported cache mode. Supported modes are ({', '.join(modes)})")
+        return cache_modes[cache]
 
     def integrate_batch(self, problems, cache, *args, **kwargs):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
@@ -79,29 +135,19 @@ class CacheIntegrator(Integrator):
                 integrate.
             cache (int): The level of caching to use (range -1, 0, 1, 2, 3).
 
-        """
+        Returns:
+            list(real): The list of integration results.
+            int: The number of cached results.
 
+        """
+        start_time = time.time()
         EMPTY = -1
-        cache_modes = {
-            -1: self.cache_1,
-            0: self.cache_1,
-            1: self.cache_1,
-            2: self.cache_2,
-            3: self.cache_3,
-        }
-        if cache not in cache_modes:
-            modes = map(str, cache_modes.keys())
-            raise Exception(
-                f"Unsupported cache mode. Supported modes are ({', '.join(modes)})"
-            )
-        cache_fn = cache_modes[cache]
+        cache_fn = self._get_cache_fn(cache)
 
         problems_to_integrate = {}
         problem_id = []
         cached = 0
-        for index, (atom_assignments, weight, aliases, cond_assignments) in enumerate(
-                problems
-        ):
+        for index, (atom_assignments, weight, aliases, cond_assignments) in enumerate(problems):
             integrand, polytope = self._convert_to_problem(
                 atom_assignments, weight, aliases
             )
@@ -115,7 +161,7 @@ class CacheIntegrator(Integrator):
                         integrand,
                         polytope,
                         key,
-                        cache >= 0,
+                        cache >= 0,  # store the results in a hash table if cache >= 0
                     )
                     problems_to_integrate[pid] = problem
                 else:
@@ -125,50 +171,64 @@ class CacheIntegrator(Integrator):
             else:
                 problem_id.append(EMPTY)
 
+        setup_time = time.time() - start_time
+        start_time = time.time()
         problems_to_integrate = problems_to_integrate.values()
         assert len(problem_id) == len(problems)
         # Handle multithreading
-        start_time = time.time()
         pool = Pool(self.n_threads)
         results = pool.map(self._integrate_wrapper, problems_to_integrate)
         pool.close()
         pool.join()
         values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
         cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
-        assert len(values) == len(problems)
 
-        self.integration_time = time.time() - start_time
+        self.sequential_integration_time += setup_time + sum([results[pid][2] for pid in problem_id])
+        self.parallel_integration_time += setup_time + time.time() - start_time
+
         return values, cached
 
     def _integrate_wrapper(self, problem):
         """A wrapper to handle multithreading."""
         _, integrand, polytope, key, cache = problem
-        return self._integrate_problem_or_cached(integrand, polytope, key, cache)
+        start_time = time.time()
+        value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
+        total_time = time.time() - start_time
+        return value, cached, total_time
 
     def integrate(self, atom_assignments, weight, aliases, cond_assignments, cache, *args, **kwargs):
         """Integrates a problem of the type {atom_assignments, weight, aliases}
 
         Args:
-            problem (atom_assignments, weight, aliases): The problem to integrate.
+            atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
+            weight (Weight): The weight function of the problem.
+            aliases (dict): Alias relationship between variables.
             cond_assignments (tuple): truth values for the conditions
             cache (int): The level of caching to use (range -1, 0, 1, 2, 3).
 
 
         Returns:
             real: The integration result.
+            bool: True if the result was cached, False otherwise.
 
         """
-        integrand, polytope = self._convert_to_problem(
-            atom_assignments, weight, aliases
-        )
-        return self._integrate_problem_or_cached(
-            integrand, polytope, cond_assignments, cache
-        )
+        start_time = time.time()
+        integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
+        cache_fn = self._get_cache_fn(cache)
+        key, polytope = cache_fn(polytope, integrand, cond_assignments)
+        if polytope is None or polytope.is_empty():
+            return 0.0, False
+        value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
+        integration_time = time.time() - start_time
+        self.sequential_integration_time += integration_time
+        self.parallel_integration_time += integration_time
+        return value, cached
 
     @classmethod
     @abstractmethod
     def _make_problem(cls, weight, bounds, aliases):
         """Creates a problem of the type (integrand, polytope) from the given arguments.
+
         Args:
             weight (FNode): The weight of the integrand.
             bounds (list): The bounds of the polytope.
@@ -177,6 +237,7 @@ class CacheIntegrator(Integrator):
         Returns:
             integrand (Integrand): The problem to integrate.
             polytope (Polytope): The polytope to integrate over.
+
         """
         pass
 
@@ -324,7 +385,8 @@ class CacheIntegrator(Integrator):
         else:
             return False, index_to_check
 
-    def _get_truth_values(self, polytope, point):
+    @staticmethod
+    def _evaluate_polytope_inequalities(polytope, point):
         values = []
         variables = list(polytope.variables)
 
@@ -341,7 +403,7 @@ class CacheIntegrator(Integrator):
         return values
 
     def _ray_shoot(self, polytope, start_point, end_point, index):
-        values = self._get_truth_values(polytope, end_point)
+        values = self._evaluate_polytope_inequalities(polytope, end_point)
         others = values[:index] + values[index + 1:]
 
         # if at the end point (optimal) there is only one inequality falsified
@@ -365,7 +427,7 @@ class CacheIntegrator(Integrator):
 
         # check bounds
         intersected = None
-        values = self._get_truth_values(polytope, middle_point)
+        values = self._evaluate_polytope_inequalities(polytope, middle_point)
 
         for i, v in enumerate(values):
             if not v:
@@ -382,8 +444,13 @@ class CacheIntegrator(Integrator):
         else:
             return intersected
 
-    def _lp(self, A, B, obj, type_="maximize"):
-        f = NamedTemporaryFile(mode="w+t", dir=("."))
+    @staticmethod
+    def _lp(A, B, obj, type_="maximize"):
+        # raise exception is "optimathsat" is not installed
+        if not shutil.which("optimathsat"):
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR,
+                                      "This cache level requires `optimathsat` to be installed")
+        f = NamedTemporaryFile(mode="w+t", dir=".")
 
         assert len(A) == len(B)
 
@@ -446,7 +513,7 @@ class CacheIntegrator(Integrator):
 
         # read output
         values = []
-        out = NamedTemporaryFile(mode="w+t", dir=("."))
+        out = NamedTemporaryFile(mode="w+t", dir=".")
         output = call(["optimathsat", f.name], stdout=out)
         out.seek(0)
         output = out.read()
@@ -479,6 +546,14 @@ class CacheIntegrator(Integrator):
         obj_value = sum([(obj[i] * values[i]) for i in range(len(values))])
         return obj_value, values
 
+    @abstractmethod
+    def to_json(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def to_short_str(self):
+        raise NotImplementedError
+
 
 class HashTable:
     def __init__(self):
@@ -495,27 +570,8 @@ class HashTable:
     def set(self, key, value):
         self.table[key] = value
 
-    def key(self, polytope, cond_assignment, variables):
-        bounds_key = []
-        for index, bound in enumerate(polytope.bounds):
-            bound_key = []
-            for var in variables:
-                if var in bound.coefficients:
-                    bound_key.append(bound.coefficients[var])
-                else:
-                    bound_key.append(0)
-            bound_key.append(bound.constant)
-            bounds_key.append(tuple(bound_key))
-
-        bounds_key = tuple(sorted(bounds_key))
-
-        key = tuple([bounds_key, cond_assignment])
-        return key
-
-    def key_2(self, polytope, integrand):
-        variables = list(integrand.variables.union(polytope.variables))
-
-        # polytope key
+    @staticmethod
+    def _polytope_key(polytope, variables):
         polytope_key = []
         for index, bound in enumerate(polytope.bounds):
             bound_key = []
@@ -526,16 +582,15 @@ class HashTable:
                     bound_key.append(0)
             bound_key.append(bound.constant)
             polytope_key.append(tuple(bound_key))
-
         polytope_key = tuple(sorted(polytope_key))
+        return polytope_key
 
-        # integrand key
-        integrand_key = []
-
+    @staticmethod
+    def _integrand_key(integrand, variables):
         if not isinstance(integrand, Polynomial):
             return integrand
+        integrand_key = []
         monomials = integrand.monomials
-
         for mon in monomials:
             mon_key = [float(mon.coefficient)]
             for var in variables:
@@ -544,8 +599,21 @@ class HashTable:
                 else:
                     mon_key.append(0)
             integrand_key.append(tuple(mon_key))
-
         integrand_key = tuple(sorted(integrand_key))
+        return integrand_key
 
+    @staticmethod
+    def key(polytope, cond_assignment, variables):
+        """The key consists of a pair (polytope_key, cond_assignment)."""
+        polytope_key = HashTable._polytope_key(polytope, variables)
+        key = tuple([polytope_key, cond_assignment])
+        return key
+
+    @staticmethod
+    def key_2(polytope, integrand):
+        """The key consists of a pair (polytope_key, integrand_key)."""
+        variables = list(integrand.variables.union(polytope.variables))
+        polytope_key = HashTable._polytope_key(polytope, variables)
+        integrand_key = HashTable._integrand_key(integrand, variables)
         key = tuple([polytope_key, integrand_key])
         return key

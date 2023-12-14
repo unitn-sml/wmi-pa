@@ -23,21 +23,21 @@ w = Ite(a,
         Times(
             Ite(b,
                 x1,
-                2*x1
+                2 * x1
                 ),
             Ite(c,
                 x2,
-                2*x2
+                2 * x2
                 )
         ),
         Times(
             Ite(d,
-                3*x1,
-                4*x1
+                3 * x1,
+                4 * x1
                 ),
             Ite(e,
-                3*x2,
-                4*x2
+                3 * x2,
+                4 * x2
                 )
         )
         )

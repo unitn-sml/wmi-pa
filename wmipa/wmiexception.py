@@ -275,3 +275,27 @@ class WMIParsingFileException(WMIException):
         else:
             message = self.messages[code]
         super().__init__(message)
+
+
+class WMIIntegrationException(WMIRuntimeException):
+    """
+    Exception raised when the integration fails.
+    """
+
+    """The integrator uses too much memory and it is not able to compute the integral."""
+    MEMORY_LIMIT = 0
+
+    """The integral cannot be computed because the polyhedron is unbounded."""
+    UNBOUNDED_POLYHEDRON = 1
+
+    """The chosen integrator is not installed."""
+    INTEGRATOR_NOT_INSTALLED = 2
+
+    messages = {
+        MEMORY_LIMIT: "Memory limit exceeded (maybe)",
+        UNBOUNDED_POLYHEDRON: "Unbounded polyhedron",
+        INTEGRATOR_NOT_INSTALLED: "Integrator not installed",
+    }
+
+
+

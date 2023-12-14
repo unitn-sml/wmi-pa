@@ -3,15 +3,18 @@ __author__ = "Paolo Morettin"
 
 from subprocess import call
 
+from wmipa.integration import _is_latte_installed
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
 from wmipa.integration.polytope import Polynomial, Polytope
-from wmipa.wmiexception import WMIRuntimeException
+from wmipa.wmiexception import WMIRuntimeException, WMIIntegrationException
+
+_LATTE_INSTALLED = _is_latte_installed()
 
 
 class LatteIntegrator(CommandLineIntegrator):
-    """This class handles the integration of polynomial functions over (convex) polytopes.
+    """This class is a wrapper for the LattE integrator.
 
-    It inherits from the abstract class CacheIntegrator.
+    It handles the integration of polynomial functions over (convex) polytopes, using an exact algorithm.
 
     LattE Integrale is required.
 
@@ -42,9 +45,7 @@ class LatteIntegrator(CommandLineIntegrator):
 
         # check that algorithm exists
         if self.algorithm not in self.ALGORITHMS:
-            err = "{}, choose one from: {}".format(
-                self.algorithm, ", ".join(self.ALGORITHMS)
-            )
+            err = "{}, choose one from: {}".format(self.algorithm, ", ".join(self.ALGORITHMS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
     @classmethod
@@ -102,6 +103,9 @@ class LatteIntegrator(CommandLineIntegrator):
             output_file (str): The file where to write the result of the computation.
 
         """
+        if not _LATTE_INSTALLED:
+            raise WMIIntegrationException(WMIIntegrationException.INTEGRATOR_NOT_INSTALLED, "LattE")
+
         cmd = [
             "integrate",
             "--valuation=integrate",
@@ -111,16 +115,19 @@ class LatteIntegrator(CommandLineIntegrator):
         ]
 
         with open(output_file, "w") as f:
-            if self.stub_integrate:
-                f.write("")
-            else:
-                return_value = call(cmd, stdout=f, stderr=f)
+            return_value = call(cmd, stdout=f, stderr=f)
+            if return_value != 0:
+                # print(open(output_file).read())
+                """
                 if return_value != 0:
-                    # print(open(output_file).read())
-                    """
-                    if return_value != 0:
-                        msg = "LattE returned with status {}"
-                        # LattE returns an exit status != 0 if the polytope is empty.
-                        # In the general case this may happen, raising an exception
-                        # is not a good idea.
-                    """
+                    msg = "LattE returned with status {}"
+                    # LattE returns an exit status != 0 if the polytope is empty.
+                    # In the general case this may happen, raising an exception
+                    # is not a good idea.
+                """
+
+    def to_json(self):
+        return {"name": "latte", "algorithm": self.algorithm, "n_threads": self.n_threads}
+
+    def to_short_str(self):
+        return "latte"

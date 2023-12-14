@@ -1,11 +1,12 @@
 import argparse
-import json
 import os
-import sys
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from utils.plot import MODE_IDS, get_input_files, parse_inputs, check_values
+from utils.io import check_path_exists
 
 plt.style.use("ggplot")
 fs = 18  # font size
@@ -13,113 +14,107 @@ ticks_fs = 15
 lw = 2.5  # line width
 figsize = (10, 8)
 label_step = 5
-COLORS = {
-    "WMI-PA": "#E24A33",
-    "SA-WMI-PA": "#988ED5",
-    "XSDD": "#348ABD",
-    "FXSDD": "#554348",
-    "XADD": "#093A3E",
-    "Rejection": "#FBC15E",
-    "PA_cache_2": "#FFB5B8",
-    "SA-WMI-PA-SK": "#8EBA42",
-    "SA-WMI-PA-SK(VolEsti)": "#502419",
-    "SA-WMI-PA-SK(Symbolic)": "#502419",
-    "SA-WMI-PA-SK-TA-TA": "#7EA172",
-}
-ORDER = [
-    "XADD",
-    "XSDD",
-    "FXSDD",
-    "WMI-PA",
-    "PA_cache_2",
-    "SA-WMI-PA",
-    "SA-WMI-PA-SK",
-    "SA-WMI-PA-SK(VolEsti)",
-    "SA-WMI-PA-SK(Symbolic)",
-    "SA-WMI-PA-SK-TA-TA",
-]
-ERR_TOLERANCE = 1e-1  # absolute tolerance on value mismatch
 
 
-def error(msg=""):
-    print(msg)
-    sys.exit(1)
+def quantile(x, q):
+    x = x.astype(np.float64)
+    if np.isnan(x).all():
+        return np.nan
+    return np.nanquantile(x, q)
 
 
-def get_input_files(input_dirs):
-    input_files = []
-    for input_dir in input_dirs:
-        if not os.path.exists(input_dir):
-            error("Input folder '{}' does not exists".format(input_dir))
-        for filename in os.listdir(input_dir):
-            filepath = os.path.join(input_dir, filename)
-            if os.path.isfile(filepath):
-                _, ext = os.path.splitext(filepath)
-                if ext == ".json":
-                    input_files.append(filepath)
-    if not input_files:
-        error("No .json file found")
-    input_files = sorted(input_files)
-    print("Files found:\n\t{}".format("\n\t".join(input_files)))
-    return input_files
+def median(x):
+    return quantile(x, 0.5)
 
 
-def parse_inputs(input_files, timeout):
-    data = []
-    for filename in input_files:
-        with open(filename) as f:
-            result_out = json.load(f)
-        mode = result_out["mode"]
+def q25(x):
+    return quantile(x, 0.25)
 
-        if mode == "SAPA_latte":
-            mode = "SA-WMI-PA"
-        if mode == "PA":
-            mode = "WMI-PA"
-        if mode == "SAPASK_latte":
-            mode = "SA-WMI-PA-SK"
-        if mode == "SAPASK_volesti":
-            mode = "SA-WMI-PA-SK(VolEsti)"
-        if mode == "SAPASK_symbolic":
-            mode = "SA-WMI-PA-SK(Symbolic)"
-        if mode == "SAPASKTATA":
-            mode = "SA-WMI-PA-SK-TA-TA"
-        if "cache" in mode:
-            continue
 
-        for result in result_out["results"]:
-            result["mode"] = mode
-        data.extend(result_out["results"])
+def q75(x):
+    return quantile(x, 0.75)
 
-    # groupby to easily generate MulitIndex
-    data = pd.DataFrame(data)
 
-    # deal with missing values and timeouts
-    if timeout:
-        data["time"] = data["time"].clip(upper=timeout)
+def median_field(field):
+    return f"median_{field}"
 
-    # do not plot n_integrations where mode times out or where not available
-    data["n_integrations"] = data["n_integrations"].where(
-        (data["time"] < timeout)
-        & (data["time"].notna())
-        & (data["n_integrations"] > 0),
-        pd.NA,
+
+def q25_field(field):
+    return f"q25_{field}"
+
+
+def q75_field(field):
+    return f"q75_{field}"
+
+
+def group_data(data: pd.DataFrame, cactus, timeout):
+    # build a dataframe where each row is a problem and each column is a mode
+    # each mode has 9 sub-columns:
+    # - median time: median of the parallel_time column
+    # - q25 time: 25th percentile of the parallel_time column
+    # - q75 time: 75th percentile of the parallel_time column
+    # - median n_integrations: median of the n_integrations column
+    # - q25 n_integrations: 25th percentile of the n_integrations column
+    # - q75 n_integrations: 75th percentile of the n_integrations column
+    # - median error: median of the relative_error column
+    # - q25 error: 25th percentile of the relative_error column
+    # - q75 error: 75th percentile of the relative_error column
+    data = (
+        data.groupby(["problem", "mode_id"])
+        .aggregate(
+            median_time=("parallel_time", median),
+            q25_time=("parallel_time", q25),
+            q75_time=("parallel_time", q75),
+            median_n_integrations=("n_integrations", median),
+            q25_n_integrations=("n_integrations", q25),
+            q75_n_integrations=("n_integrations", q75),
+            median_error=("relative_error", median),
+            q25_error=("relative_error", q25),
+            q75_error=("relative_error", q75),
+        )
+        # every non-index cell must be np.float64
+        .astype(np.float64)
+        .stack(dropna=False)
+        .unstack(level=(1, 2))
+        .reset_index(
+            drop=True,
+        )
     )
 
+    modes = data.columns.get_level_values(0).unique()
+    mode_ids = [mode for mode in MODE_IDS if mode in modes]
+
+    if cactus:
+        # sort each column independently
+        for param in ("time", "n_integrations", "error"):
+            for mode in mode_ids:
+                col_names = [median_field(param), q25_field(param), q75_field(param)]
+                cols = data[mode][col_names].sort_values(
+                    by=median_field(param), ignore_index=True,
+                    na_position="last"
+                )
+                data.loc[:, (mode, col_names)] = np.nan
+                data[mode].update(cols)
+        # data = data.cumsum(axis=0)
+        # start number of problems solved from 1
+        data.index += 1
+    else:
+        # sort by increasing time
+        sort_by = [(mode, median_field("time")) for mode in mode_ids]
+        print("Sorting by", sort_by)
+        data.sort_values(by=sort_by, inplace=True, ignore_index=True)
     return data
 
 
-def plot_data(
-    outdir,
-    data,
-    param,
-    xlabel,
-    timeout=0,
-    frm=None,
-    to=None,
-    filename="",
-    legend_pos=6,
-    title=None,
-):
+def get_modes_for_param(data, param):
+    return [(mode_id, mode) for mode_id, mode in MODE_IDS.items()
+            if mode_id in data.columns.get_level_values(0) and
+            (param != "n_integrations" or "PA" in mode_id) and
+            (param != "error" or "volesti" in mode_id)
+            ]
+
+
+def plot_data(outdir, data, param, xlabel, ylabel, timeout=0, frm=None, to=None, filename="", legend_pos=6, title=None):
     total_problems = max(data.index) + 1
     # crop from:to if necessary
     sfx = ""
@@ -142,28 +137,15 @@ def plot_data(
         plt.plot(x, y, linestyle="dashed", linewidth=lw, label="timeout", color="r")
 
     # plot time for all modes, n_integrations only for *PA*
-    modes = data.columns.get_level_values(0).unique()
-    modes = [mode for mode in ORDER if mode in modes]
-    modes = [mode for mode in modes if param == "time" or "WMI-PA" in mode]
-    for mode in modes:
-        plt.plot(
-            data[mode][param], color=COLORS[mode], label=mode, linewidth=lw, marker="x"
-        )
-        # stddev
-        # stdcol = "std{}".format(param)
-        # sup = data[mode][param] + data[mode][stdcol]
+    modes = get_modes_for_param(data, param)
+
+    for mode_id, mode in modes:
+        plt.plot(data[mode_id][median_field(param)], color=mode.color, label=mode.label, linewidth=lw, marker="x")
         # if timeout:
         #     sup.clip(upper=timeout, inplace=True)
-        #
-        # inf = (data[mode][param] - data[mode][stdcol]).clip(lower=0)
-        # plt.fill_between(data.index, sup, inf, color=COLORS[mode], alpha=0.1)
-    # if logscale:
-    #     plt.yscale("log")
-
-    if param == "time":
-        ylabel = "Query execution time (seconds)"
-    else:
-        ylabel = "Number of integrations"
+        sup = data[mode_id][q75_field(param)]
+        inf = data[mode_id][q25_field(param)]
+        plt.fill_between(data.index, sup, inf, color=mode.color, alpha=0.1)
 
     # legend
     plt.legend(loc=legend_pos, fontsize=fs)
@@ -180,54 +162,18 @@ def plot_data(
     if title:
         plt.title(title, fontsize=fs)
 
-    outfile = os.path.join(outdir, "{}_uai{}{}.pdf".format(param, sfx, filename))
+    outfile = os.path.join(outdir, "{}_{}{}.pdf".format(param, sfx, filename))
     plt.savefig(outfile, bbox_inches="tight")
     print("created {}".format(outfile))
     plt.clf()
-    csvfile = os.path.join(outdir, "{}_uai{}{}.csv".format(param, sfx, filename))
-    csvdf = data[[(mode, param) for mode in modes]]
-    csvdf.columns = csvdf.columns.droplevel(1)
+    csvfile = os.path.join(outdir, "{}_{}{}.csv".format(param, sfx, filename))
+    csvdf = data[[(mode_id, param_q) for mode_id, _ in modes for param_q in
+                  [median_field(param), q25_field(param), q75_field(param)]]]
+    # flatten multiindex by joining the two levels with "_"
+    csvdf.columns = ["_".join(col) for col in csvdf.columns]
+    # csvdf.columns = csvdf.columns.droplevel(1)
     csvdf.to_csv(csvfile, index_label="instance")
     print("created {}".format(csvfile))
-
-
-def check_values(data, ref="SA-WMI-PA-SK"):
-    data["filename"] = data["filename"].apply(os.path.basename)
-
-    data = (
-        data.groupby(["filename", "query", "mode"])
-        .aggregate(
-            time=("time", "min"), value=("value", "min"), count=("time", "count")
-        )
-        .unstack()
-    )
-
-    # ensure we have at most one output foreach (filename, query, mode) combination
-    assert (data["count"] == 1).all().all(), "Some output are duplicated"
-
-    # print(data.reset_index()[["time", "value"]])
-
-    # check values match with the reference mode "ref" (where not NaN)
-    ii = data["value", ref].notna()
-    for mode in data.columns.get_level_values(1).unique():
-        indexes = ii & data["value", mode].notna()
-        # check if results agree with SA-WMI-PA with an
-        # absolute tolerance of ERR_TOLERANCE
-        diff = ~np.isclose(
-            data[indexes]["value", mode].values,
-            data[indexes]["value", ref].values,
-            rtol=ERR_TOLERANCE,
-        )
-        if diff.any():
-            print(
-                "Error! {}/{} values of {} do not match with {}".format(
-                    diff.sum(), indexes.sum(), mode, ref
-                )
-            )
-
-            print(data[indexes][diff]["value"][[ref, mode]])
-        else:
-            print("Mode {:10s}: {:4d} values OK".format(mode, indexes.sum()))
 
 
 def parse_interval(interval):
@@ -237,83 +183,30 @@ def parse_interval(interval):
     return frm, to
 
 
-def group_data(data: pd.DataFrame, cactus, timeout):
-    # aggregate and compute the mean for each query
-    data["problem"] = data["filename"] + data["query"].apply(str)
-    print(data["problem"])
-    data = (
-        data.groupby(["problem", "mode"])
-        .aggregate(
-            time=("time", "mean"),
-            # stdtime=("time", "std"),
-            n_integrations=("n_integrations", "mean"),
-            # stdn_integrations=("n_integrations", "std"),
-        )
-        .stack(dropna=False)
-        .unstack(level=(1, 2))
-        .reset_index(
-            drop=True,
-        )
-    )
-    # print(data)
-
-    modes = data.columns.get_level_values(0).unique()
-    modes = [mode for mode in ORDER if mode in modes]
-    if cactus:
-        # sort each column independently
-        for param in ("time", "n_integrations"):
-            for mode in modes:
-                # stdcol = "std{}".format(param)
-                # cols = data[mode][[param, stdcol]].sort_values(
-                #     by=param, ignore_index=True
-                # )
-                cols: pd.Series = data[mode][param].sort_values(ignore_index=True)
-                # cols.where(cols < timeout, inplace=True)
-
-                # cols.columns = pd.MultiIndex.from_tuples([(mode, param)])
-                data[(mode, param)] = np.NaN
-                data[(mode, param)].update(cols)
-
-        # data = data.cumsum(axis=0)
-        # start number of problems solved from 1
-        data.index += 1
-    else:
-        # sort by increasing time
-        sort_by = [(mode, "time") for mode in modes]
-        data.sort_values(by=sort_by, inplace=True, ignore_index=True)
-    return data
-
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Plot WMI results")
-    parser.add_argument(
-        "input", nargs="+", help="Folder and/or files containing result files as .json"
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        default=os.getcwd(),
-        help="Output folder where to put the plots (default: cwd)",
-    )
-    parser.add_argument(
-        "-f",
-        "--filename",
-        default="",
-        help="String to add to the name of the plots (optional)",
-    )
-    parser.add_argument(
-        "--intervals",
-        nargs="+",
-        default=[],
-        help="Sub-intervals to plot in the format from-to (optional)",
-    )
-    parser.add_argument(
-        "--timeout", type=int, default=0, help="Timeout line (if 0 not plotted)"
-    )
+    parser.add_argument("input", nargs="+", help="Folder and/or files containing result files as .json")
+    parser.add_argument("-o", "--output", default=os.getcwd(), help="Output folder where to put the plots")
+    parser.add_argument("-f", "--filename", default="", help="String to add to the name of the plots (optional)")
+    parser.add_argument("--intervals", nargs="+", default=[],
+                        help="Sub-intervals to plot in the format from-to (optional)")
+    parser.add_argument("--timeout", type=int, default=0, help="Timeout line (if 0 not plotted)")
     parser.add_argument("--cactus", action="store_true", help="If true use cactus plot")
     parser.add_argument("--legend-pos", type=int, default=6, help="Legend position")
     parser.add_argument("--title", type=str, default=None, help="Title to plot")
     return parser.parse_args()
+
+
+def add_relative_error(data, ref_mode="SAPASK_latte"):
+    # for each problem, compute the relative error on the "value" column w.r.t. the reference mode
+    # and add it as a new column
+    ref_value = data[data["mode_id"] == ref_mode][["problem", "value"]]
+    # merge on the problem column
+    data = data.merge(ref_value, on="problem", suffixes=("", "_ref"))
+    data["relative_error"] = (np.abs(data["value"] - data["value_ref"]) / data["value_ref"]).astype(np.float64)
+    # drop tmp columns
+    data.drop(columns=["value_ref"], inplace=True)
+    return data
 
 
 def main():
@@ -327,60 +220,36 @@ def main():
     title = args.title
 
     xlabel = "Problem instances"
+    ylabel_time = "Query execution time (seconds)"
+    ylabel_n_integrations = "Number of integrations"
+    ylabel_error = "Relative error"
 
-    if not os.path.exists(output_dir):
-        error("Output folder '{}' does not exists".format(output_dir))
+    check_path_exists(output_dir)
 
     input_files = get_input_files(inputs)
     data = parse_inputs(input_files, timeout)
     check_values(data)
+    data = add_relative_error(data)
+
     data = group_data(data, args.cactus, args.timeout)
+    # print("Grouped data:")
+    # print(data)
 
     for interval in intervals:
         frm, to = parse_interval(interval)
-        plot_data(
-            output_dir,
-            data,
-            "time",
-            xlabel,
-            timeout=timeout,
-            frm=frm,
-            to=to,
-            filename=filename,
-            legend_pos=legend_pos,
-            title=title,
-        )
-        plot_data(
-            output_dir,
-            data,
-            "n_integrations",
-            xlabel,
-            frm=frm,
-            to=to,
-            filename=filename,
-            legend_pos=legend_pos,
-            title=title,
-        )
+        plot_data(output_dir, data, "time", xlabel, ylabel_time,
+                  timeout=timeout, frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
+        plot_data(output_dir, data, "n_integrations", xlabel, ylabel_n_integrations,
+                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
+        plot_data(output_dir, data, "error", xlabel, ylabel_error,
+                  frm=frm, to=to, filename=filename, legend_pos=legend_pos, title=title)
 
-    plot_data(
-        output_dir,
-        data,
-        "time",
-        xlabel,
-        timeout=timeout,
-        filename=filename,
-        legend_pos=legend_pos,
-        title=title,
-    )
-    plot_data(
-        output_dir,
-        data,
-        "n_integrations",
-        xlabel,
-        filename=filename,
-        legend_pos=legend_pos,
-        title=title,
-    )
+    plot_data(output_dir, data, "time", xlabel, ylabel_time,
+              timeout=timeout, filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "n_integrations", xlabel, ylabel_n_integrations,
+              filename=filename, legend_pos=legend_pos, title=title)
+    plot_data(output_dir, data, "error", xlabel, ylabel_error,
+              filename=filename, legend_pos=legend_pos, title=title)
 
 
 if __name__ == "__main__":

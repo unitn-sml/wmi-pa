@@ -18,33 +18,24 @@ Currently, three algorithms are supported:
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
-import math
 from collections import defaultdict
-from math import fsum
 
 import mathsat
-from pysmt.shortcuts import (
-    And,
-    Bool,
-    Iff,
-    Implies,
-    Not,
-    Real,
-    Solver,
-    serialize,
-    simplify,
-    substitute,
-)
+import numpy as np
+from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
-from wmipa import logger
+from wmipa import logger, _msat_version_supports_skeleton
 from wmipa.integration import LatteIntegrator
-from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables
+from wmipa.integration.integrator import Integrator
+from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
 from wmipa.weightconverter import SkeletonSimplifier
 from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
+
+_MSAT_VERSION_SUPPORTS_SKELETON = _msat_version_supports_skeleton()
 
 
 class WMI:
@@ -55,7 +46,10 @@ class WMI:
         variables (WMIVariables): The list of variables created and used by WMI.
         weights (Weights): The representation of the weight function.
         chi (FNode): The pysmt formula that contains the support of the formula
-        integrator (Integrator): The integrator to use.
+        integrator (Integrator or list(Integrator)): The integrator or the list of integrators to use.
+        skeleton_simplifier (SkeletonSimplifier): The class that simplifies the formula, avoiding simplifications
+            that would break the skeleton.
+        normalizer (TermNormalizer): The class that normalizes LRA atoms.
 
     """
 
@@ -67,25 +61,29 @@ class WMI:
     MODE_SA_PA_SK = "SAPASK"
     MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
 
-    def __init__(self, chi, weight=Real(1), integrator=None, **options):
+    def __init__(self, chi, weight=Real(1), integrator=None):
         """Default constructor.
 
         Args:
             chi (FNode): The support of the problem.
-            weight (FNode, optional): The weight of the problem (default: 1).
-            integrator: integrator instance (default: LatteIntegrator()).
+            weight (FNode, optional): The weight function of the problem (default: 1).
+            integrator (Integrator or list(Integrator)): integrator or list of integrators to use. If a list of
+                integrators is provided, then computeWMI will return a list of results, one for each integrator.
+                (default: LatteIntegrator())
 
         """
         self.variables = WMIVariables()
+        self.normalizer = TermNormalizer()
         self.weights = Weights(weight, self.variables)
         self.chi = chi
 
         if integrator is None:
             integrator = LatteIntegrator()
+        if not isinstance(integrator, Integrator) and not (
+                isinstance(integrator, list) and all(isinstance(i, Integrator) for i in integrator)):
+            raise TypeError("integrator must be an Integrator or a list of Integrator")
         self.integrator = integrator
 
-        self.list_norm = set()
-        self.norm_aliases = dict()
         self.skeleton_simplifier = SkeletonSimplifier()
 
     def computeMI_batch(self, phis, **options):
@@ -101,9 +99,13 @@ class WMI:
                 - mode: The mode to use when calculating MI.
 
         Returns:
-            list(real): The list containing the result of each computation.
-            list(int): The list containing the number of integrations for each
-                computation that have been computed.
+            list(real) or list(np.ndarray(real)): The list containing the result of each computation. If a list of
+                integrators is provided, then the result is a list of np.ndarray(real). Each np.ndarray(real) contains
+                the results computed by the different integrators on the corresponding query.
+            list(int) or list(np.ndarray(int)): The list containing the number of integrations for each computation that
+                have been computed. If a list of integrators is provided, then the result is a list of np.ndarray(int).
+                Each np.ndarray(int) contains the number of integrations computed by the different integrators on the
+                corresponding query.
 
         """
         # save the old weight
@@ -136,9 +138,13 @@ class WMI:
                 - mode: The mode to use when calculating WMI.
 
         Returns:
-            list(real): The list containing the result of each computation.
-            list(int): The list containing the number of integrations for each
-                computation that have been computed.
+            list(real) or list(np.ndarray(real)): The list containing the result of each computation. If a list of
+                integrators is provided, then the result is a list of np.ndarray(real). Each np.ndarray(real) contains
+                the results computed by the different integrators on the corresponding query.
+            list(int) or list(np.ndarray(int)): The list containing the number of integrations for each computation that
+                have been computed. If a list of integrators is provided, then the result is a list of np.ndarray(int).
+                Each np.ndarray(int) contains the number of integrations computed by the different integrators on the
+                corresponding query.
 
         """
         volumes = []
@@ -164,8 +170,11 @@ class WMI:
                 - mode: The mode to use when calculating MI.
 
         Returns:
-            real: The result of the computation.
-            int: The number of integrations that have been computed.
+            real or np.ndarray(real): The result of the computation. If a list of integrators is provided, then the
+                result is a np.ndarray(real) containing the results computed by the different integrators.
+            int or np.ndarray(real): The number of integrations that have been computed. If a list of integrators is
+                provided, then the result is a np.ndarray(int) containing the number of integrations computed by the
+                different integrators.
 
         """
         # save old weight
@@ -195,50 +204,44 @@ class WMI:
                     (optional)
                 - domX: set of pysmt vars encoding the real integration domain
                     (optional)
-                - mode: The mode to use when calculating WMI.
+                - mode: The mode to use when calculating WMI (default: WMI.MODE_PA).
+                - cache: The cache level to use when calculating WMI (default: -1). See wmipa.integration.CacheIntegrator`
+                    for more details.
+                - ete: Whether to use the Eager Theory Encoding or not (default: False).
 
         Returns:
-            real: The result of the computation.
-            int: The number of integrations that have been computed.
+            real or np.ndarray(real): The result of the computation. If a list of integrators is provided, then the
+                result is a np.ndarray(real) containing the results computed by the different integrators.
+            int or np.ndarray(real): The number of integrations that have been computed. If a list of integrators is
+                provided, then the result is a np.ndarray(int) containing the number of integrations computed by the
+                different integrators.
 
         """
         domA = options.get("domA")
         domX = options.get("domX")
-        mode = options.get("mode")
-        cache = options.get("cache")
-        ete = options.get("ete")
-        if mode is None:
-            mode = WMI.MODE_PA
+        mode = options.get("mode", WMI.MODE_PA)
+        cache = options.get("cache", -1)
+        ete = options.get("ete", False)
+
         if mode not in WMI.MODES:
             err = "{}, use one: {}".format(mode, ", ".join(WMI.MODES))
             logger.error(err)
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
-        if cache is None:
-            cache = -1
-        self.cache = cache
 
         formula = And(phi, self.chi)
-        # formula = self.chi
 
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
-        elif "SK" in mode:
+        elif mode == WMI.MODE_SA_PA_SK:
             formula = And(formula, self.weights.weights_as_formula_sk)
         else:
             formula = And(formula, self.weights.labelling)
 
-        # print("FORMULA: ", serialize(formula))
         logger.debug("Computing WMI with mode: {}".format(mode))
-        self.variables: WMIVariables
-        x = {
-            x
-            for x in get_real_variables(formula)
-            if not (self.variables.is_weight_alias(x) or self.variables.is_euf_alias(x))
-        }
-        A = {
-            x for x in get_boolean_variables(formula) if not self.variables.is_label(x)
-        }
+        x = {x for x in get_real_variables(formula) if not self.variables.is_weight_alias(x)}
+        A = {x for x in get_boolean_variables(formula) if
+             not self.variables.is_label(x) and not self.variables.is_cnf_label(x)}
 
         # Currently, domX has to be the set of real variables in the
         # formula, whereas domA can be a superset of the boolean
@@ -247,21 +250,15 @@ class WMI:
         logger.debug("A: {}, domA: {}".format(A, domA))
         if domA is not None:
             if len(A - domA) > 0:
-                logger.error(
-                    "Domain of integration mismatch: A - domA = {}".format(A - domA)
-                )
-                raise WMIRuntimeException(
-                    WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, A - domA
-                )
+                logger.error("Domain of integration mismatch: A - domA = {}".format(A - domA))
+                raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, A - domA)
             else:
                 factor = 2 ** len(domA - A)
 
         logger.debug("factor: {}".format(factor))
         if domX is not None and domX != x:
             logger.error("Domain of integration mismatch")
-            raise WMIRuntimeException(
-                WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, x - domX
-            )
+            raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, x - domX)
 
         if ete:
             formula = self._eager_theory_encoding(formula)
@@ -271,22 +268,15 @@ class WMI:
             WMI.MODE_ALLSMT: self._compute_WMI_AllSMT,
             WMI.MODE_PA: self._compute_WMI_PA,
             WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
-            #  WMI.MODE_SA_PA_BOOL: self._compute_WMI_SA_PA,
-            #  WMI.MODE_SA_PA_BOOL_TA: self._compute_WMI_SA_PA_TA,
-            #  WMI.MODE_SA_PA_BOOL_TA_TA: self._compute_WMI_SA_PA_TA_TA,
             WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK,
         }
 
         volume, n_integrations, n_cached = compute_with_mode[mode](
-            formula, self.weights
+            formula, self.weights, cache
         )
 
         volume = volume * factor
-        logger.debug(
-            "Volume: {}, n_integrations: {}, n_cached: {}".format(
-                volume, n_integrations, n_cached
-            )
-        )
+        logger.debug("Volume: {}, n_integrations: {}, n_cached: {}".format(volume, n_integrations, n_cached))
 
         return volume, n_integrations
 
@@ -436,9 +426,6 @@ class WMI:
                 and their true value.
 
         """
-        labels = {}
-        # expressions = []
-        # allsat_variables = set()
 
         # Label LRA atoms with fresh boolean variables
         labelled_formula, pa_vars, labels = self.label_formula(
@@ -457,7 +444,30 @@ class WMI:
         )
         return models, labels
 
-    def _compute_WMI_AllSMT(self, formula, weights):
+    def _integrate_batch(self, problems, cache, factors=None):
+        """Computes the integral of a batch of problems.
+
+        Args:
+            problems (list): The list of problems to integrate.
+            cache (int): The cache level to use.
+            factors (list, optional): A list of factor each problem should be multiplied by. Defaults to [1] * len(problems).
+
+        """
+        if factors is None:
+            factors = [1] * len(problems)
+        else:
+            assert isinstance(factors, list)
+            assert len(problems) == len(factors)
+        if isinstance(self.integrator, Integrator):
+            results, cached = self.integrator.integrate_batch(problems, cache)
+        else:
+            results, cached = zip(*(i.integrate_batch(problems, cache) for i in self.integrator))
+        cached = np.array(cached)
+        results = np.array(results)
+        volume = np.sum(results * factors, axis=-1)
+        return volume, cached
+
+    def _compute_WMI_AllSMT(self, formula, weights, cache):
         """Computes WMI using the AllSMT algorithm.
 
         This method retrieves all the total truth assignments of the given formula,
@@ -467,11 +477,15 @@ class WMI:
         Args:
             formula (FNode): The pysmt formula on which to compute the WMI.
             weights (FNode): The pysmt formula representing the weight function.
+            cache(int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         models, labels = self._compute_TTAs(formula)
@@ -486,8 +500,7 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        results, cached = self.integrator.integrate_batch(problems, self.cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _create_problem(self, atom_assignments, weights, on_labels=True):
@@ -498,16 +511,14 @@ class WMI:
         Finally, it creates the problem tuple with all the info in it.
 
         Args:
-            atom_assignments (dict): The list of assignments and relative value
-                (True, False)
-            weights (Weight): The weight of the problem.
-            on_labels (bool): If True assignment is expected to be over labels of
-                weight condition
-                otherwise it is expected to be over unlabelled conditions
+            atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
+            weights (Weight): The weight function of the problem.
+            on_labels (bool): If True assignment is expected to be over labels of weight condition otherwise it is
+                expected to be over unlabelled conditions
 
         Returns:
             tuple: The problem on which to calculate the integral formed by
-                (atom assignment, actual weight, list of aliases).
+                (atom assignment, actual weight, list of aliases, weight condition assignments)
 
         """
         aliases = {}
@@ -521,10 +532,7 @@ class WMI:
                 if alias not in aliases:
                     aliases[alias] = expr
                 else:
-                    msg = "Multiple assignments to the same alias"
-                    raise WMIParsingException(
-                        WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS
-                    )
+                    raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
 
         current_weight, cond_assignments = weights.weight_from_assignment(
             atom_assignments, on_labels=on_labels
@@ -558,7 +566,7 @@ class WMI:
             )
         return alias, expr
 
-    def _compute_WMI_BC(self, formula, weights):
+    def _compute_WMI_BC(self, formula, weights, cache):
         """Computes WMI using the Block Clause algorithm.
 
         This method retrieves all the total truth assignments of the given formula
@@ -570,11 +578,15 @@ class WMI:
         Args:
             formula (FNode): The pysmt formula on which to compute the WMI.
             weights (FNode): The pysmt formula representing the weight function.
+            cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
@@ -585,8 +597,7 @@ class WMI:
             problem = self._create_problem(atom_assignments, weights)
             problems.append(problem)
 
-        results, cached = self.integrator.integrate_batch(problems, self.cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _compute_WMI_PA_no_boolean(
@@ -626,30 +637,30 @@ class WMI:
             assignments.update(other_assignments)
             yield assignments
 
-    def _compute_WMI_PA(self, formula, weights):
+    def _compute_WMI_PA(self, formula, weights, cache):
         """Computes WMI using the Predicate Abstraction (PA) algorithm.
 
         Args:
             formula (FNode): The formula on which to compute WMI.
             weights (Weight): The corresponding weight.
+            cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
         boolean_variables = get_boolean_variables(formula)
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
-            lab_formula, pa_vars, labels = self.label_formula(
-                formula, formula.get_atoms()
-            )
+            lab_formula, pa_vars, labels = self.label_formula(formula, formula.get_atoms())
             # Predicate abstraction on LRA atoms with minimal models
-            for assignments in self._compute_WMI_PA_no_boolean(
-                    lab_formula, pa_vars, labels
-            ):
+            for assignments in self._compute_WMI_PA_no_boolean(lab_formula, pa_vars, labels):
                 problem = self._create_problem(assignments, weights)
                 problems.append(problem)
         else:
@@ -684,9 +695,7 @@ class WMI:
 
                 if not over:
                     # predicate abstraction on LRA atoms with minimal models
-                    lab_formula, pa_vars, labels = self.label_formula(
-                        f_next, f_next.get_atoms()
-                    )
+                    lab_formula, pa_vars, labels = self.label_formula(f_next, f_next.get_atoms())
                     expressions = []
                     for k, v in atom_assignments.items():
                         if k.is_theory_relation():
@@ -696,17 +705,14 @@ class WMI:
                                 expressions.append(Not(k))
 
                     lab_formula = And([lab_formula] + expressions)
-                    for assignments in self._compute_WMI_PA_no_boolean(
-                            lab_formula, pa_vars, labels, atom_assignments
-                    ):
+                    for assignments in self._compute_WMI_PA_no_boolean(lab_formula, pa_vars, labels, atom_assignments):
                         problem = self._create_problem(assignments, weights)
                         problems.append(problem)
                 else:
                     # integrate over mu^A & mu^LRA
                     problem = self._create_problem(atom_assignments, weights)
                     problems.append(problem)
-        results, cached = self.integrator.integrate_batch(problems, self.cache)
-        volume = fsum(results)
+        volume, cached = self._integrate_batch(problems, cache)
         return volume, len(problems) - cached, cached
 
     def _get_allsat(self, formula, use_ta=False, atoms=None, options=None):
@@ -739,12 +745,15 @@ class WMI:
         if atoms is None:
             atoms = get_boolean_variables(formula)
 
+        # The current version of MathSAT returns a truth assignment on some normalized version of the atoms instead of
+        # the original ones. However, in order to simply get the value of the weight function given a truth assignment,
+        # we need to know the truth assignment on the original atoms.
         for atom in atoms:
-            if not atom.is_symbol(BOOL) and atom not in self.list_norm:
-                _ = self.normalize_assignment(atom, True)
+            if not atom.is_symbol(BOOL):
+                _ = self.normalizer.normalize(atom, remember_alias=True)
+
         solver = Solver(name="msat", solver_options=solver_options)
         converter = solver.converter
-
         solver.add_assertion(formula)
 
         models = []
@@ -760,118 +769,13 @@ class WMI:
                 if atom.is_symbol(BOOL):
                     assignments[atom] = value
                 else:
-                    subterms = self.normalize_assignment(atom, False)
-
-                    assert (
-                            frozenset(subterms) in self.norm_aliases
-                    ), "Atom {}\n(subterms: {})\nnot found in\n{}".format(
-                        atom.serialize(),
-                        subterms,
-                        "\n".join(str(x) for x in self.norm_aliases.keys()),
-                    )
-                    for element_of_normalization in self.norm_aliases[
-                        frozenset(subterms)
-                    ]:
-                        assignments[element_of_normalization] = (
-                            not value if element_of_normalization.is_lt() else value
-                        )
+                    normalized_atom, negated = self.normalizer.normalize(atom)
+                    if negated:
+                        value = not value
+                    known_aliases = self.normalizer.known_aliases(normalized_atom)
+                    for original_atom, negated in known_aliases:
+                        assignments[original_atom] = (not value if negated else value)
             yield assignments
-
-    def normalize_coefficient(self, val, normalizing_coefficient):
-        midvalue = round(float(val) / abs(normalizing_coefficient), 10)
-        if abs(midvalue - round(float(midvalue))) < 0.00000001:
-            return round(float(midvalue))
-        return midvalue
-
-    def normalize_assignment(self, assignment, add_to_norms_aliases):
-        self.list_norm.add(assignment)
-        if not assignment.is_lt():
-            list_terms = [(assignment.args()[0], 1), (assignment.args()[1], -1)]
-        else:
-            list_terms = [(assignment.args()[0], -1), (assignment.args()[1], 1)]
-        symbols = defaultdict(float)
-        normalizing_coefficient = 0.0
-        min_abs_coefficient = math.inf
-
-        for term, coeff in list_terms:
-            if term.is_real_constant():
-                normalizing_coefficient += term.constant_value() * coeff
-            elif term.is_plus():
-                list_terms.extend([(atom, coeff) for atom in term.args()])
-            elif term.is_minus():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
-                list_terms.append((child1, coeff))
-                list_terms.append((child2, -1.0 * coeff))
-            elif term.is_times():
-                child1 = term.args()[0]
-                child2 = term.args()[1]
-
-                if child1.is_real_constant() and child2.is_real_constant():
-                    # constant += child1.constant_value() * child2.constant_value()
-                    list_terms.append(
-                        (child1.constant_value() * child2.constant_value(), coeff)
-                    )
-                elif child1.is_real_constant():
-                    list_terms.append((child2, coeff * child1.constant_value()))
-                elif child2.is_real_constant():
-                    list_terms.append((child1, coeff * child2.constant_value()))
-            else:
-                symbols[term] += coeff
-                min_abs_coefficient = min(min_abs_coefficient, abs(coeff))
-
-        normalized_assignment = list()
-        normalized_assignment2 = list()
-
-        if assignment.is_equals():
-            normalized_assignment.append("=")
-            normalized_assignment2.append("=")
-        else:
-            normalized_assignment.append("<=/>=")
-
-        if normalizing_coefficient == 0.0:
-            normalized_assignment.append(0.0)
-            normalizing_coefficient = min_abs_coefficient
-            if assignment.is_equals():
-                normalized_assignment2.append(0.0)
-        else:
-            normalized_assignment.append(
-                normalizing_coefficient / abs(normalizing_coefficient)
-            )
-            if assignment.is_equals():
-                normalized_assignment2.append(
-                    (-normalizing_coefficient / abs(normalizing_coefficient))
-                )
-
-        for term in symbols:
-            normalized_assignment.append(
-                (
-                    term,
-                    self.normalize_coefficient(symbols[term], normalizing_coefficient),
-                )
-            )
-            if assignment.is_equals():
-                normalized_assignment2.append(
-                    (
-                        term,
-                        self.normalize_coefficient(
-                            -symbols[term], normalizing_coefficient
-                        ),
-                    )
-                )
-
-        if add_to_norms_aliases:
-            if frozenset(normalized_assignment) not in self.norm_aliases:
-                self.norm_aliases[frozenset(normalized_assignment)] = list()
-            self.norm_aliases[frozenset(normalized_assignment)].append(assignment)
-            # print("ADDING", frozenset(normalized_assignment), "for", assignment)
-            if assignment.is_equals():
-                if frozenset(normalized_assignment2) not in self.norm_aliases:
-                    self.norm_aliases[frozenset(normalized_assignment2)] = list()
-                self.norm_aliases[frozenset(normalized_assignment2)].append(assignment)
-                # print("ADDING", frozenset(normalized_assignment2), "for", assignment)
-
-        return None if add_to_norms_aliases else normalized_assignment
 
     def _compute_WMI_PA_no_boolean_no_label(self, lra_formula, other_assignments=None):
         """Finds all the assignments that satisfy the given formula using AllSAT.
@@ -883,16 +787,12 @@ class WMI:
             dict: One of the assignments that satisfies the formula.
 
         """
-        # for SAPA filter out new aliases for the weight function written as a formula
+
         if other_assignments is None:
             other_assignments = {}
-        lra_atoms = {
-            atom
-            for atom in lra_formula.get_atoms()
-            if not (self.variables.is_cnf_label(atom) or (
-                    atom.is_equals() and self.variables.is_weight_alias(atom.arg(0))
-            ))
-        }
+        lra_atoms = {atom for atom in lra_formula.get_atoms()
+                     if not (self.variables.is_cnf_label(atom) or (
+                    atom.is_equals() and self.variables.is_weight_alias(atom.arg(0))))}
         # bools = {x for x in get_boolean_variables(lra_formula)
         #         if not self.variables.is_weight_bool(x)}
         # assert len(bools) == 0, bools
@@ -939,18 +839,22 @@ class WMI:
             f_next = And([f_next] + expressions)
         return over, f_next
 
-    def _compute_WMI_SA_PA(self, formula, weights, use_ta=True):
+    def _compute_WMI_SA_PA(self, formula, weights, cache):
         """Computes WMI using the Predicate Abstraction (PA) algorithm using Structure
             Awareness.
 
         Args:
             formula (FNode): The formula on which to compute WMI.
             weights (Weight): The corresponding weight.
+            cache (int): The cache level to use.
 
         Returns:
-            real: The final volume of the integral computed by summing up all the
-                integrals' results.
-            int: The number of problems that have been computed.
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
 
         """
         problems = []
@@ -966,27 +870,21 @@ class WMI:
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
         else:
-            boolean_models = self._get_allsat(
-                formula, use_ta=use_ta, atoms=boolean_variables
-            )
+            boolean_models = self._get_allsat(formula, use_ta=True, atoms=boolean_variables)
 
             # logger.debug("n_boolean_models: {}".format(len(boolean_models)))
             # for each (partial) boolean assignment mu^A of F
             for boolean_assignments in boolean_models:
                 atom_assignments = dict(boolean_assignments)
                 # simplify the formula
-                over, lra_formula = self._simplify_formula(
-                    formula, boolean_assignments, atom_assignments
-                )
+                over, lra_formula = self._simplify_formula(formula, boolean_assignments, atom_assignments)
 
                 residual_booleans = get_boolean_variables(lra_formula)
 
                 # if some boolean have not been simplified, find TTA on them
                 if len(residual_booleans) > 0:
                     # compute TTA
-                    residual_boolean_models = self._get_allsat(
-                        lra_formula, atoms=residual_booleans
-                    )
+                    residual_boolean_models = self._get_allsat(lra_formula, atoms=residual_booleans)
                 else:
                     # all boolean variables have been assigned
                     residual_boolean_models = [[]]
@@ -1009,29 +907,43 @@ class WMI:
 
                     if not over:
                         # predicate abstraction on LRA atoms with minimal models
-                        for assignments in self._compute_WMI_PA_no_boolean_no_label(
-                                curr_lra_formula, curr_atom_assignments
-                        ):
-                            problem = self._create_problem(
-                                assignments, weights, on_labels=False
-                            )
+                        for assignments in self._compute_WMI_PA_no_boolean_no_label(curr_lra_formula,
+                                                                                    curr_atom_assignments):
+                            problem = self._create_problem(assignments, weights, on_labels=False)
                             problems.append(problem)
                             n_bool_not_assigned.append(b_not_assigned)
                     else:
                         # integrate over mu^A & mu^LRA
-                        problem = self._create_problem(
-                            curr_atom_assignments, weights, on_labels=False
-                        )
+                        problem = self._create_problem(curr_atom_assignments, weights, on_labels=False)
 
                         problems.append(problem)
                         n_bool_not_assigned.append(b_not_assigned)
-        results, cached = self.integrator.integrate_batch(problems, self.cache)
-        assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
-        volume = fsum(r * 2 ** i for i, r in zip(n_bool_not_assigned, results))
+        factors = [2 ** i for i in n_bool_not_assigned]
+        volume, cached = self._integrate_batch(problems, cache, factors)
         return volume, len(problems) - cached, cached
 
-    def _compute_WMI_SA_PA_SK(self, formula, weights):
+    def _compute_WMI_SA_PA_SK(self, formula, weights, cache):
+        """Computes WMI using the Predicate Abstraction (PA) algorithm using Structure
+            Awareness and Skeleton.
+
+        Args:
+            formula (FNode): The formula on which to compute WMI.
+            weights (Weight): The corresponding weight.
+            cache (int): The cache level to use.
+
+        Returns:
+            real or np.ndarray(real): The final volume of the integral computed by summing up all the integrals' results.
+                If a list of integrators is provided, then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been computed. If a list of integrators is provided,
+                then a numpy array of results is returned, one for each integrator.
+            int or np.ndarray(int): The number of problems that have been retrieved from the cache. If a list of integrators
+                is provided, then a numpy array of results is returned, one for each integrator.
+
+        """
+        if not _MSAT_VERSION_SUPPORTS_SKELETON:
+            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, "MSAT version does not support WMI_SA_PA_SK")
+
         problems = []
 
         cnf_labels = {b for b in get_boolean_variables(formula) if
@@ -1091,11 +1003,9 @@ class WMI:
                     problems.append(problem)
                     n_bool_not_assigned.append(len(b_not_assigned))
 
-        results, cached = self.integrator.integrate_batch(problems, self.cache)
-
-        assert len(n_bool_not_assigned) == len(results)
         # multiply each volume by 2^(|A| - |mu^A|)
-        volume = fsum(r * 2 ** i for i, r in zip(n_bool_not_assigned, results))
+        factors = [2 ** i for i in n_bool_not_assigned]
+        volume, cached = self._integrate_batch(problems, cache, factors)
         return volume, len(problems) - cached, cached
 
     def label_formula(self, formula, atoms_to_label):
@@ -1150,9 +1060,7 @@ class WMI:
             else:
                 value = True
                 atom = literal
-            assert atom.is_theory_relation or (
-                    atom.is_symbol() and atom.get_type() == BOOL
-            )
+            assert atom.is_theory_relation or (atom.is_symbol() and atom.get_type() == BOOL)
             assignments[atom] = value
 
         return assignments
