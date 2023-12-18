@@ -1,0 +1,17 @@
+def popModel():
+    ethnicity = gaussian(0,10)
+    colRank = gaussian(25,10)
+    yExp = gaussian(10,5)
+    if ethnicity > 10:
+        colRank = colRank + 5
+    sensitiveAttribute(ethnicity > 10)
+
+def F():
+    expRank = 5*yExp - colRank
+    if colRank <= 5:
+        hire = 1
+    elif expRank > -5:
+        hire = 1
+    else:
+        hire = 0
+    fairnessTarget(hire > 0.5)
