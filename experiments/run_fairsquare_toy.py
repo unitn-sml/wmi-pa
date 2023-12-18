@@ -1,11 +1,27 @@
 from time import time
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from wmibench.fairsquare.fairsquare_pysmt import convert
 
 from wmipa import WMI
 from wmipa.integration.volesti_integrator import VolestiIntegrator
+
+FONTSIZE = 16
+
+matplotlib.use("pgf")
+matplotlib.rcParams.update({
+    "pgf.texsystem": "pdflatex",
+    'font.family': 'serif',
+    'text.usetex': True,
+    'pgf.rcfonts': False,
+    'axes.labelsize': FONTSIZE,
+    'font.size': FONTSIZE,
+    'legend.fontsize': FONTSIZE,
+    'xtick.labelsize': FONTSIZE,
+    'ytick.labelsize': FONTSIZE,
+})
 
 epsilon = 0.1
 repeat = 5
@@ -62,5 +78,5 @@ plt.bar([1, 2], avgs, yerr=stds, tick_label=cases, linewidth=2, color=(0, 0, 0, 
 ax.hlines(y=(1 - epsilon), xmin=0.5, xmax=2.5, linewidth=2, color='r', linestyles='dashed')
 plt.text(0.6, (1 - epsilon) + 1e-2, r'$1- \epsilon$', color='r')
 plt.ylabel("Fairness ratio")
-plt.savefig('fairsquare.png')
-plt.show()
+plt.savefig('fairsquare.pdf', bbox_inches='tight')
+print("created fairsquare.pdf")
