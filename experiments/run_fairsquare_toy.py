@@ -1,10 +1,9 @@
+from time import time
 
-from wmibench.fairsquare.fairsquare_pywmi import convert
 import matplotlib.pyplot as plt
 import numpy as np
-from pysmt.shortcuts import *
-from sys import argv
-from time import time
+from wmibench.fairsquare.fairsquare_pysmt import convert
+
 from wmipa import WMI
 from wmipa.integration.volesti_integrator import VolestiIntegrator
 
@@ -34,9 +33,9 @@ for case in cases:
         p_H_g_M = p_MH / p_M
         p_H_g_nM = p_nMH / (1 - p_M)
 
-        #print("Pr(M):", p_M)
-        #print("Pr(H|M):", p_H_g_M)
-        #print("Pr(H|~M):", p_H_g_nM)
+        # print("Pr(M):", p_M)
+        # print("Pr(H|M):", p_H_g_M)
+        # print("Pr(H|~M):", p_H_g_nM)
 
         ratio = p_H_g_M / p_H_g_nM
 
@@ -47,8 +46,8 @@ for case in cases:
         aggr.append(ratio)
         taggr.append(tratio)
 
-        #eps_fairness = (ratio > (1 - epsilon))
-        #print("Ratio:", ratio, f"{epsilon}-fairness:", eps_fairness,'\n')
+        # eps_fairness = (ratio > (1 - epsilon))
+        # print("Ratio:", ratio, f"{epsilon}-fairness:", eps_fairness,'\n')
 
     print(f"Avg. execution time: {np.average(taggr)}")
     avgs.append(np.average(aggr))
@@ -58,10 +57,10 @@ for case in cases:
 ax = plt.gca()
 ax.set_ylim([0, 1.0])
 colors = [(0, 0, 1, 1), (0, 1, 0, 1)]
-plt.bar([1,2], avgs, yerr=stds, tick_label=cases, linewidth=2, color=(0,0,0,0),
+plt.bar([1, 2], avgs, yerr=stds, tick_label=cases, linewidth=2, color=(0, 0, 0, 0),
         edgecolor=colors)
-ax.hlines(y=(1-epsilon), xmin=0.5, xmax=2.5, linewidth=2, color='r', linestyles='dashed')
-plt.text(0.6, (1-epsilon) + 1e-2, r'$1- \epsilon$', color='r')
+ax.hlines(y=(1 - epsilon), xmin=0.5, xmax=2.5, linewidth=2, color='r', linestyles='dashed')
+plt.text(0.6, (1 - epsilon) + 1e-2, r'$1- \epsilon$', color='r')
 plt.ylabel("Fairness ratio")
 plt.savefig('fairsquare.png')
 plt.show()
