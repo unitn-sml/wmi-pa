@@ -121,7 +121,8 @@ def main():
     check_path_exists(args.input)
     check_path_exists(args.output)
 
-    output_prefix = os.path.split(args.input.rstrip("/"))[1]
+    output_prefix = "_".join(args.input.rstrip("/").split("/"))
+    print("Output prefix:", output_prefix)
     run_id = int(time.time())
 
     files = get_input_files(args.input)
