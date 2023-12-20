@@ -3,7 +3,7 @@ import json
 import sys
 import os
 from pysmt.shortcuts import reset_env, get_env, Bool
-from pywmi import Density
+from wmibench.io import Density
 
 
 def check_path_exists(path):
@@ -62,3 +62,17 @@ def problems_from_densities(input_files):
 
 class Formatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
+
+
+def positive(value):
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError("Expected positive integer (no 0), found {}".format(value))
+    return ivalue
+
+
+def positive_0(value):
+    ivalue = int(value)
+    if ivalue < 0:
+        raise argparse.ArgumentTypeError("Expected positive integer, found {}".format(value))
+    return ivalue

@@ -11,6 +11,15 @@ from wmipa.integration.cache_integrator import CacheIntegrator
 from wmipa.integration.volesti_integrator import VolestiIntegrator
 
 
+def get_input_files(input_dir):
+    files = []
+    for root, dirs, filenames in os.walk(input_dir):
+        for filename in filenames:
+            if filename.endswith(".json"):
+                files.append(path.join(root, filename))
+    return files
+
+
 def get_output_filename(output_dir, output_filename, wmi_id, run_id, output_suffix):
     return path.join(output_dir, f"{output_filename}_{wmi_id}_{run_id}{output_suffix}.json")
 
@@ -115,7 +124,7 @@ def main():
     output_prefix = os.path.split(args.input.rstrip("/"))[1]
     run_id = int(time.time())
 
-    files = [fullpath for f in os.listdir(args.input) if path.isfile(fullpath := path.join(args.input, f))]
+    files = get_input_files(args.input)
 
     output_files = initialize_output_files(args, output_prefix, run_id, output_suffix)
 
