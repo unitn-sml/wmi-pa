@@ -7,7 +7,7 @@ __author__ = "Paolo Morettin"
 
 from pysmt.shortcuts import Plus, Pow, Real, Symbol, Times, serialize
 from pysmt.typing import REAL
-from sympy import SympifyError, expand, sympify
+from sympy import SympifyError, expand, sympify, symbols
 
 from wmipa.wmiexception import WMIParsingException
 
@@ -28,8 +28,12 @@ def pysmt2sympy(expression):
     """
     # write reals with no fractional part as integers to help sympy group monomials
     serialize_formula = serialize(expression).replace(".0", "")
+    # avoid sympy interpreting variables as built-in functions (e.g., "len" was interpreted as <built-in function len>)
+    var_names = [symbol.symbol_name() for symbol in expression.get_free_variables()]
+    ss = symbols(var_names)
+    escape_var_names = dict(zip(var_names, ss))
     try:
-        sympy_formula = sympify(serialize_formula)
+        sympy_formula = sympify(serialize_formula, locals=escape_var_names)
     except SympifyError:
         raise WMIParsingException(
             WMIParsingException.CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY, expression
@@ -80,7 +84,13 @@ def get_canonical_form(expression):
         WMIParsingException: If the method fails to parse the formula.
 
     """
-    sympy_formula = pysmt2sympy(expression)
-    sympy_expand = expand(sympy_formula)
-    canonical = sympy2pysmt(sympy_expand)
-    return canonical
+    try:
+        sympy_formula = pysmt2sympy(expression)
+        sympy_expand = expand(sympy_formula)
+        canonical = sympy2pysmt(sympy_expand)
+        return canonical
+    except Exception as e:
+        print("Exp: ", expression)
+        print("Sympy: ", pysmt2sympy(expression))
+        print("Expand: ", expand(pysmt2sympy(expression)))
+        exit(0)
