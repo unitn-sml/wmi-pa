@@ -18,15 +18,13 @@ Currently, three algorithms are supported:
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
-from collections import defaultdict
-
 import mathsat
 import numpy as np
 from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
-from wmipa import logger, _msat_version_supports_skeleton
+from wmipa import logger
 from wmipa.integration import LatteIntegrator
 from wmipa.integration.integrator import Integrator
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
@@ -35,7 +33,7 @@ from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
 
-_MSAT_VERSION_SUPPORTS_SKELETON = _msat_version_supports_skeleton()
+_MSAT_VERSION_SUPPORTS_SKELETON = True
 
 
 class WMI:

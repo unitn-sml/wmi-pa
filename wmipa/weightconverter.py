@@ -184,7 +184,21 @@ class WeightConverterSkeleton(WeightConverter):
             else:
                 l_cond = Not(phi)
                 r_cond = phi
-            conversion_list.append(Or(branch_condition, phi, Not(phi)))
+
+            # Trick to force the splitting on phi on the current branch represented by branch_condition
+            # (here branch_condition is Not(conds)).
+            # In the original algorithm, we would have added:
+            #   (conds -> (phi v not phi)).
+            # This would require a custom MathSAT version to avoid the simplification of the valid clause.
+            #
+            # Here, instead, we add:
+            #   (conds -> exists k.CNF(phi <-> k))
+            # which is equivalent to the above approach, but does not get simplified and does not require
+            # using a custom MathSAT version.
+            # (k is implicitly existentially quantified since we do not enumerate on it)
+            k = self.new_label()
+            conversion_list.append(Or(branch_condition, Not(k), phi))
+            conversion_list.append(Or(branch_condition, k, Not(phi)))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
         else:
@@ -201,8 +215,10 @@ class WeightConverterSkeleton(WeightConverter):
             for clause in self.cnfizer.convert(nnf(Not(phi))):
                 conversion_list.append(Or(r_cond, *clause))
 
-            conversion_list.append(Or(branch_condition, b, Not(b)))
-
+            # Here we are not adding the clause
+            #   (branch_condition -> (b v not b))
+            # since it is subsumed by the CNF clauses of
+            #   (branch_condition -> exists b.CNF(b <-> phi))
             self._convert_rec(left, l_cond, conversion_list)
             self._convert_rec(right, r_cond, conversion_list)
 
