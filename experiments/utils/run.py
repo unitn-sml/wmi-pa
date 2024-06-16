@@ -3,7 +3,7 @@ from multiprocessing import Queue, Process
 from queue import Empty as EmptyQueueError
 
 import psutil
-from pysmt.shortcuts import Real, Bool
+from pysmt.shortcuts import Real, Bool, Symbol
 from pywmi import PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd.vtrees.vtree import balanced
@@ -56,6 +56,7 @@ def compute_wmi(args, domain, support, weight):
             Bool(True),
             mode=args.mode,
             cache=args.cache,
+            domA={Symbol(v) for v in domain.bool_vars},
         )
         res = []
         for result, n_int, integrator in zip(results, n_ints, integrators):
