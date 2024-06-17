@@ -100,3 +100,8 @@ We provide some examples that show how to write a model and evaluate weighted mo
 To run the code in *examples/*, type:
 
     python exampleX.py
+
+
+## Experiments
+
+The code for running the experiments reported in the papers above can be found in the `experiments` branch.

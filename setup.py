@@ -20,11 +20,6 @@ REQUIRED = [
     # test
     "pytest",
     "pytest-runner",
-    # experiments
-    "matplotlib",
-    "pandas",
-    "psutil",
-    "wmibench @ git+https://git@github.com/unitn-sml/wmi-benchmarks@main#egg=wmibench"
 ]
 
 # What packages are optional?
@@ -61,7 +56,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires=REQUIRES_PYTHON,
-    packages=find_packages(exclude=("test", "examples", "experiments")),
+    packages=find_packages(exclude=("test", "examples")),
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
