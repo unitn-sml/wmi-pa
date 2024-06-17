@@ -14,7 +14,7 @@ if __name__ == "__main__":
         # in each dimension
         support = domain.get_bounds()
 
-        res = WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SA_PA_SK)[0]
+        res = WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SAE4WMI)[0]
         return res
 
 

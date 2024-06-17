@@ -41,7 +41,7 @@ def add_problem_info(data: pd.DataFrame):
     return data
 
 
-def filter_data(data: pd.DataFrame, fix: List[Tuple], ref="SAPASK_latte"):
+def filter_data(data: pd.DataFrame, fix: List[Tuple], ref="SAE4WMI_latte"):
     for var, val in fix:
         data = data[(data[var] == val) | (data["mode_id"] == ref)]
     return data
@@ -131,7 +131,7 @@ def avg_table(cols_var, data, filename, fix, outdir, rows_var, agg_field, pretty
                   escape=False, column_format="c" * len(data.columns), multicolumn_format="c", index=False)
 
 
-def avg_error_table(data: pd.DataFrame, outdir, filename, rows_var, cols_var, fix, ref="SAPASK_latte"):
+def avg_error_table(data: pd.DataFrame, outdir, filename, rows_var, cols_var, fix, ref="SAE4WMI_latte"):
     reference_value = data[data["wmi_id"] == ref][["problem", "value"]]
     data = pd.merge(data, reference_value, on=["problem"], suffixes=("", "_ref"))
     # data["relative_error"] = (data["value"] - data["value_ref"]).abs() / data["value_ref"]
@@ -145,7 +145,7 @@ def avg_error_table(data: pd.DataFrame, outdir, filename, rows_var, cols_var, fi
     avg_table(cols_var, data, filename, fix, outdir, rows_var, "relative_error", "relative error")
 
 
-def avg_time_gain_table(data: pd.DataFrame, outdir, filename, rows_var, cols_var, fix, ref="SAPASK_latte"):
+def avg_time_gain_table(data: pd.DataFrame, outdir, filename, rows_var, cols_var, fix, ref="SAE4WMI_latte"):
     reference_value = data[data["wmi_id"] == ref][["problem", "sequential_integration_time"]]
     data = pd.merge(data, reference_value, on=["problem"], suffixes=("", "_ref"))
     data["relative_time_gain"] = (data["sequential_integration_time_ref"] - data["sequential_integration_time"]) / data[
@@ -181,9 +181,9 @@ def main():
     data = add_problem_info(data)
     data = filter_data(data, args.fix)
     avg_error_table(data, output_dir, args.filename, args.rows_var, args.cols_var, args.fix,
-                    ref="SAPASK_latte")
+                    ref="SAE4WMI_latte")
     avg_time_gain_table(data, output_dir, args.filename, args.rows_var, args.cols_var, args.fix,
-                        ref="SAPASK_latte")
+                        ref="SAE4WMI_latte")
 
 
 if __name__ == "__main__":

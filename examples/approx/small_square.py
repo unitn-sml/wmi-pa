@@ -10,7 +10,7 @@ if __name__ == "__main__":
     domain = make_domain()
     support = domain.get_bounds()
     problems = [(q := make_small_square(width), w,
-                 WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SA_PA_SK)[0],
+                 WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SAE4WMI)[0],
                  domain)
                 for width in np.arange(0.1, 1.1, 0.1)]
     results = get_results(problems)

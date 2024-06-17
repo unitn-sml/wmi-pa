@@ -11,7 +11,7 @@ if __name__ == "__main__":
     support = domain.get_bounds()
 
     problems = [(q := make_small_square(0.5), w := make_polynomial(degree),
-                 WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SA_PA_SK)[0],
+                 WMI(And(q, support), w).computeWMI(Bool(True), mode=WMI.MODE_SAE4WMI)[0],
                  domain)
                 for degree in range(2, MD + 1, 2)]
 

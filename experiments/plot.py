@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from utils.plot import MODE_IDS, get_input_files, parse_inputs, check_values
 from utils.io import check_path_exists
+from utils.plot import MODE_IDS, get_input_files, parse_inputs, check_values
 
 plt.style.use("ggplot")
 fs = 18  # font size
@@ -197,7 +197,7 @@ def parse_args():
     return parser.parse_args()
 
 
-def add_relative_error(data, ref_mode="SAPASK_latte"):
+def add_relative_error(data, ref_mode="SAE4WMI_latte"):
     # for each problem, compute the relative error on the "value" column w.r.t. the reference mode
     # and add it as a new column
     ref_value = data[data["mode_id"] == ref_mode][["problem", "value"]]

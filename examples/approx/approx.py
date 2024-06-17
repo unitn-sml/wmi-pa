@@ -60,7 +60,7 @@ def make_polynomial(degree, dim=2):
 def volesti(support, q, w):
     def volesti_wmi(seed):
         wmi = WMI(And(q, support), w, integrator=VolestiIntegrator(seed=seed, walk_type="CDHR", N=1000))
-        return wmi.computeWMI(Bool(True), mode=WMI.MODE_SA_PA_SK)[0]
+        return wmi.computeWMI(Bool(True), mode=WMI.MODE_SAE4WMI)[0]
 
     return volesti_wmi
 

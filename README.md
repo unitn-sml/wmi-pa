@@ -1,4 +1,4 @@
-# SA-WMI-PA-SK
+# WMI-PA
 
 [![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
 

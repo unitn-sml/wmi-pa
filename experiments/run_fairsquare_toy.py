@@ -42,9 +42,9 @@ for case in cases:
     taggr = []
     for _ in range(repeat):
         t0 = time()
-        p_M, _ = wmi.computeWMI(M, mode=WMI.MODE_SA_PA_SK)
-        p_MH, _ = wmi.computeWMI(MH, mode=WMI.MODE_SA_PA_SK)
-        p_nMH, _ = wmi.computeWMI(nMH, mode=WMI.MODE_SA_PA_SK)
+        p_M, _ = wmi.computeWMI(M, mode=WMI.MODE_SAE4WMI)
+        p_MH, _ = wmi.computeWMI(MH, mode=WMI.MODE_SAE4WMI)
+        p_nMH, _ = wmi.computeWMI(nMH, mode=WMI.MODE_SAE4WMI)
 
         p_H_g_M = p_MH / p_M
         p_H_g_nM = p_nMH / (1 - p_M)
