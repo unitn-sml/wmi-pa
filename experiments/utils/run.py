@@ -5,11 +5,14 @@ from queue import Empty as EmptyQueueError
 import psutil
 from pysmt.shortcuts import Real, Bool, Symbol
 from pywmi import PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine
+from pysmt.shortcuts import Real, Bool
+from pywmi import Domain, PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd.vtrees.vtree import balanced
 
 from wmipa import WMI
 from wmipa.integration import LatteIntegrator, VolestiIntegrator, SymbolicIntegrator
+from wmipa.utils import get_boolean_variables
 
 WMIResult = namedtuple("WMIResult", ["wmi_id",
                                      "value",
@@ -68,11 +71,15 @@ def compute_wmi(args, domain, support, weight):
                                    sequential_integration_time=integrator.get_sequential_integration_time())
             res.append(wmi_result)
     else:
+        # get pywmi domain from wmibench domain
+        real_vars = {v.symbol_name(): b for v, b in domain.items()}
+        bool_vars = [v.symbol_name() for v in get_boolean_variables(support) | get_boolean_variables(weight)]
+        pywmi_domain = Domain.make(boolean_variables=bool_vars, real_variables=real_vars)
         if args.mode == "XADD":
-            wmi = PyXaddEngine(domain=domain, support=support, weight=weight)
+            wmi = PyXaddEngine(domain=pywmi_domain, support=support, weight=weight)
         elif args.mode == "XSDD":
             wmi = XsddEngine(
-                domain=domain,
+                domain=pywmi_domain,
                 support=support,
                 weight=weight,
                 algebra=PyXaddAlgebra(symbolic_backend=SympyAlgebra()),
@@ -80,7 +87,7 @@ def compute_wmi(args, domain, support, weight):
             )
         elif args.mode == "FXSDD":
             wmi = FXSDD(
-                domain=domain,
+                domain=pywmi_domain,
                 support=support,
                 weight=weight,
                 vtree_strategy=balanced,
@@ -88,7 +95,12 @@ def compute_wmi(args, domain, support, weight):
                 ordered=False,
             )
         elif args.mode == "Rejection":
-            wmi = RejectionEngine(domain, support, weight, sample_count=10 ** 6)
+            wmi = RejectionEngine(
+                domain=pywmi_domain,
+                support=support,
+                weight=weight,
+                sample_count=10 ** 6
+            )
         else:
             raise ValueError(f"Invalid mode {args.mode}")
 

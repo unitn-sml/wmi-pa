@@ -16,7 +16,7 @@ REQUIRED = [
     "networkx",
     "numpy",
     "PySMT>=0.9.6.dev53",
-    "sympy",
+    "sympy==1.9", # required for pyxadd engine
     # test
     "pytest",
     "pytest-runner",

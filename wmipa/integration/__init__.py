@@ -1,10 +1,13 @@
 from shutil import which
 
+
 def _is_latte_installed():
     return which("integrate") is not None
 
+
 def _is_volesti_installed():
     return which("volesti_integrate") is not None
+
 
 def _is_symbolic_installed():
     try:
@@ -12,6 +15,7 @@ def _is_symbolic_installed():
         return True
     except ImportError:
         return False
+
 
 IMPORT_ERR_MSG = "No integration backend installed. Run `wmipa-install --help` for more information."
 
