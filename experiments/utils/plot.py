@@ -36,23 +36,23 @@ MODE_IDS = OrderedDict([
     (get_mode_id("FXSDD", None), ModeIdInfo(COLORS[2], "FXSDD")),
     (get_mode_id(WMI.MODE_PA, LatteIntegrator()), ModeIdInfo(COLORS[3], "WMI-PA")),
     (get_mode_id(WMI.MODE_SA_PA, LatteIntegrator()), ModeIdInfo(COLORS[4], "SA-WMI-PA")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, LatteIntegrator()), ModeIdInfo(COLORS[5], "SA-WMI-PA-SK")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=100)),
-     ModeIdInfo(COLORS[6], "SA-WMI-PA-SK(VolEsti, error=0.1, N=100)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=1000)),
-     ModeIdInfo(COLORS[7], "SA-WMI-PA-SK(VolEsti, error=0.1, N=1000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=10000)),
-     ModeIdInfo(COLORS[8], "SA-WMI-PA-SK(VolEsti, error=0.1, N=10000)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.1, N=100000)),
-     ModeIdInfo(COLORS[11], "SA-WMI-PA-SK(VolEsti, error=0.1, N=100000)")),
+    (get_mode_id(WMI.MODE_SAE4WMI, LatteIntegrator()), ModeIdInfo(COLORS[5], "SAE4WMI")),
+    (get_mode_id(WMI.MODE_SAE4WMI, VolestiIntegrator(error=0.1, N=100)),
+     ModeIdInfo(COLORS[6], "SAE4WMI(VolEsti, error=0.1, N=100)")),
+    (get_mode_id(WMI.MODE_SAE4WMI, VolestiIntegrator(error=0.1, N=1000)),
+     ModeIdInfo(COLORS[7], "SAE4WMI(VolEsti, error=0.1, N=1000)")),
+    (get_mode_id(WMI.MODE_SAE4WMI, VolestiIntegrator(error=0.1, N=10000)),
+     ModeIdInfo(COLORS[8], "SAE4WMI(VolEsti, error=0.1, N=10000)")),
+    (get_mode_id(WMI.MODE_SAE4WMI, VolestiIntegrator(error=0.1, N=100000)),
+     ModeIdInfo(COLORS[11], "SAE4WMI(VolEsti, error=0.1, N=100000)")),
     # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=100000)),
-    #  ModeIdInfo(COLORS[12], "SA-WMI-PA-SK(VolEsti, error=0.01, N=100000)")),
+    #  ModeIdInfo(COLORS[12], "SAE4WMI(VolEsti, error=0.01, N=100000)")),
     # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.01, N=1000000)),
-    #  ModeIdInfo(COLORS[13], "SA-WMI-PA-SK(VolEsti, error=0.01, N=1000000)")),
+    #  ModeIdInfo(COLORS[13], "SAE4WMI(VolEsti, error=0.01, N=1000000)")),
     # (get_mode_id(WMI.MODE_SA_PA_SK, VolestiIntegrator(error=0.005, N=1000)),
-    #  ModeIdInfo(COLORS[9], "SA-WMI-PA-SK(VolEsti, error=0.005)")),
-    (get_mode_id(WMI.MODE_SA_PA_SK, SymbolicIntegrator()),
-     ModeIdInfo(COLORS[10], "SA-WMI-PA-SK(Symbolic)")),
+    #  ModeIdInfo(COLORS[9], "SAE4WMI(VolEsti, error=0.005)")),
+    (get_mode_id(WMI.MODE_SAE4WMI, SymbolicIntegrator()),
+     ModeIdInfo(COLORS[10], "SAE4WMI(Symbolic)")),
 ])
 
 
@@ -123,7 +123,7 @@ def parse_inputs(input_files, timeout):
     return data.convert_dtypes()
 
 
-def check_values(data: pd.DataFrame, ref="SAPASK_latte"):
+def check_values(data: pd.DataFrame, ref="SAE4WMI_latte"):
     """Check if the values of the different modes match with the reference mode "ref" (where not NaN)
 
     """

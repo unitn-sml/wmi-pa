@@ -31,9 +31,9 @@ print("Weight function:", w.serialize())
 
 print()
 wmi = WMI(chi, w, integrator=VolestiIntegrator())
-result, n_integrations = wmi.computeWMI(phi, mode=WMI.MODE_SA_PA_SK)
+result, n_integrations = wmi.computeWMI(phi, mode=WMI.MODE_SAE4WMI)
 print(
     "WMI with mode {} \t result = {}, \t # integrations = {}".format(
-        WMI.MODE_SA_PA_SK, result, n_integrations
+        WMI.MODE_SAE4WMI, result, n_integrations
     )
 )

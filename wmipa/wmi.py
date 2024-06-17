@@ -10,7 +10,7 @@ Currently, three algorithms are supported:
     "PA" -- WMI with Predicate Abstraction, may reduce drastically the number of
         integrals computed.
     "SA-PA" -- Improves PA by making it aware of the structure of the weight function.
-    "SA-PA-SK" -- Improves SA-PA by using a better encoding of the problem and a revised
+    "SAE4WMI" -- Improves SA-PA by using a better encoding of the problem and a revised
         enumeration strategy
 
 """
@@ -18,24 +18,20 @@ Currently, three algorithms are supported:
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
-from collections import defaultdict
-
 import mathsat
 import numpy as np
 from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
-from wmipa import logger, _msat_version_supports_skeleton
 from wmipa.integration import LatteIntegrator
 from wmipa.integration.integrator import Integrator
+from wmipa.log import logger
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
 from wmipa.weightconverter import SkeletonSimplifier
 from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
-
-_MSAT_VERSION_SUPPORTS_SKELETON = _msat_version_supports_skeleton()
 
 
 class WMI:
@@ -58,8 +54,8 @@ class WMI:
     MODE_ALLSMT = "AllSMT"
     MODE_PA = "PA"
     MODE_SA_PA = "SAPA"
-    MODE_SA_PA_SK = "SAPASK"
-    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SA_PA_SK]
+    MODE_SAE4WMI = "SAE4WMI"
+    MODES = [MODE_BC, MODE_ALLSMT, MODE_PA, MODE_SA_PA, MODE_SAE4WMI]
 
     def __init__(self, chi, weight=Real(1), integrator=None):
         """Default constructor.
@@ -233,7 +229,7 @@ class WMI:
         # Add the phi to the support
         if mode == WMI.MODE_SA_PA:
             formula = And(formula, self.weights.weights_as_formula_euf)
-        elif mode == WMI.MODE_SA_PA_SK:
+        elif mode == WMI.MODE_SAE4WMI:
             formula = And(formula, self.weights.weights_as_formula_sk)
         else:
             formula = And(formula, self.weights.labelling)
@@ -268,7 +264,7 @@ class WMI:
             WMI.MODE_ALLSMT: self._compute_WMI_AllSMT,
             WMI.MODE_PA: self._compute_WMI_PA,
             WMI.MODE_SA_PA: self._compute_WMI_SA_PA,
-            WMI.MODE_SA_PA_SK: self._compute_WMI_SA_PA_SK,
+            WMI.MODE_SAE4WMI: self._compute_WMI_SAE4WMI,
         }
 
         volume, n_integrations, n_cached = compute_with_mode[mode](
@@ -923,7 +919,7 @@ class WMI:
         volume, cached = self._integrate_batch(problems, cache, factors)
         return volume, len(problems) - cached, cached
 
-    def _compute_WMI_SA_PA_SK(self, formula, weights, cache):
+    def _compute_WMI_SAE4WMI(self, formula, weights, cache):
         """Computes WMI using the Predicate Abstraction (PA) algorithm using Structure
             Awareness and Skeleton.
 
@@ -941,9 +937,6 @@ class WMI:
                 is provided, then a numpy array of results is returned, one for each integrator.
 
         """
-        if not _MSAT_VERSION_SUPPORTS_SKELETON:
-            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, "MSAT version does not support WMI_SA_PA_SK")
-
         problems = []
 
         cnf_labels = {b for b in get_boolean_variables(formula) if

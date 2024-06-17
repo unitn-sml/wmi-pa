@@ -28,7 +28,7 @@ print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SA_PA_SK]:
+for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SAE4WMI]:
     for phi in phis:
         wmi = WMI(chi, w)
         result, n_integrations = wmi.computeWMI(phi, mode=mode)

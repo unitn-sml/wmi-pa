@@ -1,4 +1,4 @@
-# SA-WMI-PA-SK
+# WMI-PA
 
 [![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
 
@@ -16,13 +16,9 @@ in Artificial Intelligence, Volume 275, 2019
 Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
 in UAI Conference 2022
 
-[SMT-based Weighted Model Integration with Structure Awareness and Multiple Integration Approaches](https://arxiv.org/abs/2302.06188)  
-Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani
-
-## pywmi
-
-WMI-PA is now part of [pywmi](https://github.com/weighted-model-integration/pywmi/), a general framework for Weighted
-Model Integration that offers a number of different solvers, a command-line interface, etc.
+[Enhancing SMT-based Weighted Model Integration by structure awareness](https://www.sciencedirect.com/science/article/pii/S0004370224000031)  
+Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini, Roberto Sebastiani,  
+in Artificial Intelligence, Volume 328, 2024
 
 ## Installation
 
@@ -36,7 +32,7 @@ pip install wmipa
 
 The base version of the solver requires at least one integration backend to be installed.
 
-Additional dependencies are needed to also support SA-WMI-PA-SK mode and NRA theory.
+Additional dependencies are needed to also support NRA theory.
 
 We provide a script that automatically installs all the requirements. The script has only been tested on Ubuntu
 distributions.
@@ -88,7 +84,7 @@ At least one following integration backend is needed:
 The [MathSAT5](http://mathsat.fbk.eu/) SMT solver is required
 
 ```bash
-pysmt-install --msat
+wmipa-install --msat
 ```
 
 To support NRA theory (PI, Sin, Exp,
@@ -97,20 +93,6 @@ ecc.), [a customized version of PySMT](https://github.com/masinag/pysmt/tree/nra
 ```bash
 wmipa-install --nra
 ```
-
-For the SA-WMI-PA-SK mode, a slightly customized version of MathSAT5 must be installed via
-
-```bash
-wmipa-install --msat-sk
-```
-
-This script substitutes the files
-`<venv>/lib/python3.8/site-packages/_mathsat.cpython-38-x86_64-linux-gnu.so` and
-`<venv>/lib/python3.8/site-packages/mathsat.py`
-with those provided in the `bin/` folder of this repository
-(Python3.8 under Linux x86_64 is required).
-
-Support for other OS and Python versions will be added in the near future.
 
 ## Examples
 
