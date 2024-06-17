@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 
 from wmibench.uci_det.uci_det import generate_benchmark

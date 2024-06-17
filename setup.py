@@ -23,7 +23,8 @@ REQUIRED = [
     # experiments
     "matplotlib",
     "pandas",
-    "psutil"
+    "psutil",
+    "wmibench @ git+https://git@github.com/unitn-sml/wmi-benchmarks@main#egg=wmibench"
 ]
 
 # What packages are optional?

@@ -3,16 +3,14 @@ from multiprocessing import Queue, Process
 from queue import Empty as EmptyQueueError
 
 import psutil
-from pysmt.shortcuts import Real, Bool, Symbol
-from pywmi import PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine
 from pysmt.shortcuts import Real, Bool
-from pywmi import Domain, PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, RejectionEngine
+from pywmi import Domain as PywmiDomain, PyXaddEngine, XsddEngine, PyXaddAlgebra, FactorizedXsddEngine as FXSDD, \
+    RejectionEngine
 from pywmi.engines.algebraic_backend import SympyAlgebra
 from pywmi.engines.xsdd.vtrees.vtree import balanced
 
 from wmipa import WMI
 from wmipa.integration import LatteIntegrator, VolestiIntegrator, SymbolicIntegrator
-from wmipa.utils import get_boolean_variables
 
 WMIResult = namedtuple("WMIResult", ["wmi_id",
                                      "value",
@@ -29,7 +27,7 @@ def get_wmi_id(mode, integrator):
 
 def get_integrators(args):
     """Returns the integrators to be used for the given command line arguments."""
-    if "PA" not in args.mode:
+    if args.mode not in WMI.MODES:
         return [None]
     if args.integrator == "latte":
         return [LatteIntegrator(n_threads=args.n_threads, stub_integrate=args.stub)]
@@ -52,14 +50,16 @@ def compute_wmi(args, domain, support, weight):
     if args.unweighted:
         weight = Real(1)
 
-    if "PA" in args.mode:
+    real_vars = {v: b for v, b in domain.items() if v.symbol_type().is_real_type()}
+    bool_vars = {v for v in domain if v.symbol_type().is_bool_type()}
+    if args.mode in WMI.MODES:
         integrators = get_integrators(args)
         wmi = WMI(support, weight, integrator=integrators)
         results, n_ints = wmi.computeWMI(
             Bool(True),
             mode=args.mode,
             cache=args.cache,
-            domA={Symbol(v) for v in domain.bool_vars},
+            domA=bool_vars,
         )
         res = []
         for result, n_int, integrator in zip(results, n_ints, integrators):
@@ -72,9 +72,10 @@ def compute_wmi(args, domain, support, weight):
             res.append(wmi_result)
     else:
         # get pywmi domain from wmibench domain
-        real_vars = {v.symbol_name(): b for v, b in domain.items()}
-        bool_vars = [v.symbol_name() for v in get_boolean_variables(support) | get_boolean_variables(weight)]
-        pywmi_domain = Domain.make(boolean_variables=bool_vars, real_variables=real_vars)
+        pywmi_domain = PywmiDomain.make(
+            boolean_variables=[v.symbol_name() for v in bool_vars],
+            real_variables={v.symbol_name(): b for v, b in real_vars.items()},
+        )
         if args.mode == "XADD":
             wmi = PyXaddEngine(domain=pywmi_domain, support=support, weight=weight)
         elif args.mode == "XSDD":

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 
 from wmibench.synthetic.synthetic_pa import generate_benchmark

@@ -3,7 +3,7 @@
 ## Synthetic experiments
 * Generate synthetic experiments by running
       
-      ./synthetic_gen.sh
+      ./synthetic_gen.py
 
   This script generates the random problems in ./synthetic_exp/data
 
@@ -23,7 +23,7 @@
 This set of problems has been generated using the code in  [this repository](https://github.com/paolomorettin/hybrid-benchmarks).
 * Generate DETs by running
       
-      ./mlc_gen.sh
+      ./mlc_gen.py
 
   This script generates the random problems in ./mlc/data
 
