@@ -13,10 +13,6 @@ def check_os_version(sysname=None, machine=None):
     return True
 
 
-def check_python_version():
-    return sys.version_info[0] == 3 and sys.version_info[1] == 8
-
-
 def safe_cmd(command):
     res = os.system(command)
     if res != 0:

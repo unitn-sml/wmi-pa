@@ -24,7 +24,7 @@ from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serializ
 from pysmt.typing import BOOL, REAL
 from sympy import solve, sympify
 
-from wmipa import logger
+from wmipa.log import logger
 from wmipa.integration import LatteIntegrator
 from wmipa.integration.integrator import Integrator
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
@@ -33,7 +33,6 @@ from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
 
-_MSAT_VERSION_SUPPORTS_SKELETON = True
 
 
 class WMI:
@@ -939,9 +938,6 @@ class WMI:
                 is provided, then a numpy array of results is returned, one for each integrator.
 
         """
-        if not _MSAT_VERSION_SUPPORTS_SKELETON:
-            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, "MSAT version does not support WMI_SA_PA_SK")
-
         problems = []
 
         cnf_labels = {b for b in get_boolean_variables(formula) if
