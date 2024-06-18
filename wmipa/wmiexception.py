@@ -150,18 +150,10 @@ class WMIRuntimeException(WMIException):
         variables in the formula.
     """
     DOMAIN_OF_INTEGRATION_MISMATCH = 0
-
-    """The mode selected is not correct. Check which are the possibilities (it should be displayed
-        in the error message).
-
-    """
-    INVALID_MODE = 1
-
-    OTHER_ERROR = 2
+    OTHER_ERROR = 1
 
     messages = {
         DOMAIN_OF_INTEGRATION_MISMATCH: "Domain of integration mismatch",
-        INVALID_MODE: "Invalid mode",
         OTHER_ERROR: "RuntimeException",
     }
 
