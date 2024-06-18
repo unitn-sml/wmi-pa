@@ -7,7 +7,7 @@ Install wmipa with the extras_require option for non-linear arithmetic:
 from pysmt.shortcuts import GE, LE, And, Bool, Pow, Real, Symbol, Div, Times
 from pysmt.typing import REAL
 
-from wmipa import WMI
+from wmipa import WMISolver
 from wmipa.integration import VolestiIntegrator
 
 # variables definition
@@ -30,10 +30,10 @@ print("Support:", chi.serialize())
 print("Weight function:", w.serialize())
 
 print()
-wmi = WMI(chi, w, integrator=VolestiIntegrator())
-result, n_integrations = wmi.computeWMI(phi, mode=WMI.MODE_SAE4WMI)
+wmi = WMISolver(chi, w, integrator=VolestiIntegrator())
+result, n_integrations = wmi.computeWMI(phi)
 print(
-    "WMI with mode {} \t result = {}, \t # integrations = {}".format(
-        WMI.MODE_SAE4WMI, result, n_integrations
+    "WMI \t result = {}, \t # integrations = {}".format(
+        result, n_integrations
     )
 )

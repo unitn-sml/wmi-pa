@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
-from wmipa import WMI
+from wmipa import WMISolver
 from wmipa.integration import LatteIntegrator
 from wmipa.integration import SymbolicIntegrator
 from wmipa.integration import VolestiIntegrator
@@ -31,13 +31,12 @@ print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-for mode in [WMI.MODE_ALLSMT, WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SAE4WMI]:
-    for integrator in (LatteIntegrator(), VolestiIntegrator(), SymbolicIntegrator()):
-        wmi = WMI(chi, w, integrator=integrator)
-        result, n_integrations = wmi.computeWMI(phi, mode=mode)
-        print(
-            "WMI with mode {:10} (integrator: {:20})\t "
-            "result = {}, \t # integrations = {}".format(
-                mode, integrator.__class__.__name__, result, n_integrations
-            )
+for integrator in (LatteIntegrator(), VolestiIntegrator(), SymbolicIntegrator()):
+    wmi = WMISolver(chi, w, integrator=integrator)
+    result, n_integrations = wmi.computeWMI(phi)
+    print(
+        "WMI (integrator: {:20})\t "
+        "result = {}, \t # integrations = {}".format(
+            integrator.__class__.__name__, result, n_integrations
         )
+    )

@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Ite, Or, Real, Symbol
 from pysmt.typing import BOOL, REAL
 
-from wmipa import WMI
+from wmipa import WMISolver
 
 # variables definition
 A = Symbol("A", BOOL)
@@ -32,11 +32,10 @@ print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-for mode in [WMI.MODE_PA, WMI.MODE_SA_PA, WMI.MODE_SAE4WMI]:
-    wmi = WMI(chi, w)
-    result, n_integrations = wmi.computeWMI(phi, mode=mode)
-    print(
-        "WMI with mode {} \t result = {}, \t # integrations = {}".format(
-            mode, result, n_integrations
-        )
+wmi = WMISolver(chi, w)
+result, n_integrations = wmi.computeWMI(phi)
+print(
+    "WMI \t result = {}, \t # integrations = {}".format(
+        result, n_integrations
     )
+)
