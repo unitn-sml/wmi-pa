@@ -8,7 +8,6 @@ from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
 from wmipa.integration.latte_integrator import LatteIntegrator
-from wmipa.integration.symbolic_integrator import SymbolicIntegrator
 from wmipa.integration.volesti_integrator import VolestiIntegrator
 
 
@@ -116,12 +115,6 @@ def pytest_generate_tests(metafunc):
                 f"{'LatteIntegrator':>20} {polytope_generator.__name__:>25}"
                 f"(n={dim})"
             )
-            # symbolic integrator
-            argvalues.append((polytope, volume, SymbolicIntegrator()))
-            idlist.append(
-                f"{'SymbolicIntegrator':>20} {polytope_generator.__name__:>25}"
-                f"(n={dim})"
-            )
             # volesti integrator
             walk_length = dim ** 3
             argvalues.append((polytope, volume, VolestiIntegrator(seed=666, error=0.1, walk_length=None)))
@@ -134,8 +127,6 @@ def pytest_generate_tests(metafunc):
 
 
 def test_volume(polytope_assignment, volume, integrator):
-    if isinstance(integrator, SymbolicIntegrator):
-        pytest.skip("Skipping symbolic integrator test since it is too slow.")
     weight = Real(1.0)
     print(polytope_assignment, file=sys.stderr)
     result, _ = integrator.integrate(polytope_assignment, weight, {}, None, -1)

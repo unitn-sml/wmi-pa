@@ -3,10 +3,7 @@ from pysmt.typing import BOOL, REAL
 
 from wmipa import WMISolver
 from wmipa.integration import LatteIntegrator
-from wmipa.integration import SymbolicIntegrator
 from wmipa.integration import VolestiIntegrator
-
-# from wmipa.integration.symbolic_integrator import SymbolicIntegrator
 
 # variables definition
 a = Symbol("A", BOOL)
@@ -31,7 +28,7 @@ print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-for integrator in (LatteIntegrator(), VolestiIntegrator(), SymbolicIntegrator()):
+for integrator in (LatteIntegrator(), VolestiIntegrator()):
     wmi = WMISolver(chi, w, integrator=integrator)
     result, n_integrations = wmi.computeWMI(phi)
     print(

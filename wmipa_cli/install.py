@@ -3,7 +3,6 @@ import os
 import sys
 
 from wmipa_cli.installers.latte import LatteInstaller
-from wmipa_cli.installers.symbolic import SymbolicInstaller
 from wmipa_cli.installers.volesti import VolestiInstaller
 from wmipa_cli.log import logger
 from wmipa_cli.utils import safe_cmd
@@ -11,7 +10,7 @@ from wmipa_cli.utils import safe_cmd
 
 def run():
     args = parse_args(sys.argv[1:])
-    if not any((args.all, args.latte, args.volesti, args.symbolic, args.msat, args.nra)):
+    if not any((args.all, args.latte, args.volesti, args.msat, args.nra)):
         print("Nothing to do. Use --help for more information.")
         sys.exit(0)
 
@@ -26,8 +25,6 @@ def run():
         installers.append(LatteInstaller(args.install_path))
     if args.all or args.volesti:
         installers.append(VolestiInstaller(args.install_path))
-    if args.all or args.symbolic:
-        installers.append(SymbolicInstaller(args.install_path))
     for installer in installers:
         installer.install(args.assume_yes, args.force_reinstall)
     paths_to_export = []
@@ -48,7 +45,6 @@ def parse_args(args):
     parser.add_argument("--nra", help="Install PySMT version with NRA support", action="store_true")
     parser.add_argument("--latte", help="Install LattE Integrale", action="store_true")
     parser.add_argument("--volesti", help="Install Volesti", action="store_true")
-    parser.add_argument("--symbolic", help="Install symbolic integrator (PyXadd)", action="store_true")
     parser.add_argument("--all", help="Install all dependencies", action="store_true")
     parser.add_argument("--install-path", help="Install path for external tools",
                         default=f"{os.path.expanduser('~')}/.wmipa", type=str)
