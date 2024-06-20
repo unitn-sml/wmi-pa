@@ -4,7 +4,7 @@ from pysmt.fnode import FNode
 from pysmt.shortcuts import And, Bool, Iff, get_env, serialize
 from pysmt.typing import REAL
 
-from wmipa.weightconverter import WeightConverterEUF, WeightConverterSkeleton
+from wmipa.weightconverter import WeightConverterSkeleton
 from wmipa.wmiexception import WMIParsingException
 
 
@@ -55,10 +55,7 @@ class Weights:
             labelling_list.append(Iff(cond, label))
         self.labelling = And(labelling_list)
 
-        # convert weights as formula for EUF
-        self.converterEUF = WeightConverterEUF(variables)
         self.converterSK = WeightConverterSkeleton(variables)
-        self.weights_as_formula_euf = self.converterEUF.convert(weight_func)
         self.weights_as_formula_sk = self.converterSK.convert(weight_func)
         self.weights = weight_func
 
