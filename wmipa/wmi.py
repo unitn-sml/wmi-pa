@@ -11,7 +11,7 @@ __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 
 import mathsat
 import numpy as np
-from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
+from pysmt.shortcuts import And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
 from pysmt.typing import BOOL, REAL
 
 from wmipa.integration import LatteIntegrator
@@ -19,6 +19,7 @@ from wmipa.integration.integrator import Integrator
 from wmipa.log import logger
 from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer, BooleanSimplifier
 from wmipa.weights import Weights
+from wmipa.weightconverter import WeightConverterSkeleton
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
 
@@ -50,7 +51,9 @@ class WMISolver:
         """
         self.variables = WMIVariables()
         self.normalizer = TermNormalizer()
-        self.weights = Weights(weight, self.variables)
+        self.weights = Weights(weight)
+        converterSK = WeightConverterSkeleton(self.variables)
+        self.weights_as_formula_sk = converterSK.convert(weight)
         self.chi = chi
 
         if integrator is None:
@@ -61,7 +64,6 @@ class WMISolver:
         self.integrator = integrator
 
         self.simplifier = BooleanSimplifier()
-
 
     def computeWMI(self, phi, **options):
         """Calculates the WMI on a single query.
@@ -90,13 +92,9 @@ class WMISolver:
 
         formula = And(phi, self.chi)
 
-        # Add the skeleton encoding to the support
-        formula = And(formula, self.weights.weights_as_formula_sk)
-
         logger.debug("Computing WMI")
-        x = {x for x in get_real_variables(formula) if not self.variables.is_weight_alias(x)}
-        A = {x for x in get_boolean_variables(formula) if
-             not self.variables.is_label(x) and not self.variables.is_cnf_label(x)}
+        x = {x for x in get_real_variables(formula)}
+        A = {x for x in get_boolean_variables(formula)}
 
         # Currently, domX has to be the set of real variables in the
         # formula, whereas domA can be a superset of the boolean
@@ -115,13 +113,12 @@ class WMISolver:
             logger.error("Domain of integration mismatch")
             raise WMIRuntimeException(WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH, x - domX)
 
-        volume, n_integrations, n_cached = self._compute_WMI_SAE4WMI(formula, self.weights, cache)
+        volume, n_integrations, n_cached = self._compute_WMI_SAE4WMI(formula, cache)
 
         volume = volume * factor
         logger.debug("Volume: {}, n_integrations: {}, n_cached: {}".format(volume, n_integrations, n_cached))
 
         return volume, n_integrations
-
 
     @staticmethod
     def _callback(model, converter, result):
@@ -142,7 +139,6 @@ class WMISolver:
         py_model = [converter.back(v) for v in model]
         result.append(py_model)
         return 1
-
 
     def _integrate_batch(self, problems, cache, factors=None):
         """Computes the integral of a batch of problems.
@@ -167,9 +163,7 @@ class WMISolver:
         volume = np.sum(results * factors, axis=-1)
         return volume, cached
 
-
-
-    def _create_problem(self, atom_assignments, weights, on_labels=True):
+    def _create_problem(self, atom_assignments):
         """Create a tuple containing the problem to integrate.
 
         It first finds all the aliases in the atom_assignments, then it takes the
@@ -178,9 +172,6 @@ class WMISolver:
 
         Args:
             atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
-            weights (Weight): The weight function of the problem.
-            on_labels (bool): If True assignment is expected to be over labels of weight condition otherwise it is
-                expected to be over unlabelled conditions
 
         Returns:
             tuple: The problem on which to calculate the integral formed by
@@ -200,9 +191,8 @@ class WMISolver:
                 else:
                     raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
 
-        current_weight, cond_assignments = weights.weight_from_assignment(
-            atom_assignments, on_labels=on_labels
-        )
+        current_weight = self.weights.weight_from_assignment(atom_assignments)
+        cond_assignments = None  # TODO: delete this argument from the problem, this was used for the old implementation
         return atom_assignments, current_weight, aliases, cond_assignments
 
     def _parse_alias(self, equality):
@@ -231,8 +221,6 @@ class WMISolver:
                 WMIParsingException.MALFORMED_ALIAS_EXPRESSION, equality
             )
         return alias, expr
-
-
 
     def _get_allsat(self, formula, use_ta=False, atoms=None, options=None):
         """
@@ -296,8 +284,6 @@ class WMISolver:
                         assignments[original_atom] = (not value if negated else value)
             yield assignments
 
-
-
     def _simplify_formula(self, formula, subs, atom_assignments):
         """Substitute the subs in the formula and iteratively simplify it.
         atom_assignments is updated with unit-propagated atoms.
@@ -335,14 +321,12 @@ class WMISolver:
             f_next = And([f_next] + expressions)
         return over, f_next
 
-
-    def _compute_WMI_SAE4WMI(self, formula, weights, cache):
+    def _compute_WMI_SAE4WMI(self, formula, cache):
         """Computes WMI using the Predicate Abstraction (PA) algorithm using Structure
             Awareness and Skeleton.
 
         Args:
             formula (FNode): The formula on which to compute WMI.
-            weights (Weight): The corresponding weight.
             cache (int): The cache level to use.
 
         Returns:
@@ -354,12 +338,15 @@ class WMISolver:
                 is provided, then a numpy array of results is returned, one for each integrator.
 
         """
+
         problems = []
 
-        cnf_labels = {b for b in get_boolean_variables(formula) if
-                      self.variables.is_cnf_label(b) or self.variables.is_cond_label(b)}
-        boolean_variables = get_boolean_variables(formula) - cnf_labels
-        lra_atoms = get_lra_atoms(formula)
+        atoms = get_atoms(formula) | self.weights.get_atoms()
+
+        boolean_variables = {a for a in atoms if a.is_symbol(BOOL)}
+        lra_atoms = {a for a in atoms if a.is_theory_relation()}
+        # Add the skeleton encoding to the support
+        formula = And(formula, self.weights_as_formula_sk)
 
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
@@ -367,7 +354,7 @@ class WMISolver:
         if len(boolean_variables) == 0:
             # Enumerate partial TA over theory atoms
             for assignments in self._get_allsat(formula, use_ta=True, atoms=lra_atoms):
-                problem = self._create_problem(assignments, weights, on_labels=False)
+                problem = self._create_problem(assignments)
                 problems.append(problem)
                 n_bool_not_assigned.append(0)
 
@@ -399,17 +386,13 @@ class WMISolver:
 
                         b_not_assigned = boolean_variables - curr_atom_assignments.keys()
 
-                        problem = self._create_problem(
-                            curr_atom_assignments, weights, on_labels=False
-                        )
+                        problem = self._create_problem(curr_atom_assignments)
                         problems.append(problem)
                         n_bool_not_assigned.append(len(b_not_assigned))
                 else:
                     b_not_assigned = boolean_variables - boolean_assignments.keys()
 
-                    problem = self._create_problem(
-                        atom_assignments, weights, on_labels=False
-                    )
+                    problem = self._create_problem(atom_assignments)
                     problems.append(problem)
                     n_bool_not_assigned.append(len(b_not_assigned))
 
