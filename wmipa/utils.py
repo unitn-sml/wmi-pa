@@ -9,9 +9,12 @@ from collections import defaultdict
 from functools import reduce
 
 import networkx as nx
+from pysmt import operators as op
 from pysmt.operators import POW
 from pysmt.shortcuts import Solver
+from pysmt.simplifier import Simplifier
 from pysmt.typing import BOOL, REAL
+from pysmt.walkers import handles
 
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 
@@ -279,3 +282,14 @@ class TermNormalizer:
                                                            known_aliases_str)
             raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, error_str)
         return self._known_aliases[term]
+
+
+class BooleanSimplifier(Simplifier):
+    """Simplifier that only performs Boolean simplifications.
+    """
+    @handles(op.IRA_OPERATORS)
+    @handles(op.IRA_RELATIONS)
+    def walk_identity(self, formula, args, **kwargs):
+        return self.manager.create_node(
+            formula.node_type(), args=tuple(map(self.walk, args))
+        )

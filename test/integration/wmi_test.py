@@ -2,7 +2,7 @@ import numpy as np
 from pysmt.shortcuts import GE, LE, And, Bool, Equals, FreshSymbol, Iff, Ite, Not, Or, Plus, Real, Symbol, Times, Pow
 from pysmt.typing import BOOL, REAL
 
-from wmipa import WMI
+from wmipa import WMISolver
 from wmipa.integration import LatteIntegrator, VolestiIntegrator
 
 a = Symbol("A", BOOL)
