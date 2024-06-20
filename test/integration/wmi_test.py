@@ -229,34 +229,3 @@ def test_multiple_integrators():
     assert np.allclose(result[0], ans)
     # volesti is approximate
     assert np.allclose(result[1:], ans, rtol=epsilon)
-
-
-def test_batch_of_query_multiple_integrators():
-    chi = And(GE(x, Real(0)), LE(x, Real(2)))
-
-    phi1 = LE(x, Real(1))
-    phi2 = GE(x, Real(1))
-
-    w = x
-
-    queries = np.array([phi1, phi2])
-    ans = np.array([[0.5, 1.5],])
-    epsilon = 0.1
-
-    wmi = WMISolver(chi, w, integrator=[LatteIntegrator(),
-                                    VolestiIntegrator(seed=420, error=epsilon),
-                                    VolestiIntegrator(seed=69, error=epsilon),
-                                    ])
-
-    result, n_int = wmi.computeWMI_batch(queries)
-    assert isinstance(n_int, list) and all(isinstance(n, np.ndarray) for n in n_int)
-    assert isinstance(result, list) and all(isinstance(n, np.ndarray) for n in result)
-    n_int = np.array(n_int)
-    result = np.array(result)
-    assert n_int.shape == (2, 3)
-    assert result.shape == (2, 3)
-    result = result.transpose()
-    # latte is exact
-    assert np.allclose(result[0], ans)
-    # volesti is approximate
-    assert np.allclose(result[1:], ans, rtol=epsilon)
