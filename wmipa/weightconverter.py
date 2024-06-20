@@ -4,7 +4,6 @@ from functools import reduce
 import pysmt.operators as op
 from pysmt.rewritings import nnf
 from pysmt.shortcuts import And, Bool, Equals, FreshSymbol, FunctionType, Not, Or, Real, Times, get_env
-from pysmt.simplifier import Simplifier
 from pysmt.typing import REAL
 from pysmt.walkers import IdentityDagWalker, handles, DagWalker
 
@@ -367,39 +366,3 @@ class LabelCNFizer(DagWalker):
     @handles(op.THEORY_OPERATORS)
     def walk_identity(self, formula, cnf=None, **kwargs):
         return formula
-
-
-class SkeletonSimplifier(Simplifier):
-    """Simplifier that does not simplify formulas like Or(phi, Not(phi)).
-    Only perform Boolean simplifications.
-    """
-
-    def walk_or(self, formula, args, **kwargs):
-        if len(args) == 2 and args[0] == args[1]:
-            return args[0]
-
-        new_args = set()
-        for a in args:
-            if a.is_false():
-                continue
-            if a.is_true():
-                return self.manager.TRUE()
-            if a.is_or():
-                for s in a.args():
-                    new_args.add(s)
-            else:
-                new_args.add(a)
-
-        if len(new_args) == 0:
-            return self.manager.FALSE()
-        elif len(new_args) == 1:
-            return next(iter(new_args))
-        else:
-            return self.manager.Or(new_args)
-
-    @handles(op.IRA_OPERATORS)
-    @handles(op.IRA_RELATIONS)
-    def walk_identity(self, formula, args, **kwargs):
-        return self.manager.create_node(
-            formula.node_type(), args=tuple(map(self.walk, args))
-        )

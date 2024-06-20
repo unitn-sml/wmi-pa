@@ -27,8 +27,7 @@ from sympy import solve, sympify
 from wmipa.integration import LatteIntegrator
 from wmipa.integration.integrator import Integrator
 from wmipa.log import logger
-from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer
-from wmipa.weightconverter import SkeletonSimplifier
+from wmipa.utils import get_boolean_variables, get_lra_atoms, get_real_variables, TermNormalizer, BooleanSimplifier
 from wmipa.weights import Weights
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
@@ -43,8 +42,7 @@ class WMI:
         weights (Weights): The representation of the weight function.
         chi (FNode): The pysmt formula that contains the support of the formula
         integrator (Integrator or list(Integrator)): The integrator or the list of integrators to use.
-        skeleton_simplifier (SkeletonSimplifier): The class that simplifies the formula, avoiding simplifications
-            that would break the skeleton.
+        simplifier (BooleanSimplifier): The class that simplifies the formula.
         normalizer (TermNormalizer): The class that normalizes LRA atoms.
 
     """
@@ -80,7 +78,7 @@ class WMI:
             raise TypeError("integrator must be an Integrator or a list of Integrator")
         self.integrator = integrator
 
-        self.skeleton_simplifier = SkeletonSimplifier()
+        self.simplifier = BooleanSimplifier()
 
     def computeMI_batch(self, phis, **options):
         """Calculates the MI on a batch of queries.
@@ -816,7 +814,7 @@ class WMI:
         # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
         while True:
             f_before = f_next
-            f_next = self.skeleton_simplifier.simplify(substitute(f_before, subs))
+            f_next = self.simplifier.simplify(substitute(f_before, subs))
             lra_assignments, over = WMI._parse_lra_formula(f_next)
             subs = {k: Bool(v) for k, v in lra_assignments.items()}
             atom_assignments.update(lra_assignments)
