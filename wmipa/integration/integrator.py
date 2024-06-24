@@ -14,7 +14,7 @@ class Integrator(ABC):
             **options: whatever option is needed for the integrator
 
         """
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def integrate(self, atom_assignments, weight, aliases, *args, **kwargs):
@@ -29,7 +29,7 @@ class Integrator(ABC):
             real: The integration result.
 
         """
-        pass
+        raise NotImplementedError()
 
     @abstractmethod
     def integrate_batch(self, problems, *args, **kwargs):
@@ -45,4 +45,4 @@ class Integrator(ABC):
 
 
         """
-        pass
+        raise NotImplementedError()
