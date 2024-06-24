@@ -11,7 +11,7 @@ __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 
 import mathsat
 import numpy as np
-from pysmt.shortcuts import And, Bool, Iff, Implies, Not, Real, Solver, serialize, simplify, substitute
+from pysmt.shortcuts import And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
 from pysmt.typing import BOOL, REAL
 
 from wmipa.integration import LatteIntegrator
@@ -19,6 +19,7 @@ from wmipa.integration.integrator import Integrator
 from wmipa.log import logger
 from wmipa.utils import TermNormalizer, BooleanSimplifier
 from wmipa.weights import Weights
+from wmipa.weightconverter import WeightConverterSkeleton
 from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 from wmipa.wmivariables import WMIVariables
 
@@ -49,15 +50,18 @@ class WMISolver:
 
         """
         self.variables = WMIVariables()
-        self.weights = Weights(w, self.variables)
+        self.normalizer = TermNormalizer()
+        self.weights = Weights(w)
+        converterSK = WeightConverterSkeleton(self.variables)
+        self.weights_as_formula_sk = converterSK.convert(w)
         self.chi = chi
-
         self.normalizer = TermNormalizer()
         self.integrator = integrator if integrator is not None else LatteIntegrator()
         self.simplifier = BooleanSimplifier()
 
 
     def computeWMI(self, phi, domain, cache=-1):
+
         """Calculates the WMI on a single query.
 
         Args:
@@ -73,32 +77,27 @@ class WMISolver:
                 different integrators.
 
         """
-        # domain of integration
-        self.domain = domain
-
-        # conjoin query, support and the skeleton of the weight function
-        formula = And(phi, self.chi, self.weights.weights_as_formula_sk)
 
         logger.debug(f"Computing WMI (integration domain: {domain})")
 
-        # sorting the different atoms
-        cnf_labels, bool_atoms, lra_atoms = {}, {}, {}
-        for atom in formula.get_atoms():
-            if atom.is_symbol():
-                assert(atom.symbol_type() == BOOL)
-                if self.variables.is_cnf_label(atom):
-                    cnf_labels.add(atom)
-                else:
-                    bool_atoms.add(atom)
-            elif atom.is_theory_relation():
-                lra_atoms.add(atom)
-            else:
-                raise NotImplementedError()
+        # domain of integration
+        self.domain = domain
+
+        # conjoin query and support
+        formula = And(phi, self.chi)
+
+        # sort the different atoms
+        atoms = get_atoms(formula) | self.weights.get_atoms()
+
+        boolean_variables = {a for a in atoms if a.is_symbol(BOOL)}
+        lra_atoms = {a for a in atoms if a.is_theory_relation()}
+
+        # conjoin the skeleton of the weight function
+        formula = And(formula, self.weights.weights_as_formula_sk)
 
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
         problems = []
-
         if len(bool_atoms) == 0:
             # Enumerate partial TA over theory atoms
             for assignments in self._get_allsat(formula, use_ta=True, atoms=lra_atoms):
@@ -107,7 +106,9 @@ class WMISolver:
                 n_bool_not_assigned.append(0)
 
         else:
-            for boolean_assignments in self._get_allsat(formula, use_ta=True, atoms=bool_atoms):
+            for boolean_assignments in self._get_allsat(formula, use_ta=True,
+                                                        atoms=bool_atoms):
+
                 atom_assignments = dict(boolean_assignments)
 
                 # simplify the formula
@@ -117,8 +118,12 @@ class WMISolver:
 
                 if not fully_simplified:
                     # boolean variables first (discard cnf labels)
-                    residual_atoms = list({a for a in res_formula.get_free_variables() if a.symbol_type() == BOOL and a in bool_atoms}) + \
-                                     list({a for a in res_formula.get_atoms() if a.is_theory_relation()})
+                    # TODO check this
+                    residual_atoms = list({a for a in res_formula.get_free_variables()
+                                           if a.symbol_type() == BOOL
+                                           and a in bool_atoms}) + \
+                                     list({a for a in res_formula.get_atoms()
+                                           if a.is_theory_relation()})
 
                     # may be both on LRA and boolean atoms
                     residual_models = self._get_allsat(
@@ -174,7 +179,6 @@ class WMISolver:
         return volume, cached
 
 
-
     def _create_problem(self, atom_assignments):
         """Create a tuple containing the problem to integrate.
 
@@ -203,8 +207,9 @@ class WMISolver:
                 else:
                     raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
 
-        current_weight, cond_assignments = self.weights.weight_from_assignment(atom_assignments)
-        return atom_assignments, current_weight, aliases, cond_assignments
+
+        current_weight = self.weights.weight_from_assignment(atom_assignments)
+        return atom_assignments, current_weight, aliases
 
     def _parse_alias(self, equality):
         """Takes an equality and parses it.
@@ -234,8 +239,8 @@ class WMISolver:
         return alias, expr
 
 
-
     def _get_allsat(self, formula, use_ta=False, atoms=None):
+
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -305,8 +310,6 @@ class WMISolver:
                         assignments[original_atom] = (not value if negated else value)
 
             yield assignments
-
-
 
     def _simplify_formula(self, formula, subs, atom_assignments):
         """Substitute the subs in the formula and iteratively simplify it.
