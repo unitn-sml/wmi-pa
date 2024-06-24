@@ -96,7 +96,7 @@ class CacheIntegrator(Integrator):
             variables = list(integrand.variables.union(polytope.variables))
             polytope_key = ConcurrentHashTable._polytope_key(polytope, variables)
             integrand_key = ConcurrentHashTable._integrand_key(integrand, variables)    
-            key = tuple(polytope_key, integrand_key)
+            key = (polytope_key, integrand_key)
 
             if polytope is not None and not polytope.is_empty():
                 # cache >= 1 recognize duplicates before calling the integrator
