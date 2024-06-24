@@ -20,7 +20,7 @@ def test_no_booleans_constant_weight():
     chi = And(GE(x, Real(0)), LE(x, Real(1)))
 
     wmi = WMISolver(chi)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, 1)
 
 
@@ -30,7 +30,7 @@ def test_no_booleans_condition_weight():
     w = Ite(LE(x, Real(0.5)), x, Times(Real(-1), x))
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, -0.25)
 
 
@@ -38,7 +38,7 @@ def test_booleans_constant_weight():
     chi = And(Iff(a, GE(x, Real(0))), GE(x, Real(-2)), LE(x, Real(1)))
 
     wmi = WMISolver(chi)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, 3)
 
 
@@ -48,7 +48,7 @@ def test_boolean_condition_weight():
     w = Ite(LE(x, Real(-0.5)), x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, -1.125)
 
 
@@ -65,7 +65,7 @@ def test_boolean_and_not_simplify():
     w = Ite(LE(x, Real(-0.5)), x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, -6.125)
 
 
@@ -75,7 +75,7 @@ def test_not_boolean_satisfiable():
     w = Ite(b, x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, 0)
 
 
@@ -85,7 +85,7 @@ def test_not_lra_satisfiable():
     w = Ite(b, x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, 0)
 
 
@@ -102,7 +102,7 @@ def test_multiplication_in_weight():
     w = Times(Ite(a, x, Times(x, Real(-1))), x)
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x})
     assert np.isclose(result, 0)
 
 
@@ -112,7 +112,7 @@ def test_aliases():
     w = y
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x, y})
     assert np.isclose(result, 6)
 
 
@@ -120,47 +120,8 @@ def test_aliases_leads_to_not_sat():
     chi = And(GE(x, Real(0)), LE(x, Real(2)), Equals(y, x), LE(x - y, Real(-2)))
 
     wmi = WMISolver(chi)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x, y})
     assert np.isclose(result, 0)
-
-
-def test_batch_of_query_constant_weight():
-    chi = And(GE(x, Real(0)), LE(x, Real(4)))
-
-    phi1 = LE(x, Real(2))
-    phi2 = GE(x, Real(2))
-
-    wmi = WMISolver(chi)
-    result1, _ = wmi.computeWMI(phi1)
-    result2, _ = wmi.computeWMI(phi2)
-
-    assert np.isclose(result1, 2)
-    assert np.isclose(result2, 2)
-
-
-def test_batch_of_query():
-    chi = And(GE(x, Real(0)), LE(x, Real(2)))
-
-    phi1 = LE(x, Real(1))
-    phi2 = GE(x, Real(1))
-
-    w = x
-
-    wmi = WMISolver(chi, w)
-    result1, _ = wmi.computeWMI(phi1)
-    result2, _ = wmi.computeWMI(phi2)
-
-    assert np.isclose(result1, 0.5)
-    assert np.isclose(result2, 1.5)
-
-
-def test_setting_domA():
-    chi = And(GE(x, Real(0)), LE(x, Real(2)), a)
-
-    wmi = WMISolver(chi)
-    result, _ = wmi.computeWMI(phi, domA={a, b})
-
-    assert np.isclose(result, 2 * 2)
 
 
 def test_double_assignment_same_variable_no_theory_consistent():
@@ -172,7 +133,7 @@ def test_double_assignment_same_variable_no_theory_consistent():
     )
 
     wmi = WMISolver(chi)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x, y})
 
     assert np.isclose(result, 0)
 
@@ -195,7 +156,7 @@ def test_reserved_variables_name():
     w = Ite(a, x, y)
 
     wmi = WMISolver(chi, w)
-    result, _ = wmi.computeWMI(phi)
+    result, _ = wmi.computeWMI(phi, {x, y})
 
     assert np.isclose(result, 7)
 
@@ -222,7 +183,7 @@ def test_multiple_integrators():
                                   ])
 
 
-    result, n_int = wmi.computeWMI(phi)
+    result, n_int = wmi.computeWMI(phi, {x, y})
     assert isinstance(n_int, np.ndarray) and n_int.shape == (3,)
     assert isinstance(result, np.ndarray) and result.shape == (3,)
     # latte is exact

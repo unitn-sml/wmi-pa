@@ -26,7 +26,7 @@ def test_double_assignments_same_variable():
     wmi = WMISolver(chi)
 
     with pytest.raises(WMIParsingException) as ex:
-        result_allsmt, _ = wmi.computeWMI(phi)
+        result_allsmt, _ = wmi.computeWMI(phi, {x, y, z})
     assert ex.value.code == WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS
 
 
@@ -37,7 +37,7 @@ def test_not_correct_alias():
     wmi = WMISolver(chi)
 
     with pytest.raises(WMIParsingException) as ex:
-        result, _ = wmi.computeWMI(phi)
+        result, _ = wmi.computeWMI(phi, {x, y})
     assert ex.value.code == WMIParsingException.MALFORMED_ALIAS_EXPRESSION
 
 
@@ -55,7 +55,7 @@ def test_conversion_pysmt_to_sympy():
     wmi = WMISolver(chi)
 
     with pytest.raises(WMIParsingException) as ex:
-        result, _ = wmi.computeWMI(phi)
+        result, _ = wmi.computeWMI(phi, {x})
     assert ex.value.code == WMIParsingException.CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY
 
 
@@ -69,7 +69,7 @@ def test_cyclic_assignment():
     wmi = WMISolver(chi)
 
     with pytest.raises(WMIParsingException) as ex:
-        result, _ = wmi.computeWMI(phi)
+        result, _ = wmi.computeWMI(phi, {x, y})
     assert ex.value.code == WMIParsingException.CYCLIC_ASSIGNMENT_IN_ALIASES
 
 
@@ -81,25 +81,5 @@ def test_bound_not_inequality():
 def test_bound_polynomial_degree_greater_than_one():
     # don't know of a call to wmi that will raise this specific exception
     assert 1 == 1
-
-
-def test_wrong_domA():
-    chi = And(GE(x, Real(0)), LE(x, Real(1)), a)
-    wmi = WMISolver(chi)
-    domA = set()
-
-    with pytest.raises(WMIRuntimeException) as ex:
-        result_allsmt, _ = wmi.computeWMI(phi, domA=domA)
-    assert ex.value.code == WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH
-
-
-def test_wrong_domX():
-    chi = And(GE(x, Real(0)), LE(x, Real(1)), a)
-    wmi = WMISolver(chi)
-    domX = set()
-
-    with pytest.raises(WMIRuntimeException) as ex:
-        result_allsmt, _ = wmi.computeWMI(phi, domX=domX)
-    assert ex.value.code == WMIRuntimeException.DOMAIN_OF_INTEGRATION_MISMATCH
 
 
