@@ -68,6 +68,13 @@ class CacheIntegrator(Integrator):
     def _integrate_problem(self, integrand, polytope) -> float:
         raise NotImplementedError() # implement this in the concrete subclass
 
+    @staticmethod
+    def _compute_key(polytope, integrand):
+        variables = list(integrand.variables.union(polytope.variables))
+        polytope_key = ConcurrentHashTable._polytope_key(polytope, variables)
+        integrand_key = ConcurrentHashTable._integrand_key(integrand, variables)
+        return (polytope_key, integrand_key)
+
 
     def integrate_batch(self, problems, cache, *args, **kwargs):
         """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
@@ -92,12 +99,7 @@ class CacheIntegrator(Integrator):
             integrand, polytope = self._convert_to_problem(
                 atom_assignments, weight, aliases
             )
-
-            variables = list(integrand.variables.union(polytope.variables))
-            polytope_key = ConcurrentHashTable._polytope_key(polytope, variables)
-            integrand_key = ConcurrentHashTable._integrand_key(integrand, variables)    
-            key = (polytope_key, integrand_key)
-
+            key = CacheIntegrator._compute_key(polytope, integrand)
             if polytope is not None and not polytope.is_empty():
                 # cache >= 1 recognize duplicates before calling the integrator
                 pid = key if cache >= 1 else index
@@ -161,8 +163,7 @@ class CacheIntegrator(Integrator):
         """
         start_time = time.time()
         integrand, polytope = self._convert_to_problem(atom_assignments, weight, aliases)
-        cache_fn = self._get_cache_fn(cache)
-        key, polytope = cache_fn(polytope, integrand)
+        key = CacheIntegrator._compute_key(polytope, integrand)
         if polytope is None or polytope.is_empty():
             return 0.0, False
         value, cached = self._integrate_problem_or_cached(integrand, polytope, key, cache)
