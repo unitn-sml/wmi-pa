@@ -128,8 +128,10 @@ def pytest_generate_tests(metafunc):
 
 def test_volume(polytope_assignment, volume, integrator):
     weight = Real(1.0)
+    aliases = {}
+    cache = -1
     print(polytope_assignment, file=sys.stderr)
-    result, _ = integrator.integrate(polytope_assignment, weight, {}, None, -1)
+    result, _ = integrator.integrate(polytope_assignment, weight, aliases, cache)
     if isinstance(integrator, VolestiIntegrator):
         # add also an absolute tolerance as sometimes the results are not within the error
         assert np.isclose(result, volume, atol=0.05, rtol=integrator.error)
