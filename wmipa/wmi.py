@@ -93,7 +93,7 @@ class WMISolver:
         lra_atoms = {a for a in atoms if a.is_theory_relation()}
 
         # conjoin the skeleton of the weight function
-        formula = And(formula, self.weights.weights_as_formula_sk)
+        formula = And(formula, self.weights_as_formula_sk)
 
         # number of booleans not assigned in each problem
         n_bool_not_assigned = []
