@@ -89,7 +89,7 @@ class WMISolver:
         # sort the different atoms
         atoms = get_atoms(formula) | self.weights.get_atoms()
 
-        boolean_variables = {a for a in atoms if a.is_symbol(BOOL)}
+        bool_atoms = {a for a in atoms if a.is_symbol(BOOL)}
         lra_atoms = {a for a in atoms if a.is_theory_relation()}
 
         # conjoin the skeleton of the weight function
