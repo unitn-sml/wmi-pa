@@ -148,7 +148,7 @@ class WMISolver:
         # multiply each volume by 2^(|A| - |mu^A|)
         factors = [2 ** i for i in n_bool_not_assigned]
         volume, n_cached = self._integrate_batch(problems, cache, factors)
-        n_integrations = len(problems) - cached
+        n_integrations = len(problems) - n_cached
         
         logger.debug(f"Volume: {volume}, n_integrations: {n_integrations}, n_cached: {n_cached}")
 
