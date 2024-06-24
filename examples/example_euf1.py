@@ -58,7 +58,7 @@ print("Support:", chi.serialize())
 print()
 
 wmi = WMISolver(chi, w)
-result, n_integrations = wmi.computeWMI(phi, cache=-1)
+result, n_integrations = wmi.computeWMI(phi, {x1, x2}, cache=-1)
 print(
     "WMI \t result = {}, \t # integrations = {}".format(
         result, n_integrations

@@ -31,7 +31,7 @@ print()
 
 for phi in phis:
     wmi = WMISolver(chi, w)
-    result, n_integrations = wmi.computeWMI(phi)
+    result, n_integrations = wmi.computeWMI(phi, {x})
     print("Query: {}".format(phi.serialize()))
     print(
         "WMI \t result = {}, \t # integrations = {}".format(

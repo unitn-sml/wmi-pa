@@ -31,7 +31,7 @@ print("Weight function:", w.serialize())
 
 print()
 wmi = WMISolver(chi, w, integrator=VolestiIntegrator())
-result, n_integrations = wmi.computeWMI(phi)
+result, n_integrations = wmi.computeWMI(phi, {x})
 print(
     "WMI \t result = {}, \t # integrations = {}".format(
         result, n_integrations
