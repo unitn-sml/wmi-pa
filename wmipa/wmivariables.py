@@ -1,7 +1,6 @@
 from pysmt.shortcuts import FreshSymbol
 from pysmt.typing import BOOL, REAL
 
-from wmipa.utils import get_boolean_variables
 
 COND = "cond"
 WMI = "wmi"
@@ -185,7 +184,8 @@ class WMIVariables:
             bool: True if the formula contains at least one boolean variable with reserved names, False otherwise.
 
         """
-        for var in get_boolean_variables(formula):
+        for var in {v for v in formula.get_free_variables()
+                    if v.symbol_type() == BOOL}:
             if self.is_label(var):
                 return True
         return False

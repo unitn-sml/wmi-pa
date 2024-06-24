@@ -24,58 +24,6 @@ except ImportError:
     EXP = None
 
 
-def get_boolean_variables(formula):
-    """Finds all the boolean variables in the formula.
-
-    Args:
-        formula (FNode): The pysmt formula to examine.
-
-    Returns:
-        set(FNode): The set of all the boolean variables in the formula.
-
-    """
-    return _get_variables(formula, BOOL)
-
-
-def get_real_variables(formula):
-    """Finds all the real variables in the formula.
-
-    Args:
-        formula (FNode): The pysmt formula to examine.
-
-    Returns:
-        set(FNode): The set of all the real variables in the formula.
-
-    """
-    return _get_variables(formula, REAL)
-
-
-def get_lra_atoms(formula):
-    """Finds all the LRA atoms in the formula.
-
-    Args:
-        formula (FNode): The pysmt formula to examine.
-
-    Returns:
-        set(FNode): The set of all the LRA atoms in the formula.
-
-    """
-    return {a for a in formula.get_atoms() if a.is_theory_relation()}
-
-
-def _get_variables(formula, type_):
-    """Finds all the variables in the formula of the specific pysmt type.
-
-    Args:
-        formula (FNode): The pysmt formula to examine.
-        type_: The pysmt type to find (e.g: REAL, BOOL).
-
-    Returns:
-        set(FNode): The set of all the variables in the formula of the specific type.
-
-    """
-    return {a for a in formula.get_free_variables() if a.get_type() == type_}
-
 
 def is_pow(node):
     """Test whether the node is the Pow operator
