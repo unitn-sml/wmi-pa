@@ -23,6 +23,8 @@ w = Ite(GE(3 * x, Real(0)),
 
 chi = Bool(True)
 
+domain = {x}
+
 print("Formula:", phi.serialize())
 print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
@@ -30,7 +32,7 @@ print("Support:", chi.serialize())
 print()
 for integrator in (LatteIntegrator(), VolestiIntegrator()):
     wmi = WMISolver(chi, w, integrator=integrator)
-    result, n_integrations = wmi.computeWMI(phi)
+    result, n_integrations = wmi.computeWMI(phi, domain)
     print(
         "WMI (integrator: {:20})\t "
         "result = {}, \t # integrations = {}".format(
