@@ -117,7 +117,8 @@ class LatteIntegrator(CommandLineIntegrator):
         with open(output_file, "w") as f:
             return_value = call(cmd, stdout=f, stderr=f)
             if return_value != 0:
-                # print(open(output_file).read())
+                # print(open(output_file).read()) # TODO HANDLE THIS
+                pass
                 """
                 if return_value != 0:
                     msg = "LattE returned with status {}"
@@ -125,9 +126,3 @@ class LatteIntegrator(CommandLineIntegrator):
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
                 """
-
-    def to_json(self):
-        return {"name": "latte", "algorithm": self.algorithm, "n_threads": self.n_threads}
-
-    def to_short_str(self):
-        return "latte"
