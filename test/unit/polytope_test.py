@@ -24,7 +24,7 @@ def test_polytope_no_bounds():
 
 def test_polytope_one_bound():
     bounds = [LE(x, r1)]
-    bound = Bound(bounds[0], {})
+    bound = Bound(bounds[0])
     polytope = Polytope(bounds)
     assert len(polytope.bounds) == 1
     assert str(polytope.bounds[0]) == str(bound)
