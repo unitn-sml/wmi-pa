@@ -88,98 +88,86 @@ class WMISolver:
 
         # sort the different atoms
         atoms = get_atoms(formula) | self.weights.get_atoms()
-
         bool_atoms = {a for a in atoms if a.is_symbol(BOOL)}
         lra_atoms = {a for a in atoms if a.is_theory_relation()}
 
         # conjoin the skeleton of the weight function
         formula = And(formula, self.weights_as_formula_sk)
 
-        # number of booleans not assigned in each problem
-        n_bool_not_assigned = []
-        problems = []
+        n_unassigned_bools = [] # keep track of n. of unassigned Boolean atoms
+        convex_integrals = []
         if len(bool_atoms) == 0:
-            # Enumerate partial TA over theory atoms
-            for assignments in self._get_allsat(formula, use_ta=True, atoms=lra_atoms):
-                problem = self._create_problem(assignments)
-                problems.append(problem)
-                n_bool_not_assigned.append(0)
+            # no Boolean atoms -> enumerate *partial* TAs over LRA atoms only
+            for ta_lra in self._get_allsat(formula, lra_atoms):
+                convex_integrals.append(self._assignment_to_integral(ta_lra))
+                n_unassigned_bools.append(0)
 
         else:
-            for boolean_assignments in self._get_allsat(formula, use_ta=True,
-                                                        atoms=bool_atoms):
+            # enumerate *partial* TAs over Boolean atoms first
+            for ta_bool in self._get_allsat(formula, bool_atoms):
 
-                atom_assignments = dict(boolean_assignments)
+                # dict containing all necessary truth values
+                ta = dict(ta_bool)
 
-                # simplify the formula
-                fully_simplified, res_formula = self._simplify_formula(
-                    formula, boolean_assignments, atom_assignments
+                # try to simplify the formula using the partial TA
+                is_convex, simplified_formula = self._simplify_formula(
+                    formula, ta_bool, ta
                 )
 
-                if not fully_simplified:
-                    # boolean variables first (discard cnf labels)
-                    # TODO check this
-                    residual_atoms = list({a for a in res_formula.get_free_variables()
-                                           if a.symbol_type() == BOOL
-                                           and a in bool_atoms}) + \
-                                     list({a for a in res_formula.get_atoms()
-                                           if a.is_theory_relation()})
+                if is_convex:
+                    # simplified formula is a conjuction of atoms (we're done)
+                    convex_integrals.append(self._assignment_to_integral(ta))
+                    n_unassigned_bools.append(len(bool_atoms - ta_bool.keys()))
+
+                else:
+                    # simplified formula is non-covex, requiring another enumeration pass
+                    residual_atoms = list({a for a in simplified_formula.get_free_variables()
+                                           if a.symbol_type() == BOOL and a in bool_atoms})                    
+                    residual_atoms.extend(list({a for a in simplified_formula.get_atoms()
+                                                if a.is_theory_relation()}))
 
                     # may be both on LRA and boolean atoms
-                    residual_models = self._get_allsat(
-                        res_formula, use_ta=True, atoms=residual_atoms
-                    )
-                    for residual_assignments in residual_models:
-                        curr_atom_assignments = dict(atom_assignments)
-                        curr_atom_assignments.update(residual_assignments)
-
-                        b_not_assigned = bool_atoms - curr_atom_assignments.keys()
-
-                        problem = self._create_problem(curr_atom_assignments)
-                        problems.append(problem)
-                        n_bool_not_assigned.append(len(b_not_assigned))
-                else:
-                    b_not_assigned = bool_atoms - boolean_assignments.keys()
-
-                    problem = self._create_problem(atom_assignments)
-                    problems.append(problem)
-                    n_bool_not_assigned.append(len(b_not_assigned))
+                    for ta_residual in self._get_allsat(simplified_formula, residual_atoms):
+                        curr_ta = dict(ta)
+                        curr_ta.update(ta_residual)
+                        convex_integrals.append(self._assignment_to_integral(curr_ta))
+                        n_unassigned_bools.append(len(bool_atoms - curr_ta.keys()))
 
         # multiply each volume by 2^(|A| - |mu^A|)
-        factors = [2 ** i for i in n_bool_not_assigned]
-        volume, n_cached = self._integrate_batch(problems, cache, factors)
-        n_integrations = len(problems) - n_cached
+        factors = [2 ** nb for nb in n_unassigned_bools]
+        volume, n_cached = self._integrate_batch(convex_integrals, cache, factors)
+        n_integrations = len(convex_integrals) - n_cached
         
         logger.debug(f"Volume: {volume}, n_integrations: {n_integrations}, n_cached: {n_cached}")
 
         return volume, n_integrations
 
 
-    def _integrate_batch(self, problems, cache, factors=None):
-        """Computes the integral of a batch of problems.
+    def _integrate_batch(self, convex_integrals, cache, factors=None):
+        """Computes the integral of a batch of convex_integrals.
 
         Args:
-            problems (list): The list of problems to integrate.
+            convex_integrals (list): The list of convex_integrals to integrate.
             cache (int): The cache level to use.
-            factors (list, optional): A list of factor each problem should be multiplied by. Defaults to [1] * len(problems).
+            factors (list, optional): A list of factor each problem should be multiplied by.
 
         """
         if factors is None:
-            factors = [1] * len(problems)
+            factors = [1] * len(convex_integrals)
         else:
             assert isinstance(factors, list)
-            assert len(problems) == len(factors)
+            assert len(convex_integrals) == len(factors)
         if isinstance(self.integrator, Integrator):
-            results, cached = self.integrator.integrate_batch(problems, cache)
+            results, cached = self.integrator.integrate_batch(convex_integrals, cache)
         else:
-            results, cached = zip(*(i.integrate_batch(problems, cache) for i in self.integrator))
+            results, cached = zip(*(i.integrate_batch(convex_integrals, cache) for i in self.integrator))
         cached = np.array(cached)
         results = np.array(results)
         volume = np.sum(results * factors, axis=-1)
         return volume, cached
 
 
-    def _create_problem(self, atom_assignments):
+    def _assignment_to_integral(self, atom_assignments):
         """Create a tuple containing the problem to integrate.
 
         It first finds all the aliases in the atom_assignments, then it takes the
@@ -239,17 +227,16 @@ class WMISolver:
         return alias, expr
 
 
-    def _get_allsat(self, formula, use_ta=False, atoms=None):
+    def _get_allsat(self, formula, atoms, force_total=False):
 
         """
         Gets the list of assignments that satisfy the formula.
 
         Args:
             formula (FNode): The formula to satisfy
-            use_ta (bool, optional): Uses partial assignments.
+            atoms (list): List of atoms on which to find the assignments.
+            force_total (bool, optional): Forces total truth assignements.
                 Defaults to False.
-            atoms (list, optional): List of atoms on which to find the assignments.
-                Defaults to the boolean atoms of the formula.
 
         Yields:
             list: assignments on the atoms
@@ -264,18 +251,13 @@ class WMISolver:
                 "dpll.allsat_allow_duplicates": "false",
                 "preprocessor.toplevel_propagation": "false",
                 "preprocessor.simplification": "0",
-            } if use_ta else {}
-
-        if atoms is None:
-            atoms = {a for a in formula.get_free_variables()
-                     if a.symbol_type() == BOOL}
+            } if not force_total else {}
 
         # The current version of MathSAT returns a truth assignment on some
         # normalized version of the atoms instead of the original ones.
         # However, in order to simply get the value of the weight function
         # given a truth assignment, we need to know the truth assignment on
         # the original atoms.
-
         for atom in atoms:
             if not atom.is_symbol(BOOL):
                 _ = self.normalizer.normalize(atom, remember_alias=True)
@@ -284,6 +266,7 @@ class WMISolver:
         converter = solver.converter
         solver.add_assertion(formula)
 
+        # the MathSAT call returns models as conjunction of literals
         models = []
         mathsat.msat_all_sat(
             solver.msat_env(),
@@ -291,17 +274,17 @@ class WMISolver:
             lambda model: _callback(model, converter, models),
         )
 
+        # convert each conjunction of literals to a dict {atoms : bool}
         for model in models:
-            # convert list of literals to dict {atoms -> bool}
             assignments = {}
             for lit in model:
-
                 atom = lit.arg(0) if lit.is_not() else lit
                 value = not lit.is_not()
 
                 if atom.is_symbol(BOOL):
                     assignments[atom] = value
                 else:
+                    # retrieve the original (unnormalized) atom
                     normalized_atom, negated = self.normalizer.normalize(atom)
                     if negated:
                         value = not value
@@ -330,13 +313,13 @@ class WMISolver:
         while True:
             f_before = f_next
             f_next = self.simplifier.simplify(substitute(f_before, subs))
-            lra_assignments, fully_simplified = WMISolver._plra_rec(f_next, True)
+            lra_assignments, is_convex = WMISolver._plra_rec(f_next, True)
             subs = {k: Bool(v) for k, v in lra_assignments.items()}
             atom_assignments.update(lra_assignments)
-            if fully_simplified or lra_assignments == {}:
+            if is_convex or lra_assignments == {}:
                 break
 
-        if not fully_simplified:
+        if not is_convex:
             # formula not completely simplified, add conjunction of assigned LRA atoms
             expressions = []
             for k, v in atom_assignments.items():
@@ -346,7 +329,7 @@ class WMISolver:
                     else:
                         expressions.append(Not(k))
             f_next = And([f_next] + expressions)
-        return fully_simplified, f_next
+        return is_convex, f_next
 
 
     @staticmethod
@@ -371,24 +354,24 @@ class WMISolver:
             return WMISolver._plra_rec(formula.arg(0), not pos_polarity)
         elif formula.is_and() and pos_polarity:
             assignments = {}
-            fully_simplified = True
+            is_convex = True
             for a in formula.args():
-                assignment, rec_fully_simplified = WMISolver._plra_rec(a, True)
+                assignment, rec_is_convex = WMISolver._plra_rec(a, True)
                 assignments.update(assignment)
-                fully_simplified = rec_fully_simplified and fully_simplified
-            return assignments, fully_simplified
+                is_convex = rec_is_convex and is_convex
+            return assignments, is_convex
         elif formula.is_or() and not pos_polarity:
             assignments = {}
-            fully_simplified = True
+            is_convex = True
             for a in formula.args():
-                assignment, rec_fully_simplified = WMISolver._plra_rec(a, False)
+                assignment, rec_is_convex = WMISolver._plra_rec(a, False)
                 assignments.update(assignment)
-                fully_simplified = rec_fully_simplified and fully_simplified
-            return assignments, fully_simplified
+                is_convex = rec_is_convex and is_convex
+            return assignments, is_convex
         elif formula.is_implies() and not pos_polarity:
-            assignments, fully_simplified_left = WMISolver._plra_rec(formula.arg(0), True)
-            assignment_right, fully_simplified_right = WMISolver._plra_rec(formula.arg(1), False)
+            assignments, is_convex_left = WMISolver._plra_rec(formula.arg(0), True)
+            assignment_right, is_convex_right = WMISolver._plra_rec(formula.arg(1), False)
             assignments.update(assignment_right)
-            return assignments, fully_simplified_left and fully_simplified_right
+            return assignments, is_convex_left and is_convex_right
         else:
             return {}, False
