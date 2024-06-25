@@ -5,7 +5,6 @@ from subprocess import call
 
 from wmipa.integration import _is_volesti_installed
 from wmipa.integration.command_line_integrator import CommandLineIntegrator
-from wmipa.integration.expression import Expression
 from wmipa.integration.polytope import Polytope
 from wmipa.wmiexception import WMIRuntimeException, WMIIntegrationException
 
@@ -134,7 +133,7 @@ class VolestiIntegrator(CommandLineIntegrator):
         """Writes the integrand to the given file.
 
         Args:
-            integrand (Expression): The integrand.
+            integrand (Integrand): The integrand.
             variables (list): The list of variables.
             path (str): The path where to write the integrand.
 

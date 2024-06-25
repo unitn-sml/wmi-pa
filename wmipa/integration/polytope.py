@@ -77,21 +77,21 @@ class Bound:
             poly.negate()
             b = -b
 
-        if poly.degree() > 1:
+        if poly.degree > 1:
             raise WMIParsingException(
                 WMIParsingException.POLYNOMIAL_WITH_DEGREE_GREATER_THAN_ONE, poly
             )
 
         self.coefficients = {}
         self.constant = b
-        if poly.degree() > 0:
+        if poly.degree > 0:
 
             # TODO review this part
             # After the alias substitutions, the polynomial may contain monomials of
             # degree 0, which must be moved to the constant part
             variable_monomials = []
             for monomial in poly.monomials:
-                if monomial.degree() == 0:
+                if monomial.degree == 0:
                     b -= monomial.coefficient
                 else:
                     variable_monomials.append(monomial)

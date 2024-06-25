@@ -12,7 +12,7 @@ __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 import mathsat
 import networkx as nx
 import numpy as np
-from pysmt.shortcuts goimport And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
+from pysmt.shortcuts import *
 from pysmt.typing import BOOL, REAL
 
 from wmipa.integration import LatteIntegrator, Integrand, Integrator, Polynomial, Polytope
@@ -213,6 +213,8 @@ class WMISolver:
         bounds = []
         for atom, value in truth_assignment.items():
             assert(len(atom.get_free_variables()) > 0)
+
+            atom = WMISolver._apply_aliases(atom, aliases)
             
             # Skip non-LRA atoms:
             if not atom.is_theory_relation():
@@ -229,7 +231,7 @@ class WMISolver:
             if atom.is_le() or atom.is_lt():
                 bounds.append(atom)
 
-        polytope = Polytope(bounds, aliases)
+        polytope = Polytope(bounds)
 
         try:
             integrand = Polynomial(uncond_weight)

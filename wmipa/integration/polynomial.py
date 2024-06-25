@@ -154,7 +154,7 @@ class Polynomial:
             expression (FNode): The pysmt formula representing the polynomial.
 
         """
-        super().__init__()
+        self.variables = set()
         canonical = get_canonical_form(expression)
         
         # Process every monomial individually
