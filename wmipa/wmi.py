@@ -10,8 +10,9 @@ __version__ = "1.0"
 __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 
 import mathsat
+import networkx as nx
 import numpy as np
-from pysmt.shortcuts import And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
+from pysmt.shortcuts goimport And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
 from pysmt.typing import BOOL, REAL
 
 from wmipa.integration import LatteIntegrator, Integrand, Integrator, Polynomial, Polytope
@@ -207,7 +208,7 @@ class WMISolver:
 
 
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
-        uncond_weight = apply_aliases(uncond_weight, aliases)
+        uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases)
 
         bounds = []
         for atom, value in truth_assignment.items():
@@ -237,6 +238,49 @@ class WMISolver:
             integrand = Integrand(uncond_weight)
 
         return polytope, integrand
+
+    @staticmethod
+    def _apply_aliases(expression, aliases):
+        """Substitute the aliases within the expression in the right order.
+
+        Args:
+
+            expression (FNode): The pysmt expression to apply the aliases to.
+        
+            aliases (dict): The aliases to apply to the expression.
+        """
+        if len(aliases) > 0:
+            # Build a dependency graph of the substitutions and apply them in
+            # topological order
+            Gsub = nx.DiGraph()
+            constant_subs = {}
+
+            # For every alias
+            for x, alias_expr in aliases.items():
+                for y in alias_expr.get_free_variables():
+                    # Create a node from the alias to every symbol inside it
+                    Gsub.add_edge(x, y)
+                    
+                # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
+                if len(alias_expr.get_free_variables()) == 0:
+                    constant_subs.update({x: alias_expr})
+
+            # Get the nodes in topological order
+            try:
+                sorted_substitutions = [
+                    node for node in nx.topological_sort(Gsub) if node in aliases
+                ]
+            except nx.exception.NetworkXUnfeasible:
+                raise WMIParsingException(
+                    WMIParsingException.CYCLIC_ASSIGNMENT_IN_ALIASES, aliases
+                )
+
+            # Apply all the substitutions
+            for alias in sorted_substitutions:
+                expression = expression.substitute({alias: aliases[alias]})
+            expression = expression.substitute(constant_subs)
+
+        return expression
 
 
     def _parse_alias(self, equality):
