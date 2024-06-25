@@ -70,7 +70,7 @@ def test_cyclic_assignment():
 
     with pytest.raises(WMIParsingException) as ex:
         result, _ = wmi.computeWMI(phi, {x, y})
-    assert ex.value.code == WMIParsingException.CYCLIC_ASSIGNMENT_IN_ALIASES
+    assert ex.value.code == WMIParsingException.CYCLIC_ALIASES
 
 
 def test_bound_not_inequality():

@@ -85,7 +85,7 @@ class WMIParsingException(WMIException):
         lead to a cyclic assignment (e.g: y = x, x = y).
 
     """
-    CYCLIC_ASSIGNMENT_IN_ALIASES = 5
+    CYCLIC_ALIASES = 5
 
     """During the parsing of the formula, it was encountered an expression that does not represent an inequality.
 
@@ -112,7 +112,7 @@ class WMIParsingException(WMIException):
         CANNOT_CONVERT_SYMPY_FORMULA_TO_PYSMT: "Cannot convert the sympy formula to a pysmt formula",
         CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY: "Cannot convert the pysmt formula to a sympy formula",
         NOT_A_MONOMIAL: "Not a monomial",
-        CYCLIC_ASSIGNMENT_IN_ALIASES: "Cyclic assignment in the aliases",
+        CYCLIC_ALIASES: "Cyclic assignment in the aliases",
         NOT_AN_INEQUALITY: "Not an inequality",
         POLYNOMIAL_WITH_DEGREE_GREATER_THAN_ONE: "Polynomial with degree greater than one",
         ALIAS_CLASH: "Multiple assignments to the same alias",

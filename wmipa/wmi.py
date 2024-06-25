@@ -251,38 +251,37 @@ class WMISolver:
         
             aliases (dict): The aliases to apply to the expression.
         """
-        if len(aliases) > 0:
-            # Build a dependency graph of the substitutions and apply them in
-            # topological order
-            Gsub = nx.DiGraph()
-            constant_subs = {}
 
-            # For every alias
-            for x, alias_expr in aliases.items():
-                for y in alias_expr.get_free_variables():
-                    # Create a node from the alias to every symbol inside it
-                    Gsub.add_edge(x, y)
+        # Build a dependency graph of the substitutions and apply them in
+        # topological order
+        Gsub = nx.DiGraph()
+        constant_subs = {}
+
+        # For every alias
+        for x, alias_expr in aliases.items():
+            for y in alias_expr.get_free_variables():
+                # Create a node from the alias to every symbol inside it
+                Gsub.add_edge(x, y)
                     
-                # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
-                if len(alias_expr.get_free_variables()) == 0:
-                    constant_subs.update({x: alias_expr})
+            # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
+            if len(alias_expr.get_free_variables()) == 0:
+                constant_subs.update({x: alias_expr})
 
-            # Get the nodes in topological order
-            try:
-                sorted_substitutions = [
-                    node for node in nx.topological_sort(Gsub) if node in aliases
-                ]
-            except nx.exception.NetworkXUnfeasible:
-                raise WMIParsingException(
-                    WMIParsingException.CYCLIC_ASSIGNMENT_IN_ALIASES, aliases
-                )
+        # Get the nodes in topological order
+        try:
+            sorted_substitutions = [
+                node for node in nx.topological_sort(Gsub) if node in aliases
+            ]
+        except nx.exception.NetworkXUnfeasible:
+            raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
+                                      aliases)
 
-            # Apply all the substitutions
-            for alias in sorted_substitutions:
-                expression = expression.substitute({alias: aliases[alias]})
-            expression = expression.substitute(constant_subs)
+        # Apply all the substitutions
+        for alias in sorted_substitutions:
+            expression = expression.substitute({alias: aliases[alias]})
+        expression = expression.substitute(constant_subs)
 
-        return expression
+    return expression
 
 
     @staticmethod
