@@ -195,9 +195,12 @@ class WMISolver:
 
         """
 
-        # first infer the aliases (alias = expression) in the truth assignment
+        # Build a dependency graph of the alias substitutions
+        Gsub = nx.DiGraph()
+        constant_subs = {}
         aliases = {}
         for atom, value in truth_assignment.items():
+            # first infer the aliases (alias = expression) in the truth assignment
             if value is True and atom.is_equals():
                 alias, expr = WMISolver._parse_alias(atom)
                 # check that there are no multiple assignments of the same alias
@@ -206,6 +209,23 @@ class WMISolver:
                 else:
                     raise WMIParsingException(WMIParsingException.ALIAS_CLASH)
 
+        for x, alias_expr in aliases.items():
+            for y in alias_expr.get_free_variables():
+                # Create a node from the alias to every symbol inside it
+                Gsub.add_edge(x, y)
+                    
+            # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
+            if len(alias_expr.get_free_variables()) == 0:
+                constant_subs.update({x: alias_expr})
+
+        # Get the nodes in topological order
+        try:
+            sorted_substitutions = [
+                node for node in nx.topological_sort(Gsub) if node in aliases
+            ]
+        except nx.exception.NetworkXUnfeasible:
+            raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
+                                      aliases)
 
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
         uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases)
@@ -226,7 +246,7 @@ class WMISolver:
                     atom = LE(right, left)
 
             # Add a bound if the atom is an inequality
-            assert(atom.is_le() or atom.is_lt())
+            assert(atom.is_le() or atom.is_lt()), f'wtf? {atom}'
             bounds.append(atom)
             #if atom.is_le() or atom.is_lt():
             #    bounds.append(atom)
@@ -251,37 +271,12 @@ class WMISolver:
         
             aliases (dict): The aliases to apply to the expression.
         """
-
-        # Build a dependency graph of the substitutions and apply them in
-        # topological order
-        Gsub = nx.DiGraph()
-        constant_subs = {}
-
-        # For every alias
-        for x, alias_expr in aliases.items():
-            for y in alias_expr.get_free_variables():
-                # Create a node from the alias to every symbol inside it
-                Gsub.add_edge(x, y)
-                    
-            # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
-            if len(alias_expr.get_free_variables()) == 0:
-                constant_subs.update({x: alias_expr})
-
-        # Get the nodes in topological order
-        try:
-            sorted_substitutions = [
-                node for node in nx.topological_sort(Gsub) if node in aliases
-            ]
-        except nx.exception.NetworkXUnfeasible:
-            raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
-                                      aliases)
-
         # Apply all the substitutions
         for alias in sorted_substitutions:
             expression = expression.substitute({alias: aliases[alias]})
         expression = expression.substitute(constant_subs)
 
-    return expression
+        return expression
 
 
     @staticmethod
