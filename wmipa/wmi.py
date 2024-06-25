@@ -199,7 +199,7 @@ class WMISolver:
         aliases = {}
         for atom, value in truth_assignment.items():
             if value is True and atom.is_equals():
-                alias, expr = self._parse_alias(atom)
+                alias, expr = WMISolver._parse_alias(atom)
                 # check that there are no multiple assignments of the same alias
                 if alias not in aliases:
                     aliases[alias] = expr
@@ -212,8 +212,6 @@ class WMISolver:
 
         bounds = []
         for atom, value in truth_assignment.items():
-            assert(len(atom.get_free_variables()) > 0)
-
             atom = WMISolver._apply_aliases(atom, aliases)
             
             # Skip non-LRA atoms:
@@ -228,8 +226,10 @@ class WMISolver:
                     atom = LE(right, left)
 
             # Add a bound if the atom is an inequality
-            if atom.is_le() or atom.is_lt():
-                bounds.append(atom)
+            assert(atom.is_le() or atom.is_lt())
+            bounds.append(atom)
+            #if atom.is_le() or atom.is_lt():
+            #    bounds.append(atom)
 
         polytope = Polytope(bounds)
 
@@ -285,7 +285,8 @@ class WMISolver:
         return expression
 
 
-    def _parse_alias(self, equality):
+    @staticmethod
+    def _parse_alias(equality):
         """Takes an equality and parses it.
 
         Args:
