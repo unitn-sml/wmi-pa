@@ -1,11 +1,10 @@
-from fractions import Fraction
 
+from fractions import Fraction
 from pysmt.shortcuts import Real, Times, Pow, Symbol, Plus
 from pysmt.typing import REAL
 
-from wmipa.integration.integrand import Integrand
 from wmipa.integration.sympy2pysmt import get_canonical_form
-from wmipa.utils import is_pow, apply_aliases
+from wmipa.utils import is_pow
 from wmipa.wmiexception import WMIParsingException
 
 
@@ -44,27 +43,14 @@ class Monomial:
         self.coefficient, self.exponents = self._parse_sub(expression)
 
     def __str__(self):
-        """The str method.
-
-        Returns:
-            str: The string representation of the monomial (e.g: (-6 * x^3 * y^2) ).
-
-        """
         powers = ["{}^{}".format(k, e) for k, e in self.exponents.items()]
         if len(self.exponents) == 0:
             return "(" + str(self.coefficient) + ")"
         else:
             return "(" + str(self.coefficient) + " * " + " * ".join(powers) + ")"
 
+    @property
     def degree(self):
-        """Calculates the degree of the monomial.
-
-        This method evaluates the degree by summing up all the values of the exponents.
-
-        Returns:
-            int: The degree of the monomial.
-
-        """
         return sum(self.exponents.values())
 
     def multiply_by_monomial(self, monomial):
@@ -74,10 +60,6 @@ class Monomial:
             monomial (FNode): The other monomial.
 
         """
-        assert isinstance(
-            monomial, Monomial
-        ), "Argument should be an instance of Monomial"
-
         # multiply the coefficients
         self.coefficient *= monomial.coefficient
 
@@ -88,7 +70,6 @@ class Monomial:
             self.exponents[name] += exp
 
     def negate(self):
-        """Negates the monomial by changing the sign of the coefficient."""
         self.coefficient *= -1
 
     def _parse_sub(self, expression):
@@ -157,7 +138,7 @@ class Monomial:
         )
 
 
-class Polynomial(Integrand):
+class Polynomial:
     """Intermediate representation of a polynomial.
 
     Attributes:
@@ -166,23 +147,16 @@ class Polynomial(Integrand):
 
     """
 
-    def __init__(self, expression, aliases=None):
+    def __init__(self, expression):
         """Default constructor.
-
-        Takes as input a pysmt formula representing a polynomial and a dict of
-        aliases to be substituted before the parsing.
 
         Args:
             expression (FNode): The pysmt formula representing the polynomial.
-            aliases (dict {FNode : FNode}): The dict containing the aliases definitions.
 
         """
         super().__init__()
-        # Perform aliases substitution and put in canonical form
-        if aliases is None:
-            aliases = {}
-        canonical = Polynomial._preprocess_formula(expression, aliases)
-
+        canonical = get_canonical_form(expression)
+        
         # Process every monomial individually
         self.monomials = []
         if canonical.is_plus():
@@ -192,31 +166,14 @@ class Polynomial(Integrand):
             self._add_monomial(Monomial(canonical))
 
     def __str__(self):
-        """The str method.
-
-        Returns:
-            str: The string representation of the polynomial
-                (e.g: (3 * x^5) + (-2 * y^3)).
-
-        """
         return " + ".join(map(str, self.monomials))
 
+    @property
     def degree(self):
-        """Calculates the degree of the polynomial.
-
-        This method evaluates the degree by taking the maximum degree of its monomials.
-
-        Returns:
-            int: The degree of the polynomial.
-
-        """
-        if len(self.monomials) > 0:
-            return max([m.degree() for m in self.monomials])
-        else:
-            return 0
+        return max([m.degree for m in self.monomials]) if len(self.monomials) > 0 else 0
 
     def negate(self):
-        """Negates the polynomial by negating all its monomials."""
+        """Negates the polynomial."""
         for monomial in self.monomials:
             monomial.negate()
 
@@ -227,35 +184,12 @@ class Polynomial(Integrand):
             monomial (Monomial): The monomial to be added.
 
         """
-        assert isinstance(
-            monomial, Monomial
-        ), "Argument should be an instance of Monomial"
         if monomial.coefficient != 0:
             self.monomials.append(monomial)
             self.variables = self.variables.union(set(monomial.exponents.keys()))
-
-    @staticmethod
-    def _preprocess_formula(expression, aliases):
-        """Preprocesses a pysmt polynomial by substituting the aliases and
-        rewriting it in canonical form.
-
-        Args:
-            expression (FNode): The pysmt formula representing a polynomial.
-            aliases (dict {FNode : FNode}): The dict containing the aliases definitions.
-
-        Returns:
-            FNode: The pysmt formula in canonical form with all the aliases substituted.
-
-        Raises:
-            WMIParsingException: If in the aliases there is a cyclic assignment
-                (e.g: x = y, y = x).
-        """
-        # Apply alias substitutions in the correct order
-        expression = apply_aliases(expression, aliases)
-
-        return get_canonical_form(expression)
 
     def to_pysmt(self):
         if not self.monomials:
             return Real(0)
         return Plus(*map(lambda x: x.to_pysmt(), self.monomials))
+

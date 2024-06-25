@@ -142,20 +142,6 @@ class VolestiIntegrator(CommandLineIntegrator):
         with open(path, "w") as f:
             f.write("{} \n {} \n".format(" ".join(variables), str(integrand)))
 
-    @classmethod
-    def _make_problem(cls, weight, bounds, aliases):
-        """Makes the problem to be solved by VolEsti.
-        Args:
-            weight (FNode): The weight function.
-            bounds (list): The polytope.
-            aliases (dict): The aliases of the variables.
-        Returns:
-            integrand (Expression): The integrand.
-            polytope (Polytope): The polytope.
-        """
-        integrand = Expression(weight, aliases)
-        polytope = Polytope(bounds, aliases)
-        return integrand, polytope
 
     def _call_integrator(self, polynomial_file, polytope_file, output_file):
         """Calls VolEsti executable to calculate the integrand of the problem

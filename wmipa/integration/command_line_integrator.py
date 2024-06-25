@@ -27,7 +27,7 @@ class CommandLineIntegrator(CacheIntegrator):
     def __init__(self, **options):
         super().__init__(**options)
 
-    def _integrate_problem(self, integrand, polytope):
+    def _compute_integral(self, integrand, polytope):
         """Generates the input files and calls integrator executable
             to calculate the integral. Then, reads back the result and returns it
             as a float.

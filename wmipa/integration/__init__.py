@@ -14,5 +14,9 @@ IMPORT_ERR_MSG = "No integration backend installed. Run `wmipa-install --help` f
 if not any((_is_latte_installed(), _is_volesti_installed())):
     raise ImportError(IMPORT_ERR_MSG)
 else:
+    from .integrator import Integrator
     from .latte_integrator import LatteIntegrator
     from .volesti_integrator import VolestiIntegrator
+    from .integrand import Integrand
+    from .polynomial import Polynomial
+    from .polytope import Polytope

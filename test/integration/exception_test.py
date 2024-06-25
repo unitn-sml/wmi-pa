@@ -27,7 +27,7 @@ def test_double_assignments_same_variable():
 
     with pytest.raises(WMIParsingException) as ex:
         result_allsmt, _ = wmi.computeWMI(phi, {x, y, z})
-    assert ex.value.code == WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS
+    assert ex.value.code == WMIParsingException.ALIAS_CLASH
 
 
 def test_not_correct_alias():
@@ -38,7 +38,7 @@ def test_not_correct_alias():
 
     with pytest.raises(WMIParsingException) as ex:
         result, _ = wmi.computeWMI(phi, {x, y})
-    assert ex.value.code == WMIParsingException.MALFORMED_ALIAS_EXPRESSION
+    assert ex.value.code == WMIParsingException.INVALID_ALIAS
 
 
 def test_invalid_weight_function():

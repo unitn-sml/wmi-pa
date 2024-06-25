@@ -48,21 +48,6 @@ class LatteIntegrator(CommandLineIntegrator):
             err = "{}, choose one from: {}".format(self.algorithm, ", ".join(self.ALGORITHMS))
             raise WMIRuntimeException(WMIRuntimeException.INVALID_MODE, err)
 
-    @classmethod
-    def _make_problem(cls, weight, bounds, aliases):
-        """Makes the problem to be solved by LattE.
-        Args:
-            weight (FNode): The weight function.
-            bounds (list): The polytope.
-            aliases (dict): The aliases of the variables.
-        Returns:
-            integrand (Polynomial): The integrand.
-            polytope (Polytope): The polytope.
-        """
-        integrand = Polynomial(weight, aliases)
-        polytope = Polytope(bounds, aliases)
-
-        return integrand, polytope
 
     def _write_integrand_file(self, integrand, variables, path):
         """Writes the integrand to the given file.

@@ -54,7 +54,7 @@ class WMIParsingException(WMIException):
         x = Symbol('X', REAL) and y = Symbol('Y', REAL).
 
     """
-    MALFORMED_ALIAS_EXPRESSION = 0
+    INVALID_ALIAS = 0
 
     """During the parsing of the formula, it was encountered a node that cannot exists inside
         the formula representing the weight function. The weight function admits only these internal nodes:
@@ -104,10 +104,10 @@ class WMIParsingException(WMIException):
         there must be at most one assignment.
 
     """
-    MULTIPLE_ASSIGNMENT_SAME_ALIAS = 8
+    ALIAS_CLASH = 8
 
     messages = {
-        MALFORMED_ALIAS_EXPRESSION: "Malformed alias expression",
+        INVALID_ALIAS: "Invalid alias expression",
         INVALID_WEIGHT_FUNCTION: "Invalid weight function",
         CANNOT_CONVERT_SYMPY_FORMULA_TO_PYSMT: "Cannot convert the sympy formula to a pysmt formula",
         CANNOT_CONVERT_PYSMT_FORMULA_TO_SYMPY: "Cannot convert the pysmt formula to a sympy formula",
@@ -115,7 +115,7 @@ class WMIParsingException(WMIException):
         CYCLIC_ASSIGNMENT_IN_ALIASES: "Cyclic assignment in the aliases",
         NOT_AN_INEQUALITY: "Not an inequality",
         POLYNOMIAL_WITH_DEGREE_GREATER_THAN_ONE: "Polynomial with degree greater than one",
-        MULTIPLE_ASSIGNMENT_SAME_ALIAS: "Multiple assignments to the same alias",
+        ALIAS_CLASH: "Multiple assignments to the same alias",
     }
 
     def __init__(self, code, value=None):

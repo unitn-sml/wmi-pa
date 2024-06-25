@@ -14,8 +14,7 @@ import numpy as np
 from pysmt.shortcuts import And, Bool, Iff, Not, Real, Solver, substitute, get_atoms
 from pysmt.typing import BOOL, REAL
 
-from wmipa.integration import LatteIntegrator
-from wmipa.integration.integrator import Integrator
+from wmipa.integration import LatteIntegrator, Integrand, Integrator, Polynomial, Polytope
 from wmipa.log import logger
 from wmipa.utils import TermNormalizer, BooleanSimplifier
 from wmipa.weights import Weights
@@ -43,10 +42,14 @@ class WMISolver:
 
         Args:
             chi (FNode): The support of the problem.
-            w (FNode, optional): The weight function of the problem (default: 1).
-            integrator (Integrator or list(Integrator)): integrator or list of integrators to use. If a list of
-                integrators is provided, then computeWMI will return a list of results, one for each integrator.
-                (default: LatteIntegrator())
+
+            w (FNode, optional): The weight function (default: 1).
+
+            integrator (Integrator or list(Integrator)): integrator or
+                list of integrators to use. If a list of integrators
+                is provided, then computeWMI will return a list of
+                results, one for each integrator.  (default:
+                LatteIntegrator())
 
         """
         self.variables = WMIVariables()
@@ -66,14 +69,23 @@ class WMISolver:
 
         Args:
             phi (FNode): The query on which to calculate the WMI.
-            domain (set(FNode)): set of pysmt REAL vars encoding the integration domain
-            cache (int, optional): The cache level to use when calculating WMI (default: -1 = no cache).
+        
+            domain (set(FNode)): integration domain as pysmt REAL vars.
+        
+            cache (int, optional): The cache level to use when
+                calculating WMI (default: -1 = no cache).
 
         Returns:
-            real or np.ndarray(real): The result of the computation. If a list of integrators is provided, then the
-                result is a np.ndarray(real) containing the results computed by the different integrators.
-            int or np.ndarray(real): The number of integrations that have been computed. If a list of integrators is
-                provided, then the result is a np.ndarray(int) containing the number of integrations computed by the
+        
+            real or np.ndarray(real): The result of the
+                computation. If a list of integrators is provided,
+                then the result is a np.ndarray(real) containing the
+                results computed by the different integrators.
+        
+            int or np.ndarray(real): The number of integrations that
+                have been computed. If a list of integrators is
+                provided, then the result is a np.ndarray(int)
+                containing the number of integrations computed by the
                 different integrators.
 
         """
@@ -147,9 +159,11 @@ class WMISolver:
         """Computes the integral of a batch of convex_integrals.
 
         Args:
-            convex_integrals (list): The list of convex_integrals to integrate.
-            cache (int): The cache level to use.
-            factors (list, optional): A list of factor each problem should be multiplied by.
+            convex_integrals (list): The integration problems.
+
+            cache (int): The cache level.
+
+            factors (list, optional): Multiplicative factors.
 
         """
         if factors is None:
@@ -160,44 +174,70 @@ class WMISolver:
         if isinstance(self.integrator, Integrator):
             results, cached = self.integrator.integrate_batch(convex_integrals, cache)
         else:
-            results, cached = zip(*(i.integrate_batch(convex_integrals, cache) for i in self.integrator))
+            results, cached = zip(*(i.integrate_batch(convex_integrals, cache)
+                                    for i in self.integrator))
         cached = np.array(cached)
         results = np.array(results)
         volume = np.sum(results * factors, axis=-1)
         return volume, cached
 
 
-    def _assignment_to_integral(self, atom_assignments):
-        """Create a tuple containing the problem to integrate.
-
-        It first finds all the aliases in the atom_assignments, then it takes the
-            actual weight (based on the assignment).
-        Finally, it creates the problem tuple with all the info in it.
+    def _assignment_to_integral(self, truth_assignment):
+        """Converts a truth assignment to an integral problem, encoded
+        as a pair <polytope, integrand>.           
 
         Args:
-            atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
+            truth_assignment (dict): Maps atoms to truth values.
 
         Returns:
-            tuple: The problem on which to calculate the integral formed by
-                (atom assignment, actual weight, list of aliases, weight condition assignments)
+            tuple(Polytope, Integrand): An integral instance.
 
         """
+
+        # first infer the aliases (alias = expression) in the truth assignment
         aliases = {}
-        for atom, value in atom_assignments.items():
+        for atom, value in truth_assignment.items():
             if value is True and atom.is_equals():
                 alias, expr = self._parse_alias(atom)
-                if self.variables.is_weight_alias(alias):
-                    continue
-
                 # check that there are no multiple assignments of the same alias
                 if alias not in aliases:
                     aliases[alias] = expr
                 else:
-                    raise WMIParsingException(WMIParsingException.MULTIPLE_ASSIGNMENT_SAME_ALIAS)
+                    raise WMIParsingException(WMIParsingException.ALIAS_CLASH)
 
 
-        current_weight = self.weights.weight_from_assignment(atom_assignments)
-        return atom_assignments, current_weight, aliases
+        uncond_weight = self.weights.weight_from_assignment(truth_assignment)
+        uncond_weight = apply_aliases(uncond_weight, aliases)
+
+        bounds = []
+        for atom, value in truth_assignment.items():
+            assert(len(atom.get_free_variables()) > 0)
+            
+            # Skip non-LRA atoms:
+            if not atom.is_theory_relation():
+                continue
+
+            if value is False:
+                left, right = atom.args()
+                if atom.is_le():
+                    atom = LT(right, left)
+                elif atom.is_lt():
+                    atom = LE(right, left)
+
+            # Add a bound if the atom is an inequality
+            if atom.is_le() or atom.is_lt():
+                bounds.append(atom)
+
+        polytope = Polytope(bounds, aliases)
+
+        try:
+            integrand = Polynomial(uncond_weight)
+        except WMIParsingException:
+            # fallback to generic integrand
+            integrand = Integrand(uncond_weight)
+
+        return polytope, integrand
+
 
     def _parse_alias(self, equality):
         """Takes an equality and parses it.
@@ -222,7 +262,7 @@ class WMISolver:
             alias, expr = right, left
         else:
             raise WMIParsingException(
-                WMIParsingException.MALFORMED_ALIAS_EXPRESSION, equality
+                WMIParsingException.INVALID_ALIAS, equality
             )
         return alias, expr
 
@@ -294,14 +334,14 @@ class WMISolver:
 
             yield assignments
 
-    def _simplify_formula(self, formula, subs, atom_assignments):
+    def _simplify_formula(self, formula, subs, truth_assignment):
         """Substitute the subs in the formula and iteratively simplify it.
-        atom_assignments is updated with unit-propagated atoms.
+        truth_assignment is updated with unit-propagated atoms.
 
         Args:
             formula (FNode): The formula to simplify.
             subs (dict): Dictionary with the substitutions to perform.
-            atom_assignments (dict): Dictionary with atoms and assigned value.
+            truth_assignment (dict): Dictionary with atoms and assigned value.
 
         Returns:
             bool: True if the formula is completely simplified.
@@ -315,14 +355,14 @@ class WMISolver:
             f_next = self.simplifier.simplify(substitute(f_before, subs))
             lra_assignments, is_convex = WMISolver._plra_rec(f_next, True)
             subs = {k: Bool(v) for k, v in lra_assignments.items()}
-            atom_assignments.update(lra_assignments)
+            truth_assignment.update(lra_assignments)
             if is_convex or lra_assignments == {}:
                 break
 
         if not is_convex:
             # formula not completely simplified, add conjunction of assigned LRA atoms
             expressions = []
-            for k, v in atom_assignments.items():
+            for k, v in truth_assignment.items():
                 if k.is_theory_relation():
                     if v:
                         expressions.append(k)

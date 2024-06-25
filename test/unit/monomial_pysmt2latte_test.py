@@ -17,7 +17,7 @@ def test_monomial_constant():
     monomial = Monomial(expression)
     assert monomial.coefficient == v3
     assert monomial.exponents == {}
-    assert monomial.degree() == 0
+    assert monomial.degree == 0
 
 
 def test_monomial_constant_multiplication():
@@ -25,7 +25,7 @@ def test_monomial_constant_multiplication():
     monomial = Monomial(expression)
     assert monomial.coefficient == v3 * v1 * v2
     assert monomial.exponents == {}
-    assert monomial.degree() == 0
+    assert monomial.degree == 0
 
 
 def test_monomial_constant_exponent():
@@ -33,7 +33,7 @@ def test_monomial_constant_exponent():
     monomial = Monomial(expression)
     assert monomial.coefficient == Pow(r1, r2).constant_value()
     assert monomial.exponents == {}
-    assert monomial.degree() == 0
+    assert monomial.degree == 0
 
 
 def test_monomial_constant_exponent_multiplication():
@@ -41,7 +41,7 @@ def test_monomial_constant_exponent_multiplication():
     monomial = Monomial(expression)
     assert monomial.coefficient == Pow(r1, r2).constant_value() * Pow(r3, r1).constant_value() * v2
     assert monomial.exponents == {}
-    assert monomial.degree() == 0
+    assert monomial.degree == 0
 
 
 def test_monomial_symbol():
@@ -49,7 +49,7 @@ def test_monomial_symbol():
     monomial = Monomial(expression)
     assert monomial.coefficient == 1
     assert monomial.exponents == {"X": 1}
-    assert monomial.degree() == 1
+    assert monomial.degree == 1
 
 
 def test_monomial_symbol_and_constant():
@@ -57,7 +57,7 @@ def test_monomial_symbol_and_constant():
     monomial = Monomial(expression)
     assert monomial.coefficient == v1
     assert monomial.exponents == {"X": 1}
-    assert monomial.degree() == 1
+    assert monomial.degree == 1
 
 
 def test_monomial_symbol_exponent_and_constant():
@@ -65,7 +65,7 @@ def test_monomial_symbol_exponent_and_constant():
     monomial = Monomial(expression)
     assert monomial.coefficient == v2
     assert monomial.exponents == {"X": v1}
-    assert monomial.degree() == v1
+    assert monomial.degree == v1
 
 
 def test_monomial_more_symbols():
@@ -73,7 +73,7 @@ def test_monomial_more_symbols():
     monomial = Monomial(expression)
     assert monomial.coefficient == v1 * Pow(r1, r1).constant_value()
     assert monomial.exponents == {"X": v2 + v3, "Y": v1}
-    assert monomial.degree() == v1 + v2 + v3
+    assert monomial.degree == v1 + v2 + v3
 
 
 def test_monomial_negate():
@@ -82,7 +82,7 @@ def test_monomial_negate():
     monomial.negate()
     assert monomial.coefficient == v1 * Pow(r1, r1).constant_value() * -1
     assert monomial.exponents == {"X": v2 + v3, "Y": v1}
-    assert monomial.degree() == v1 + v2 + v3
+    assert monomial.degree == v1 + v2 + v3
 
 
 def test_monomial_moltiplication():
@@ -93,7 +93,7 @@ def test_monomial_moltiplication():
     monomial1.multiply_by_monomial(monomial2)
     assert monomial1.coefficient == v2 * v1 * Pow(r1, r1).constant_value()
     assert monomial1.exponents == {"X": v1 + v2 + v3, "Y": v1}
-    assert monomial1.degree() == v1 + v2 + v3 + v1
+    assert monomial1.degree == v1 + v2 + v3 + v1
 
 
 def test_monomial_all():
@@ -101,4 +101,4 @@ def test_monomial_all():
     monomial = Monomial(expression)
     assert monomial.coefficient == Pow(Pow(r2, r1), r1).constant_value()
     assert monomial.exponents == {"X": v2 * v3 * v1, "Y": v1 * v2 * v3 * v1}
-    assert monomial.degree() == v2 * v3 * v1 + v1 * v2 * v3 * v1
+    assert monomial.degree == v2 * v3 * v1 + v1 * v2 * v3 * v1

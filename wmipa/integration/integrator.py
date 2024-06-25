@@ -17,32 +17,30 @@ class Integrator(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def integrate(self, atom_assignments, weight, aliases, *args, **kwargs):
-        """Integrates a problem of the type {atom_assignments, weight, aliases}
+    def integrate(self, polytope, integrand, *args, **kwargs):
+        """Integrates a single (polytope, integrand)
 
         Args:
-            atom_assignments (dict): Maps atoms to the corresponding truth value (True, False)
-            weight (Weight): The weight function of the problem.
-            aliases (dict): Alias relationship between variables.
+            polytope (Polytope): A polytope (H-representation).
+            integrand (Integrand): The integrand function.
 
         Returns:
             real: The integration result.
+            bool: Was the result in cache?.
 
         """
         raise NotImplementedError()
 
     @abstractmethod
-    def integrate_batch(self, problems, *args, **kwargs):
-        """Integrates a batch of problems of the type {atom_assignments, weight, aliases}
+    def integrate_batch(self, integrals, *args, **kwargs):
+        """Integrates a list of (polytope, integrand)
 
         Args:
-            problems (list(atom_assignments, weight, aliases)): The list of problems to
-                integrate.
+            integrals (list(Polytope, Integrand)).
 
         Returns:
-            list(real): The list of integration results.
-            int: The number of cached results.
-
+            list(real): The list of integrals.
+            int: The number of cache hits.
 
         """
         raise NotImplementedError()

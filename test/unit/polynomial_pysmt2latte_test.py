@@ -20,7 +20,7 @@ def test_polynomial_constant():
     polynomial = Polynomial(expression, {})
     assert len(polynomial.monomials) == 1
     assert polynomial.variables == set()
-    assert polynomial.degree() == 0
+    assert polynomial.degree == 0
 
 
 def test_polynomial_as_monomial():
@@ -28,7 +28,7 @@ def test_polynomial_as_monomial():
     polynomial = Polynomial(expression, {})
     assert len(polynomial.monomials) == 1
     assert polynomial.variables == {"X"}
-    assert polynomial.degree() == v1
+    assert polynomial.degree == v1
 
 
 def test_polynomial_as_monomial_and_constants():
@@ -36,7 +36,7 @@ def test_polynomial_as_monomial_and_constants():
     polynomial = Polynomial(expression, {})
     assert len(polynomial.monomials) == 2
     assert polynomial.variables == {"X"}
-    assert polynomial.degree() == v2
+    assert polynomial.degree == v2
 
 
 def test_polynomial_with_multiple_monomials():
@@ -44,7 +44,7 @@ def test_polynomial_with_multiple_monomials():
     polynomial = Polynomial(expression, {})
     assert len(polynomial.monomials) == 3
     assert polynomial.variables == {"X", "Y"}
-    assert polynomial.degree() == max(v2, v1)
+    assert polynomial.degree == max(v2, v1)
 
 
 def test_polynomial_negate():
@@ -53,7 +53,7 @@ def test_polynomial_negate():
     polynomial.negate()
     assert len(polynomial.monomials) == 3
     assert polynomial.variables == {"X", "Y"}
-    assert polynomial.degree() == max(v2, v1)
+    assert polynomial.degree == max(v2, v1)
 
 
 def test_polynomial_monomials_same_variable():
@@ -61,7 +61,7 @@ def test_polynomial_monomials_same_variable():
     polynomial = Polynomial(expression, {})
     assert len(polynomial.monomials) == 4
     assert polynomial.variables == {"X", "Y"}
-    assert polynomial.degree() == max(v2, v1, v3)
+    assert polynomial.degree == max(v2, v1, v3)
 
 
 def test_polynomial_aliases():
@@ -70,7 +70,7 @@ def test_polynomial_aliases():
     polynomial = Polynomial(expression, alias)
     assert len(polynomial.monomials) == 3
     assert polynomial.variables == {"X", "Z"}
-    assert polynomial.degree() == max(v2, v1, v3)
+    assert polynomial.degree == max(v2, v1, v3)
 
 
 def test_polynomial_aliases_to_constant():
@@ -79,7 +79,7 @@ def test_polynomial_aliases_to_constant():
     polynomial = Polynomial(expression, alias)
     assert len(polynomial.monomials) == 1
     assert polynomial.variables == {"Y"}
-    assert polynomial.degree() == 1
+    assert polynomial.degree == 1
 
 
 def test_polynomial_aliases_circular_assignment():

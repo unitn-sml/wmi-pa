@@ -31,48 +31,39 @@ class Bound:
 
     """
 
-    def __init__(self, expression, aliases=None):
+    def __init__(self, expression):
         """Default constructor.
 
-        Takes as input a pysmt formula representing a linear inequality and
-            a dictionary of aliases to be substituted before the parsing.
-
         Args:
-            expression (FNode): The pysmt formula representing the inequality.
-            aliases (dict {FNode : FNode}): The dictionary containing the aliases
-                definitions.
+            expression (FNode): The pysmt formula representing a linear inequality.
 
         Raises:
             WMIParsingException: If the expression is not an inequality or the
                 polynomial has degree more than 1.
 
         """
-        if aliases is None:
-            aliases = {}
         if not (expression.is_le() or expression.is_lt()):
             raise WMIParsingException(WMIParsingException.NOT_AN_INEQUALITY, expression)
         left, right = expression.args()
         if right.is_real_constant():
             # Polynomial OP Constant
-            self._parse_expression(left, right, False, aliases)
+            self._parse_expression(left, right, False)
         elif left.is_real_constant():
             # Constant OP Polynomial
-            self._parse_expression(right, left, True, aliases)
+            self._parse_expression(right, left, True)
         else:
             # Polynomial1 OP Polynomial2  converted into  Polynomial1 - Polynomial2 OP 0
             self._parse_expression(
-                Plus(left, Times(Real(-1), right)), Real(0), False, aliases
+                Plus(left, Times(Real(-1), right)), Real(0), False
             )
 
-    def _parse_expression(self, polynomial, constant, negate, aliases):
+    def _parse_expression(self, polynomial, constant, negate):
         """Parse the expression representing the inequality.
 
         Args:
             polynomial (FNode): The pysmt formula representing the polynomial part.
             constant (FNode): The pysmt formula representing the constant part.
             negate (bool): If True the inequality will be flipped.
-            aliases (dict {FNode : FNode}): The dictionary containing the aliases
-                definitions.
 
         Raises:
             WMIParsingException: If the polynomial has degree more than 1.
@@ -80,7 +71,7 @@ class Bound:
         """
         assert constant.is_real_constant(), "Not a Real instance: " + str(constant)
         b = constant.constant_value()
-        poly = Polynomial(polynomial, aliases)
+        poly = Polynomial(polynomial)
 
         if negate:
             poly.negate()
@@ -94,6 +85,8 @@ class Bound:
         self.coefficients = {}
         self.constant = b
         if poly.degree() > 0:
+
+            # TODO review this part
             # After the alias substitutions, the polynomial may contain monomials of
             # degree 0, which must be moved to the constant part
             variable_monomials = []
@@ -166,7 +159,7 @@ class Polytope:
 
     """
 
-    def __init__(self, expressions, aliases=None):
+    def __init__(self, expressions):
         """Default constructor.
 
         Takes as input a list of pysmt formulas representing the linear
@@ -175,19 +168,15 @@ class Polytope:
         Args:
             expressions (list(FNode)): The list of pysmt formulas representing the
                 inequalities.
-            aliases (dict {FNode : FNode}): The dictionary containing the aliases
-                definitions.
 
         Raises:
             WMIParsingException: If one of the expressions is not an inequality or
                 its polynomial has degree > 1.
 
         """
-        if aliases is None:
-            aliases = {}
         self.bounds = []
         for expr in expressions:
-            b = Bound(expr, aliases)
+            b = Bound(expr)
             # After performing the aliases substitutions, the polynomials may be
             # simplified and have degree 0
             # In this case, ignore the inequality.
