@@ -243,10 +243,8 @@ class WMISolver:
                     atom = LE(right, left)
 
             # Add a bound if the atom is an inequality
-            assert(atom.is_le() or atom.is_lt()), f'wtf? {atom}'
-            bounds.append(atom)
-            #if atom.is_le() or atom.is_lt():
-            #    bounds.append(atom)
+            if atom.is_le() or atom.is_lt():
+                bounds.append(atom)
 
         polytope = Polytope(bounds)
 
