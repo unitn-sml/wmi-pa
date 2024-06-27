@@ -176,7 +176,7 @@ class Polytope:
         """
         self.bounds = []
         for expr in expressions:
-            b = Bound(expr)
+            b = Bound(expr)            
             # After performing the aliases substitutions, the polynomials may be
             # simplified and have degree 0
             # In this case, ignore the inequality.

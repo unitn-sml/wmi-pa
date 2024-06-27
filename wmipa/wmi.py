@@ -224,25 +224,12 @@ class WMISolver:
             raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
                                       aliases)
 
-        print("--------------------")
-        print("TA:", truth_assignment.items())
-        print()
-        print("G:", Gsub.edges)
-        print()
-        print("Order:", order)
-        print()
-        print("aliases:", aliases)
-        print()
-        print("Constants:", constants)        
-        print()
-        print("--------------------")
-
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
-        uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases, order, constants)
+        uncond_weight = self._apply_aliases(uncond_weight, aliases, order, constants)
 
         bounds = []
         for atom, value in truth_assignment.items():
-            atom = WMISolver._apply_aliases(atom, aliases, order, constants)
+            atom = self._apply_aliases(atom, aliases, order, constants)
             
             # Skip non-LRA atoms:
             if not atom.is_theory_relation():
@@ -269,8 +256,8 @@ class WMISolver:
 
         return polytope, integrand
 
-    @staticmethod
-    def _apply_aliases(expression, aliases, order, constants):
+
+    def _apply_aliases(self, expression, aliases, order, constants):
         """Substitute the aliases within the expression in the right order.
 
         Args:
@@ -294,7 +281,7 @@ class WMISolver:
         # remove when everything works.
         cvars = {v for v in expression.get_free_variables()
                  if v.symbol_type() == REAL}
-        assert(len(cvars - self.domain) == 0), f'wtf {cvars-self.domain}'
+        assert(len(cvars - set(self.domain)) == 0), f'wtf {cvars-set(self.domain)}'
 
         return expression
 
