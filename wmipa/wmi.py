@@ -195,44 +195,41 @@ class WMISolver:
 
         """
 
-        # Build a dependency graph of the alias substitutions
+        # build a dependency graph of the alias substitutions
+        # handle non-constant and constant definitions separately
         Gsub = nx.DiGraph()
-        constant_subs = {}
+        constants = {}
         aliases = {}
         for atom, value in truth_assignment.items():
-            # first infer the aliases (alias = expression) in the truth assignment
+            # first infer the relevant aliases (alias = expr) from the TA
             if value is True and atom.is_equals():
                 alias, expr = WMISolver._parse_alias(atom)
                 # check that there are no multiple assignments of the same alias
-                if alias not in aliases:
-                    aliases[alias] = expr
-                else:
+                if alias in aliases:
                     raise WMIParsingException(WMIParsingException.ALIAS_CLASH)
 
-        for x, alias_expr in aliases.items():
-            for y in alias_expr.get_free_variables():
-                # Create a node from the alias to every symbol inside it
-                Gsub.add_edge(x, y)
+                aliases[alias] = expr
+                for var in expr.get_free_variables():
+                    # Create a node from the alias to every symbol inside it
+                    Gsub.add_edge(alias, var)
                     
-            # If the alias substitution leads to a constant value (e.g: PI = 3.1415)
-            if len(alias_expr.get_free_variables()) == 0:
-                constant_subs.update({x: alias_expr})
+                # handle constant substitutions separately
+                if len(expr.get_free_variables()) == 0:
+                    constant.update({alias: expr})
 
-        # Get the nodes in topological order
+        # order of substitutions is determined by a topological sort of the digraph
         try:
-            sorted_substitutions = [
-                node for node in nx.topological_sort(Gsub) if node in aliases
-            ]
+            order = [node for node in nx.topological_sort(Gsub) if node in aliases]
         except nx.exception.NetworkXUnfeasible:
             raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
                                       aliases)
 
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
-        uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases)
+        uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases, order, constants)
 
         bounds = []
         for atom, value in truth_assignment.items():
-            atom = WMISolver._apply_aliases(atom, aliases)
+            atom = WMISolver._apply_aliases(atom, aliases, order, constants)
             
             # Skip non-LRA atoms:
             if not atom.is_theory_relation():
@@ -262,19 +259,25 @@ class WMISolver:
         return polytope, integrand
 
     @staticmethod
-    def _apply_aliases(expression, aliases):
+    def _apply_aliases(expression, aliases, order, constants):
         """Substitute the aliases within the expression in the right order.
 
         Args:
 
             expression (FNode): The pysmt expression to apply the aliases to.
-        
-            aliases (dict): The aliases to apply to the expression.
+
+            aliases (dict): Non-constant aliases definitions.
+
+            order (list): Substitution order.
+
+            constants (dict): Constant aliases definitions.
         """
-        # Apply all the substitutions
+        # apply all the non-constant substitutions in order
         for alias in sorted_substitutions:
             expression = expression.substitute({alias: aliases[alias]})
-        expression = expression.substitute(constant_subs)
+
+        # substitute all constants
+        expression = expression.substitute(constants)
 
         return expression
 
