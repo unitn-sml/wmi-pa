@@ -224,6 +224,17 @@ class WMISolver:
             raise WMIParsingException(WMIParsingException.CYCLIC_ALIASES,
                                       aliases)
 
+        print("--------------------")
+        print("TA:", truth_assignment.items())
+        print()
+        print("G:", Gsub.edges)
+        print()
+        print("Order:", order)
+        print()
+        print("Constants:", constants)
+        print()
+        print("--------------------")
+
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
         uncond_weight = WMISolver._apply_aliases(uncond_weight, aliases, order, constants)
 
