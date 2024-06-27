@@ -183,7 +183,7 @@ class CacheIntegrator(Integrator):
         values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
         cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
 
-        self.sequential_integration_time += setup_time + sum([results[pid][2] for pid in problem_id])
+        self.sequential_integration_time += setup_time + sum([0 if pid == EMPTY else results[pid][2] for pid in problem_id])
         self.parallel_integration_time += setup_time + time.time() - start_time
 
         return values, cached
