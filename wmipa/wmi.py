@@ -290,6 +290,12 @@ class WMISolver:
         # substitute all constants
         expression = expression.substitute(constants)
 
+        # TODO this snippet is for debugging purposes only.
+        # remove when everything works.
+        cvars = {v for v in expression.get_free_variables()
+                 if v.symbol_type() == REAL}
+        assert(len(cvars - self.domain) == 0), f'wtf {cvars-self.domain}'
+
         return expression
 
 
