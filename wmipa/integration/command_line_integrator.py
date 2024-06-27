@@ -90,11 +90,18 @@ class CommandLineIntegrator(CacheIntegrator):
                     # print("Res: {}".format(line))
                     return float(line.partition(": ")[-1].strip())
 
-            # error (possibly interrupted due to memory limit)
-            if "Cannot compute valuation for unbounded polyhedron." in ' '.join(lines):
+            txtblock = '\n'.join(lines)
+
+            if "The number of lattice points is 1." in txtblock:
+                return 0
+            elif "Empty polytope or unbounded polytope!" in txtblock:
+                error = WMIIntegrationException.OTHER_ERROR
+            elif "Cannot compute valuation for unbounded polyhedron." in txtblock:
                 error = WMIIntegrationException.UNBOUNDED_POLYHEDRON
             else:
+                # TODO: are we sure about this?
                 error = WMIIntegrationException.MEMORY_LIMIT
+
             raise WMIIntegrationException(error)
 
         return res
