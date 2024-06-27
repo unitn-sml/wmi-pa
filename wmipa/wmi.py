@@ -215,7 +215,7 @@ class WMISolver:
                     
                 # handle constant substitutions separately
                 if len(expr.get_free_variables()) == 0:
-                    constant.update({alias: expr})
+                    constants.update({alias: expr})
 
         # order of substitutions is determined by a topological sort of the digraph
         try:
