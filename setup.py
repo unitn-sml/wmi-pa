@@ -16,16 +16,13 @@ REQUIRED = [
     "networkx",
     "numpy",
     "PySMT>=0.9.6.dev53",
-    "sympy==1.9", # required for pyxadd engine
-    # test
-    "pytest",
-    "pytest-runner",
+    "sympy",
 ]
 
 # What packages are optional?
 EXTRAS = {
-    #        'sdd': ["pysdd"]
-    # "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
+    'test': ["pytest", "pytest-runner", "scipy"]
+    'nra': ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 
 here = os.path.abspath(os.path.dirname(__file__))
