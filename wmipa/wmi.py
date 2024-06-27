@@ -231,7 +231,9 @@ class WMISolver:
         print()
         print("Order:", order)
         print()
-        print("Constants:", constants)
+        print("aliases:", aliases)
+        print()
+        print("Constants:", constants)        
         print()
         print("--------------------")
 
