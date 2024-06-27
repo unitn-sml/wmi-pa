@@ -30,13 +30,13 @@ class CacheIntegrator(Integrator):
 
         n_threads (int): The number of threads to use when integrating
             a batch of problems.
-    
+
         stub_integrate (bool): If True, the values will not be
             computed (0 is returned) hashTable (ConcurrentHashTable):
             The concurrent hash table used for caching.
-    
+
         parallel_runtime (float): Integration runtime.
-    
+
         sequential_runtime (float): Runtime without parallelization.
 
     """
@@ -129,7 +129,7 @@ class CacheIntegrator(Integrator):
         values = [0.0 if pid == EMPTY else results[pid][0] for pid in problem_id]
         cached += sum([(pid == EMPTY) or results[pid][1] for pid in problem_id])
 
-        self.sequential_runtime += setup_time + sum([results[pid][2] for pid in problem_id])
+        self.sequential_runtime += setup_time + sum([0 if pid == EMPTY else results[pid][2] for pid in problem_id])
         self.parallel_runtime += setup_time + time.time() - start_time
 
         return values, cached
