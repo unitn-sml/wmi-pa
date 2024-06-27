@@ -11,7 +11,7 @@ y = Symbol("y", REAL)
 # fmt: off
 chi = And(
     GE(x, Real(0)),
-    Equals(y, Plus(x, Real(-2))),
+    Equals(y, Plus(x, Real(2))),
     LE(y, Real(4))
 )
 
@@ -42,7 +42,7 @@ print("Support:", chi.serialize())
 
 print()
 wmi = WMISolver(chi, w)
-result, n_integrations = wmi.computeWMI(phi, {x, y})
+result, n_integrations = wmi.computeWMI(phi, {x})
 print(
     "WMI \t result = {}, \t # integrations = {}".format(
         result, n_integrations
