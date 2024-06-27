@@ -273,7 +273,7 @@ class WMISolver:
             constants (dict): Constant aliases definitions.
         """
         # apply all the non-constant substitutions in order
-        for alias in sorted_substitutions:
+        for alias in order:
             expression = expression.substitute({alias: aliases[alias]})
 
         # substitute all constants
