@@ -271,19 +271,20 @@ class WMISolver:
             constants (dict): Constant aliases definitions.
         """
         # apply all the non-constant substitutions in order
+        new_expression = expression
         for alias in order:
-            expression = expression.substitute({alias: aliases[alias]})
+            new_expression = new_expression.substitute({alias: aliases[alias]})
 
         # substitute all constants
-        expression = expression.substitute(constants)
+        new_expression = new_expression.substitute(constants)
 
         # TODO this snippet is for debugging purposes only.
         # remove when everything works.
-        cvars = {v for v in expression.get_free_variables()
+        cvars = {v for v in new_expression.get_free_variables()
                  if v.symbol_type() == REAL}
-        assert(len(cvars - set(self.domain)) == 0), f'wtf {cvars-set(self.domain)}'
-
-        return expression
+        
+        assert(len(cvars - set(self.domain)) == 0)
+        return new_expression
 
 
     @staticmethod

@@ -197,7 +197,7 @@ class Polytope:
 
         """
         bounds = ["[" + str(b) + "]" for b in self.bounds]
-        return ", ".join(bounds)
+        return "\n".join(bounds)
 
     def is_empty(self):
         for i1 in range(len(self.bounds) - 1):
