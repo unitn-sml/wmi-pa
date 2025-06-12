@@ -1,3 +1,7 @@
+
+from .rejection import RejectionIntegrator
+
+'''
 from shutil import which
 
 
@@ -17,6 +21,4 @@ else:
     from .integrator import Integrator
     from .latte_integrator import LatteIntegrator
     from .volesti_integrator import VolestiIntegrator
-    from .integrand import Integrand
-    from .polynomial import Polynomial
-    from .polytope import Polytope
+'''

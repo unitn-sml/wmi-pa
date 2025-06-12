@@ -7,4 +7,4 @@ MathSAT needs to be manually installed via:
     pysmt-install --msat"""
     raise ImportError(IMPORT_ERR_MSG)
 
-from .wmi import WMISolver
+from .solver import WMISolver

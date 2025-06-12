@@ -9,33 +9,16 @@ from collections import defaultdict
 from functools import reduce
 
 from pysmt import operators as op
-from pysmt.operators import POW
 from pysmt.shortcuts import Solver
 from pysmt.simplifier import Simplifier
 from pysmt.typing import BOOL, REAL
 from pysmt.walkers import handles
-
-from wmipa.wmiexception import WMIParsingException, WMIRuntimeException
 
 try:
     from pysmt.operators import EXP
 except ImportError:
     EXP = None
 
-
-
-def is_pow(node):
-    """Test whether the node is the Pow operator
-        (this should be implemented in pysmt but is currently missing).
-
-    Args:
-        node (FNode): The node to examine.
-
-    Returns:
-        bool: True if the node is the Pow operator, False otherwise.
-
-    """
-    return node.node_type() == POW
 
 
 def is_exp(node):
@@ -50,62 +33,6 @@ def is_exp(node):
 
     """
     return node.node_type() == EXP
-
-
-def _gcd(a, b):
-    """Computes the greatest common divisor of two numbers using Euclid's Algorithm.
-
-    Example:
-        >>> _gcd(30, 18)
-        6
-
-    Args:
-        a (int): The first parameter.
-        b (int): The second parameter.
-
-    Returns:
-        int: The greatest common divisor of a and b.
-
-    """
-    while b:
-        a, b = b, a % b
-    return a
-
-
-def _lcm(a, b):
-    """Compute the lowest common multiple of two numbers.
-
-    Example:
-        >>> _lcm(12, 20)
-        60
-
-    Args:
-        a (int): The first parameter.
-        b (int): The second parameter.
-
-    Returns:
-        int: The lowest common multiple of a and b.
-
-    """
-    return a * b // _gcd(a, b)
-
-
-def lcmm(args):
-    """Computes the lowest common multiple of a list of numbers.
-
-    Example:
-        >>> lcmm([5, 15, 12])
-        60
-
-    Args:
-        args (list(int)): The list of numbers on which to compute the
-            lowest common multiple.
-
-    Returns:
-        int: The lowest common multiple of all the numbers in the list.
-
-    """
-    return reduce(_lcm, args)
 
 
 def is_atom(node):
@@ -188,7 +115,7 @@ class TermNormalizer:
             known_aliases_str = "\n".join(str(x) for x in self._known_aliases.keys())
             error_str = "Term {}\nnot found in\n{}".format(term.serialize(),
                                                            known_aliases_str)
-            raise WMIRuntimeException(WMIRuntimeException.OTHER_ERROR, error_str)
+            raise ValueError(error_str)
         return self._known_aliases[term]
 
 
