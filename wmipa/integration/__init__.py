@@ -1,5 +1,6 @@
 
 from .rejection import RejectionIntegrator
+from .latte import LattEIntegrator
 
 '''
 from shutil import which

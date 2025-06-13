@@ -41,7 +41,8 @@ class RejectionIntegrator:
 
         if len(valid_sample) > 0:
             # return the Monte Carlo estimate of the integral
-            result = np.mean(integrand.to_numpy()(valid_sample)) * (len(valid_sample) / len(sample))
+            volume = (len(valid_sample) / len(sample)) * np.prod(upper - lower)
+            result = np.mean(integrand.to_numpy()(valid_sample)) * volume
         else:
             result = 0.0
 
