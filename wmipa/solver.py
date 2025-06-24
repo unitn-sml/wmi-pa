@@ -27,17 +27,23 @@ class WMISolver:
     Attributes:
         weights (Weights): The representation of the weight function.
         chi (FNode): The pysmt formula that contains the support of the formula
-        integrator (Integrator or list(Integrator)): The integrator or the list of integrators to use.
+        integrator (Integrator): The integrator to use.
         simplifier (BooleanSimplifier): The class that simplifies the formula.
         normalizer (TermNormalizer): The class that normalizes LRA atoms.
 
     """
 
+    DEF_INTEGRATOR = RejectionIntegrator()
+
+
     def __init__(self, chi, w=smt.Real(1), integrator=None):
         self.chi = chi
         self.weights = Weights(w)
         self.weights_skeleton = self.weights.compute_skeleton()
-        self.integrator = integrator if integrator is not None else RejectionIntegrator()
+        if integrator is not None:
+            self.integrator = integrator
+        else:
+            self.integrator = self.DEF_INTEGRATOR
         self.normalizer = TermNormalizer()
         self.simplifier = BooleanSimplifier()
 
@@ -49,8 +55,7 @@ class WMISolver:
         for truth_assignment, nub in self.enumerate(phi):
             convex_integrals.append(self._assignment_to_integral(truth_assignment, domain))
             n_unassigned_bools.append(nub)
-
-        # multiply each volume by 2^(|A| - |mu^A|)
+        
         factors = [2 ** nb for nb in n_unassigned_bools]
         volume = self._integrate_batch(convex_integrals, factors)
         n_integrations = len(convex_integrals)
@@ -59,18 +64,18 @@ class WMISolver:
 
 
     def enumerate(self, phi):
-
         """Enumerates the convex fragments of (phi & support), using
         MathSAT's partial enumeration and structurally aware WMI
-        enumeration.
+        enumeration. Since the truth assignments (TA) are partial,
+        the number of unassigned Boolean variables is also returned.
 
         Yields:
-        <truth_assignment, # of unassigned Boolean variables>
+        <TA, n>
 
-        where truth_assignment is a dict {pysmt_atom : bool}
-
+        where:
+        - TA is dict {pysmt_atom : bool}
+        - n is int
         """
-
         # conjoin query and support
         formula = smt.And(phi, self.chi)
 
@@ -360,29 +365,33 @@ class WMISolver:
 if __name__ == '__main__':
 
     from pysmt.shortcuts import *
-
-if __name__ == '__main__':
-
-    from pysmt.shortcuts import *
-    from wmipa.datastructures import Polynomial, Polytope
-
     x = Symbol("x", REAL)
     y = Symbol("y", REAL)
 
     variables = [x, y]
 
-    h1 = LE(Real(0), x)
-    h2 = LE(Real(0), y)
-    h3 = LE(Plus(Times(Real(2), x), y), Real(1))
-    h4 = LE(Plus(Times(Real(2), y), x), Real(1))
+    b1 = LE(Real(0), x)
+    b2 = LE(Real(0), y)
+    b3 = LE(x, Real(1))
+    b4 = LE(y, Real(1))
+    bb = And(b1, b2, b3, b4)
+    
+    h1 = LE(Plus(x, y), Real(1))
+    h2 = LE(x, y)
+    h3 = LE(y, x)
 
-    chi = And(h1, h2, Or(h3, h4))
+    chi = And(bb, Or(h1, h2, h3))
+
     w = Real(1) #Plus(x, y)    
 
-    solver = WMISolver(chi, w)
+    solver1 = WMISolver(chi, w)
+    result1 = solver1.computeWMI(Bool(True), variables)
+    print("result1", result1)
 
-    result = solver.computeWMI(Bool(True), variables)
-    print("result", result)
+    solver2 = WMISolver(chi, w, integrator=LattEIntegrator())
+    result2 = solver2.computeWMI(Bool(True), variables)
+    print("result2", result2)
+
 
     
 

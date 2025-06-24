@@ -14,26 +14,6 @@ from pysmt.simplifier import Simplifier
 from pysmt.typing import BOOL, REAL
 from pysmt.walkers import handles
 
-try:
-    from pysmt.operators import EXP
-except ImportError:
-    EXP = None
-
-
-
-def is_exp(node):
-    """Test whether the node is the Exp operator
-    If the pysmt version does not support Exp, then return False
-
-    Args:
-        node (FNode): The node to examine.
-
-    Returns:
-        bool: True if the node is the Exp operator, False otherwise.
-
-    """
-    return node.node_type() == EXP
-
 
 def is_atom(node):
     return node.is_symbol(BOOL) or node.is_theory_relation()
@@ -44,23 +24,11 @@ def is_literal(node):
 
 
 def is_clause(formula):
-    return is_literal(formula) or (
-            formula.is_or() and all(is_literal(l) for l in formula.args())
-    )
+    return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
 
 
 def is_cnf(formula):
-    return is_clause(formula) or (
-            formula.is_and() and all(is_clause(c) for c in formula.args())
-    )
-
-
-def get_random_sum(n, m):
-    """Return a list of n numbers summing to m."""
-    res = [0] * n
-    for pos in random.choices(range(n), k=m):
-        res[pos] += 1
-    return res
+    return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))
 
 
 class TermNormalizer:
