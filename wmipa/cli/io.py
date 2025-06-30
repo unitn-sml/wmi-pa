@@ -10,16 +10,11 @@ except ImportError:
     EXP = None
 
 
-"""
-Original code from: https://github.com/weighted-model-integration/pywmi
-Copyright: Samuel Kolb
-
-
-"""
-
-
 class Density:
-    """Class representing a density, i.e., a WMI problem."""
+    """Class representing a density, i.e., a WMI problem.
+    Original code from: https://github.com/weighted-model-integration/pywmi
+    Copyright: Samuel Kolb
+    """
 
     def __init__(self, support, weight, domain, queries=None):
         """A density is a tuple (support, weight, domain, queries).

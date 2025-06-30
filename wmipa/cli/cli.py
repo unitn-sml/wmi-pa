@@ -4,6 +4,8 @@ import argparse
 
 from pysmt.shortcuts import Bool, REAL
 
+from time import time
+
 from wmipa import WMISolver
 from wmipa.cli.io import Density
 from wmipa.integration import *
@@ -34,13 +36,17 @@ else:
 density = Density.from_file(args.filename)
 variables = [v for v in density.domain if v.symbol_type() == REAL]
 
+t0 = time()
 solver = WMISolver(density.support,
                    density.weight,
                    integrator=integrator)
 
-Z = solver.computeWMI(Bool(True), variables)
-print(Z)
+Z = solver.computeWMI(Bool(True), variables)['wmi']
+print(f"Z: {Z}")
 
-for query in density.queries:
-    wmi_query = solver.computeWMI(query, variables)
-    print(wmi_query / Z)
+for i, query in enumerate(density.queries):
+    wmi_query = solver.computeWMI(query, variables)['wmi']
+    print(f"query{i}: {wmi_query / Z}")
+
+t1 = time() - t0
+print(f"time: {t1}")

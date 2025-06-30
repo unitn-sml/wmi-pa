@@ -57,10 +57,12 @@ class WMISolver:
             n_unassigned_bools.append(nub)
         
         factors = [2 ** nb for nb in n_unassigned_bools]
-        volume = self._integrate_batch(convex_integrals, factors)
-        n_integrations = len(convex_integrals)
+        wmi = np.sum(self.integrator.integrate_batch(convex_integrals) * factors,
+                     axis=-1)
+        
+        result = {'wmi' : wmi, 'npolys' : len(convex_integrals)}
 
-        return volume, n_integrations
+        return result
 
 
     def enumerate(self, phi):
@@ -124,10 +126,6 @@ class WMISolver:
                         curr_ta.update(ta_residual)
                         yield curr_ta, len(bool_atoms - curr_ta.keys())
 
-    def _integrate_batch(self, convex_integrals, factors):
-        results = self.integrator.integrate_batch(convex_integrals)
-        volume = np.sum(results * factors, axis=-1)
-        return volume
 
 
     def _assignment_to_integral(self, truth_assignment, domain):
