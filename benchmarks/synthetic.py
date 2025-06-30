@@ -1,5 +1,6 @@
 
 import numpy as np
+from os.path import join
 from pysmt.shortcuts import *
 
 from wmipa.cli.io import Density
@@ -108,7 +109,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('seed', type=int, help="Seed number")
-    parser.add_argument('--path', type=str, help="Density file path", default=None)
+    parser.add_argument('--directory', type=str, help="Output directory", default=".")
     parser.add_argument('--n_reals', type=int, help="# real vars", default=3)
     parser.add_argument('--n_bools', type=int, help="# boolean vars", default=3)
     parser.add_argument('--n_clauses', type=int, help="# CNF clauses", default=3)
@@ -120,11 +121,7 @@ if __name__ == '__main__':
     parser.add_argument('--cbounds', type=int, nargs=2, help="Bounds on coefficients", default=(-10,10))
     parser.add_argument('--max_monomials', type=int, help="Max. # of monomials", default=3)
 
-    args = parser.parse_args()
-    print("==================================================")
-    print(args)
-    print("==================================================")
-        
+    args = parser.parse_args()        
     reals = [Symbol(f"x{i}", REAL) for i in range(args.n_reals)]
     bools = [Symbol(f"a{i}", BOOL) for i in range(args.n_bools)]
 
@@ -149,6 +146,7 @@ if __name__ == '__main__':
     dstr += f"-cb{str(args.cbounds).replace(' ','')}"
     dstr += f"-mm{args.max_monomials}"
     dstr += f"-{args.seed}"
-    
-    path = args.path or f"{dstr}.json"
+
+    print(f"synthetic.py: generating {dstr}.")    
+    path = join(args.directory, f"{dstr}.json")
     Density(f, w, domain).to_file(path)
