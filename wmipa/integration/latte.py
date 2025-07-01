@@ -36,15 +36,12 @@ class LattEIntegrator:
     def integrate(self, polytope, polynomial):
 
         with TemporaryDirectory(dir=".") as tmpdir:
-            polytope_path = os.path.join(tmpdir, self._POLYTOPE_FILENAME)
-            polynomial_path = os.path.join(tmpdir, self._POLYNOMIAL_FILENAME)
-            output_path = os.path.join(tmpdir, self._OUTPUT_FILENAME)
+            polytope_path = os.path.abspath(os.path.join(tmpdir, self._POLYTOPE_FILENAME))
+            polynomial_path = os.path.abspath(os.path.join(tmpdir, self._POLYNOMIAL_FILENAME))
+            output_path = os.path.abspath(os.path.join(tmpdir, self._OUTPUT_FILENAME))
             LattEIntegrator._write_polytope_file(polytope, polytope_path)
             LattEIntegrator._write_polynomial_file(polynomial, polynomial_path)
-
-            # Change the CWD
-            original_cwd = os.getcwd()
-            os.chdir(tmpdir)
+            
             cmd = ["integrate", "--valuation=integrate", self.algorithm,
                    f"--monomials=" + polynomial_path, polytope_path,]
 
@@ -55,13 +52,9 @@ class LattEIntegrator:
                     # LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
-                    # print(open(output_file).read())
                     # TODO HANDLE THIS PROPERLY!!
-                    pass
 
                 result = LattEIntegrator._read_output_file(output_path)
-
-            os.chdir(original_cwd)
 
         if not result:
             raise RuntimeError("Unhandled error while executing LattE integrale.")
