@@ -94,7 +94,7 @@ class LattEIntegrator:
         f_lcmm = lambda vec : reduce(np.lcm, vec)
 
         mult = np.apply_along_axis(f_lcmm, 1, f_den(bA))
-        bA_int = (bA * mult[:, None]).astype(int)
+        bA_int = (bA * mult[:, None]).astype(long)
         bAm_int = np.concatenate((bA_int[:,0].reshape(-1,1),
                                   -bA_int[:,1:]), axis=1)
 
