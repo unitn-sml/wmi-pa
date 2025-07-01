@@ -25,6 +25,7 @@ for FILENAME in $(ls $INPUT_DIR)
 do
     echo "Computing "$FILENAME" with latte"
     timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME latte > $LATTE_DIR$FILENAME
+    rm -r tmp*
 done
 
 REJ_DIR=$OUTPUT_DIR"rej/"
@@ -33,6 +34,7 @@ for FILENAME in $(ls $INPUT_DIR)
 do
     echo "Computing "$FILENAME" with rejection"
     timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME rejection > $REJ_DIR$FILENAME
+    rm -r tmp*
 done
 
 ##### PLOT
