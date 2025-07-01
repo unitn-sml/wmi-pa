@@ -51,6 +51,7 @@ class LattEIntegrator:
             with open(output_path, "w") as f:
                 return_value = call(cmd, stdout=f, stderr=f)
                 if return_value != 0:
+                    print(f"LattE returned non-zero value: {return_value}")
                     # LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
