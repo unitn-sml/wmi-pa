@@ -1,0 +1,45 @@
+
+#!/bin/bash
+
+TIMEOUT=600 # seconds
+NINSTANCES=10
+
+MINREALS=3
+MAXREALS=8
+
+INPUT_DIR="./input/"
+OUTPUT_DIR="./output/"
+
+
+mkdir $INPUT_DIR
+for NREALS in $(seq $MINREALS $MAXREALS)
+do
+    for ID in $(seq 1 $NINSTANCES)
+    do
+	python3 ../synthetic.py $ID --directory $INPUT_DIR --n_reals $NREALS
+    done
+done
+
+mkdir $OUTPUT_DIR
+
+LATTE_DIR=$OUTPUT_DIR"latte/"
+mkdir $LATTE_DIR
+for FILENAME in $(ls $INPUT_DIR)
+do
+    echo "Computing "$FILENAME" with latte"
+    timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME latte > $LATTE_DIR$FILENAME
+    rm -r tmp*
+done
+
+REJ_DIR=$OUTPUT_DIR"rej/"
+mkdir $REJ_DIR
+for FILENAME in $(ls $INPUT_DIR)
+do
+    echo "Computing "$FILENAME" with rejection"
+    timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME rejection > $REJ_DIR$FILENAME
+    rm -r tmp*
+done
+
+XPATHS=$LATTE_DIR"*"
+YPATHS=$REJ_DIR"*"
+python3 ../plot.py --xpaths $XPATHS --ypaths $YPATHS --xlabel latte --ylabel rejection --timeout $TIMEOUT --logscale
