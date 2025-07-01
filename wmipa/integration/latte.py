@@ -41,6 +41,10 @@ class LattEIntegrator:
             output_path = os.path.abspath(os.path.join(tmpdir, self._OUTPUT_FILENAME))
             LattEIntegrator._write_polytope_file(polytope, polytope_path)
             LattEIntegrator._write_polynomial_file(polynomial, polynomial_path)
+
+            # Change the CWD (cause LattE creates a bunch of intermediate files)
+            original_cwd = os.getcwd()
+            os.chdir(tmpdir)
             
             cmd = ["integrate", "--valuation=integrate", self.algorithm,
                    f"--monomials=" + polynomial_path, polytope_path,]
@@ -55,6 +59,9 @@ class LattEIntegrator:
                     # TODO HANDLE THIS PROPERLY!!
 
                 result = LattEIntegrator._read_output_file(output_path)
+
+            # Change back to the original CWD
+            os.chdir(original_cwd)
 
         if not result:
             raise RuntimeError("Unhandled error while executing LattE integrale.")
