@@ -11,7 +11,7 @@ INPUT_DIR="./input/"
 OUTPUT_DIR="./output/"
 
 
-#mkdir $INPUT_DIR
+mkdir $INPUT_DIR
 #for NREALS in $(seq $MINREALS $MAXREALS)
 #do
 #    for ID in $(seq 1 $NINSTANCES)
@@ -19,7 +19,7 @@ OUTPUT_DIR="./output/"
 #	python3 ../synthetic.py $ID --directory $INPUT_DIR --n_reals $NREALS
 #    done
 #done
-#mkdir $OUTPUT_DIR
+mkdir $OUTPUT_DIR
 
 OLDPA_DIR=$OUTPUT_DIR"oldpa/"
 mkdir $OLDPA_DIR
