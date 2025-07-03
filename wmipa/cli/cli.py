@@ -41,12 +41,17 @@ solver = WMISolver(density.support,
                    density.weight,
                    integrator=integrator)
 
-Z = solver.computeWMI(Bool(True), variables)['wmi']
-print(f"Z: {Z}")
+result = solver.computeWMI(Bool(True), variables)
+tZ = time() - t0
+print(f"Z: {result['wmi']}")
+print(f"npolys: {result['npolys']}")
+print(f"time: {tZ}")
 
 for i, query in enumerate(density.queries):
-    wmi_query = solver.computeWMI(query, variables)['wmi']
-    print(f"query{i}: {wmi_query / Z}")
+    t0 = time()
+    result = solver.computeWMI(query, variables)
+    ti = time() - t0
+    print(f"query{i}: {result['wmi']}")
+    print(f"npolys{i}: {result['npolys']}")
+    print(f"time{i}: {ti}")
 
-t1 = time() - t0
-print(f"time: {t1}")

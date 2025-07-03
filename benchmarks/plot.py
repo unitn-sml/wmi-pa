@@ -6,7 +6,7 @@ import os
 
 plt.style.use("ggplot")
 
-FIELDS = ["Z", "time"]
+FIELDS = ["Z", "time", "npolys"]
 
 def parse_results(paths):
 
@@ -80,7 +80,7 @@ def error_plots(exact_results, approx_results, args):
         else:
             y = np.array([np.mean(error[cl]) for cl in classes])
             ystd = np.array([np.std(error[cl]) for cl in classes])
-            x = range(len(y))
+            x = list(map(int, classes))
             ax.plot(x, y, alpha=ALPHA, label=m)
             ax.fill_between(x, np.max([np.zeros(len(y)), y-ystd], axis=0), y+ystd, alpha=ALPHA / 2)
 
