@@ -114,6 +114,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_bools', type=int, help="# boolean vars", default=3)
     parser.add_argument('--n_clauses', type=int, help="# CNF clauses", default=3)
     parser.add_argument('--len_clauses', type=int, help="Length of CNF clauses", default=3)
+    parser.add_argument('--n_queries', type=int, help="# of queries", default=0)
     parser.add_argument('--p_bool', type=float, help="Probability of Boolean condition", default=0.5)
     parser.add_argument('--depth', type=int, help="Depth of the weight", default=3)
     parser.add_argument('--vbounds', type=int, nargs=2, help="Bounds on real variables", default=(0,1))
@@ -132,6 +133,12 @@ if __name__ == '__main__':
                       cbounds=args.cbounds, max_monomials=args.max_monomials,
                       p_bool=args.p_bool)
 
+    queries = []
+    for _ in range(args.n_queries):
+        q = random_cnf(reals, bools, args.n_clauses, args.len_clauses,
+                       seed=args.seed, bounds=args.vbounds, p_bool=args.p_bool)
+        queries.append(q)
+
     domain = {r : args.vbounds for r in reals}
     domain.update({b : None for b in bools})
 
@@ -145,8 +152,9 @@ if __name__ == '__main__':
     dstr += f"-db{str(args.dbounds).replace(' ','')}"
     dstr += f"-cb{str(args.cbounds).replace(' ','')}"
     dstr += f"-mm{args.max_monomials}"
+    dstr += f"-nq{args.n_queries}"
     dstr += f"-{args.seed}"
 
     print(f"synthetic.py: generating {dstr}.")    
     path = join(args.directory, f"{dstr}.json")
-    Density(f, w, domain).to_file(path)
+    Density(f, w, domain, queries).to_file(path)
