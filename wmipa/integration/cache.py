@@ -8,8 +8,8 @@ class CacheWrapper:
 
     def integrate(self, polytope, polynomial):
         key = CacheWrapper._compute_key(polytope, polynomial)
-        if key in cache:
-            return cache[key]
+        if key in self.cache:
+            return self.cache[key]
         else:
             return self.integrator.integrate(polytope, polynomial)
 
