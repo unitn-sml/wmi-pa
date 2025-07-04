@@ -10,28 +10,48 @@ from wmipa import WMISolver
 from wmipa.cli.io import Density
 from wmipa.integration import *
 
+
+def parse_integrator(args):
+
+    curr, _, rest = args.integrator.partition("-")
+
+    if len(curr) == 0:
+        # defaults to rejection
+        return RejectionIntegrator() 
+    elif len(rest) == 0:
+        # base integrator    
+        if curr == 'latte':        
+            return LattEIntegrator()
+        elif curr == 'rejection':
+            return RejectionIntegrator(n_samples=args.n_samples,
+                                       seed=args.seed)
+        else:
+            raise NotImplementedError()
+    else:
+        # wrapper around integrator
+        args.integrator = rest
+        if curr == "cache":
+            return CacheWrapper(parse_integrator(args))
+        elif curr == "axisaligned":
+            return AxisAlignedWrapper(parse_integrator(args))
+        else:
+            raise NotImplementedError()
+        
+
+    
+
 parser = argparse.ArgumentParser(
     prog="WMI-PA command line",
     description="Run WMI-PA on a given Density file")
 
 parser.add_argument('filename', type=str, help="Path to the input density file")
-subparsers = parser.add_subparsers(dest="integrator")
-subparsers.add_parser('latte')
-rej_parser = subparsers.add_parser('rejection')
-rej_parser.add_argument('--n_samples', type=int)
-rej_parser.add_argument('--seed', type=int)
+parser.add_argument('--integrator', type=str, default="", help="Integrator")
+parser.add_argument('--n_samples', type=int, help="# samples (for MC-based integrators)")
+parser.add_argument('--seed', type=int, help="seed (for randomized integrators)")
 
 args = parser.parse_args()
 
-if args.integrator == 'latte':
-    integrator = LattEIntegrator()
-elif args.integrator == 'rejection':
-    integrator = RejectionIntegrator(n_samples=args.n_samples,
-                                     seed=args.seed)
-else:
-    integrator = RejectionIntegrator()
-
-
+integrator = parse_integrator(args)
 
 density = Density.from_file(args.filename)
 variables = [v for v in density.domain if v.symbol_type() == REAL]
@@ -45,13 +65,17 @@ result = solver.computeWMI(Bool(True), variables)
 tZ = time() - t0
 print(f"Z: {result['wmi']}")
 print(f"npolys: {result['npolys']}")
-print(f"time: {tZ}")
+print(f"timeZ: {tZ}")
 
 for i, query in enumerate(density.queries):
-    t0 = time()
+    ti0 = time()
     result = solver.computeWMI(query, variables)
-    ti = time() - t0
+    tif = time() - tq0
     print(f"query{i}: {result['wmi']}")
     print(f"npolys{i}: {result['npolys']}")
-    print(f"time{i}: {ti}")
+    print(f"time{i}: {tif}")
+
+
+tfinal = time() - t0
+print(f"time: {tfinal}")
 
