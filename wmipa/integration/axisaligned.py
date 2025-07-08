@@ -1,4 +1,5 @@
 
+import numpy as np
 
 class AxisAlignedWrapper:
 
@@ -33,7 +34,7 @@ class AxisAlignedWrapper:
     @staticmethod
     def _constant_integrand(polynomial):
         if polynomial.degree == 0:
-            return polynomial.monomials.values()[0]
+            return list(polynomial.monomials.values())[0]
         else:
             return None
 
@@ -64,8 +65,8 @@ class AxisAlignedWrapper:
                 return None
             nvar, new_bound = nvb
             old_bound = bounds[nvar]
-            bounds[nvar] = [np.max(old_bound[0], new_bound[0]),
-                            np.min(old_bound[1], new_bound[1])]
+            bounds[nvar] = [max(old_bound[0], new_bound[0]),
+                            min(old_bound[1], new_bound[1])]
 
         barray = np.array(bounds)
         volume = np.sum(np.abs(np.subtract(barray[:,0], barray[:,1])))
