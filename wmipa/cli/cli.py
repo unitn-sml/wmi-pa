@@ -70,7 +70,7 @@ print(f"timeZ: {tZ}")
 for i, query in enumerate(density.queries):
     ti0 = time()
     result = solver.computeWMI(query, variables)
-    tif = time() - tq0
+    tif = time() - ti0
     print(f"query{i}: {result['wmi']}")
     print(f"npolys{i}: {result['npolys']}")
     print(f"time{i}: {tif}")
