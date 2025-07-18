@@ -15,9 +15,18 @@ class CacheWrapper:
             return self.integrator.integrate(polytope, polynomial)
 
     def integrate_batch(self, convex_integrals):
-        volumes = []
-        for polytope, polynomial in convex_integrals:
-            volumes.append(self.integrate(polytope, polynomial))
+        volumes = [None] * len(convex_integrals)
+        miss_indices, miss_batch = [], []
+        for i, conv_int in enumerate(convex_integrals):
+            key = CacheWrapper._compute_key(*conv_int)
+            if key in self.cache:
+                volumes[i] = self.cache[key]
+            else:
+                miss_indices.append(i)
+                miss_batch.append(conv_int)
+
+        for j, vol in enumerate(self.integrator.integrate_batch(miss_batch)):
+            volumes[miss_indices[j]] = vol
 
         return np.array(volumes)
 
