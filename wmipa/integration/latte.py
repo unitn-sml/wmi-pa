@@ -6,7 +6,7 @@ from functools import reduce
 import numpy as np
 import os
 from shutil import which
-from subprocess import call
+import subprocess
 from tempfile import TemporaryDirectory
 
 LATTE_INSTALLED = which("integrate") is not None
@@ -59,10 +59,10 @@ class LattEIntegrator:
             ]
 
             with open(output_path, "w") as f:
-                return_value = call(cmd, stdout=f, stderr=f)
-                if return_value != 0:
+                process_output = subprocess.run(cmd, stdout=f, stderr=f)
+                if process_output.returncode != 0:
                     print(f"LattE returned non-zero value: {return_value}")
-                    # LattE returns an exit status != 0 if the polytope is empty.
+                    # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
                     # TODO HANDLE THIS PROPERLY!!
