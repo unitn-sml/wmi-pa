@@ -27,10 +27,12 @@ def parse_integrator(args):
     else:
         # wrapper around integrator
         args.integrator = rest
-        if curr == "cache":
-            return CacheWrapper(parse_integrator(args))
-        elif curr == "axisaligned":
+        if curr == "axisaligned":
             return AxisAlignedWrapper(parse_integrator(args))
+        elif curr == "cache":
+            return CacheWrapper(parse_integrator(args))
+        elif curr == "parallel":
+            return ParallelWrapper(parse_integrator(args))
         else:
             raise NotImplementedError()
 
