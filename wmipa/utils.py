@@ -4,6 +4,7 @@ Credits: least common multiple code by J.F. Sebastian
     (http://stackoverflow.com/a/147539)
 
 """
+
 import random
 from collections import defaultdict
 from functools import reduce
@@ -24,11 +25,15 @@ def is_literal(node):
 
 
 def is_clause(formula):
-    return is_literal(formula) or (formula.is_or() and all(is_literal(l) for l in formula.args()))
+    return is_literal(formula) or (
+        formula.is_or() and all(is_literal(l) for l in formula.args())
+    )
 
 
 def is_cnf(formula):
-    return is_clause(formula) or (formula.is_and() and all(is_clause(c) for c in formula.args()))
+    return is_clause(formula) or (
+        formula.is_and() and all(is_clause(c) for c in formula.args())
+    )
 
 
 class TermNormalizer:
@@ -81,15 +86,16 @@ class TermNormalizer:
         """
         if term not in self._known_aliases:
             known_aliases_str = "\n".join(str(x) for x in self._known_aliases.keys())
-            error_str = "Term {}\nnot found in\n{}".format(term.serialize(),
-                                                           known_aliases_str)
+            error_str = "Term {}\nnot found in\n{}".format(
+                term.serialize(), known_aliases_str
+            )
             raise ValueError(error_str)
         return self._known_aliases[term]
 
 
 class BooleanSimplifier(Simplifier):
-    """Simplifier that only performs Boolean simplifications.
-    """
+    """Simplifier that only performs Boolean simplifications."""
+
     @handles(op.IRA_OPERATORS)
     @handles(op.IRA_RELATIONS)
     def walk_identity(self, formula, args, **kwargs):

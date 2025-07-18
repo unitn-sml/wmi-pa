@@ -1,16 +1,15 @@
-
 import numpy as np
 
-class AxisAlignedWrapper:
 
-    '''
+class AxisAlignedWrapper:
+    """
     Before calling a general self.integrator, checks if:
     - the polytope is axis-aligned
     - the integrand is constant
 
     possibly computing the integral in linear time.
 
-    '''
+    """
 
     def __init__(self, integrator):
         self.integrator = integrator
@@ -38,7 +37,6 @@ class AxisAlignedWrapper:
         else:
             return None
 
-
     @staticmethod
     def _axis_aligned_volume(polytope):
 
@@ -52,11 +50,13 @@ class AxisAlignedWrapper:
                 ckey, exp = inequality.polynomial.ordered_keys
                 const = monos[ckey]
                 coeff = monos[exp]
-                bound = [-const/coeff, np.inf] if coeff > 0 else [-np.inf, const/coeff]
+                bound = (
+                    [-const / coeff, np.inf] if coeff > 0 else [-np.inf, const / coeff]
+                )
                 return exp.index(1), bound
             else:
                 return None
-        
+
         bounds = [[-np.inf, np.inf] for _ in range(polytope.N)]
 
         for ineq in polytope.inequalities:
@@ -65,11 +65,13 @@ class AxisAlignedWrapper:
                 return None
             nvar, new_bound = nvb
             old_bound = bounds[nvar]
-            bounds[nvar] = [max(old_bound[0], new_bound[0]),
-                            min(old_bound[1], new_bound[1])]
+            bounds[nvar] = [
+                max(old_bound[0], new_bound[0]),
+                min(old_bound[1], new_bound[1]),
+            ]
 
         barray = np.array(bounds)
-        volume = np.sum(np.abs(np.subtract(barray[:,0], barray[:,1])))
+        volume = np.sum(np.abs(np.subtract(barray[:, 0], barray[:, 1])))
         if barray < np.inf:
             return barray
         else:

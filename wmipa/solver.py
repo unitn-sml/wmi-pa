@@ -34,7 +34,6 @@ class WMISolver:
     DEF_ENUMERATOR = MathSATEnumerator
     DEF_INTEGRATOR = RejectionIntegrator()
 
-
     def __init__(self, support, w=smt.Real(1), enumerator=None, integrator=None):
         self.support = support
         self.weights = Weights(w)
@@ -49,28 +48,29 @@ class WMISolver:
         else:
             self.integrator = self.DEF_INTEGRATOR
 
-
     def computeWMI(self, phi, domain, cache=-1):
 
         convex_integrals = []
         n_unassigned_bools = []
         for truth_assignment, nub in self.enumerator.enumerate(phi):
-            convex_integrals.append(self._assignment_to_integral(truth_assignment, domain))
+            convex_integrals.append(
+                self._assignment_to_integral(truth_assignment, domain)
+            )
             n_unassigned_bools.append(nub)
-        
-        factors = [2 ** nb for nb in n_unassigned_bools]
-        wmi = np.sum(self.integrator.integrate_batch(convex_integrals) * factors,
-                     axis=-1)
-        
-        result = {'wmi' : wmi, 'npolys' : len(convex_integrals)}
+
+        factors = [2**nb for nb in n_unassigned_bools]
+        wmi = np.sum(
+            self.integrator.integrate_batch(convex_integrals) * factors, axis=-1
+        )
+
+        result = {"wmi": wmi, "npolys": len(convex_integrals)}
 
         return result
-
 
     def _assignment_to_integral(self, truth_assignment, domain):
 
         uncond_weight = self.weights.weight_from_assignment(truth_assignment)
-        
+
         # build a dependency graph of the alias substitutions
         # handle non-constant and constant definitions separately
         Gsub = nx.DiGraph()
@@ -98,7 +98,7 @@ class WMISolver:
                 for var in expr.get_free_variables():
                     Gsub.add_edge(alias, var)
 
-                if len(expr.get_free_variables()) == 0: # constant handled separately
+                if len(expr.get_free_variables()) == 0:  # constant handled separately
                     constants.update({alias: expr})
 
         # order of substitutions is determined by a topological sort of the digraph
@@ -118,7 +118,7 @@ class WMISolver:
 
         inequalities = []
         for literal in convex_formula.args():
-            
+
             if literal.is_not():
                 negated_atom = literal.args()[0]
                 left, right = negated_atom.args()
@@ -148,9 +148,10 @@ class WMISolver:
         return polytope, integrand
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     from pysmt.shortcuts import *
+
     x = Symbol("x", REAL)
     y = Symbol("y", REAL)
 
@@ -161,14 +162,14 @@ if __name__ == '__main__':
     b3 = LE(x, Real(1))
     b4 = LE(y, Real(1))
     bb = And(b1, b2, b3, b4)
-    
+
     h1 = LE(Plus(x, y), Real(1))
     h2 = LE(x, y)
     h3 = LE(y, x)
 
     support = And(bb, Or(h1, h2, h3))
 
-    w = Real(1) #Plus(x, y)    
+    w = Real(1)  # Plus(x, y)
 
     solver1 = WMISolver(support, w)
     result1 = solver1.computeWMI(Bool(True), variables)
@@ -177,9 +178,3 @@ if __name__ == '__main__':
     solver2 = WMISolver(support, w, integrator=LattEIntegrator())
     result2 = solver2.computeWMI(Bool(True), variables)
     print("result2", result2)
-
-
-    
-
-    
-

@@ -1,6 +1,6 @@
-
 import pysmt.shortcuts as smt
 from wmipa.datastructures.polynomial import Polynomial
+
 
 class Equality:
 
@@ -18,7 +18,3 @@ class Equality:
 
     def to_pysmt(self):
         return smt.Equals(self.alias, self.expr.to_pysmt())
-
-
-        
-        

@@ -1,5 +1,5 @@
-
 import numpy as np
+
 
 class CacheWrapper:
 
@@ -23,4 +23,4 @@ class CacheWrapper:
 
     @staticmethod
     def _compute_key(polytope, polynomial):
-        return hash(str(polytope)+str(polynomial))
+        return hash(str(polytope) + str(polynomial))

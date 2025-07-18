@@ -1,4 +1,3 @@
-
 import mathsat
 import pysmt.shortcuts as smt
 
@@ -20,7 +19,6 @@ class MathSATEnumerator:
     @property
     def weights(self):
         return self.solver.weights
-        
 
     def enumerate(self, phi):
         """Enumerates the convex fragments of (phi & support), using
@@ -42,9 +40,12 @@ class MathSATEnumerator:
         atoms = smt.get_atoms(formula) | self.weights.get_atoms()
         bool_atoms, lra_atoms = set(), set()
         for a in atoms:
-            if a.is_symbol(smt.BOOL): bool_atoms.add(a)
-            elif a.is_theory_relation(): lra_atoms.add(a)
-            else: raise ValueError(f"Unhandled atom type: {a}")
+            if a.is_symbol(smt.BOOL):
+                bool_atoms.add(a)
+            elif a.is_theory_relation():
+                lra_atoms.add(a)
+            else:
+                raise ValueError(f"Unhandled atom type: {a}")
 
         # conjoin the skeleton of the weight function
         formula = smt.And(formula, self.weights_skeleton)
@@ -72,20 +73,32 @@ class MathSATEnumerator:
 
                 else:
                     # simplified formula is non-covex, requiring another enumeration pass
-                    residual_atoms = list({a for a in simplified_formula.get_free_variables()
-                                           if a.symbol_type() == smt.BOOL and a in bool_atoms})
-                    residual_atoms.extend(list({a for a in simplified_formula.get_atoms()
-                                                if a.is_theory_relation()}))
+                    residual_atoms = list(
+                        {
+                            a
+                            for a in simplified_formula.get_free_variables()
+                            if a.symbol_type() == smt.BOOL and a in bool_atoms
+                        }
+                    )
+                    residual_atoms.extend(
+                        list(
+                            {
+                                a
+                                for a in simplified_formula.get_atoms()
+                                if a.is_theory_relation()
+                            }
+                        )
+                    )
 
                     # may be both on LRA and boolean atoms
-                    for ta_residual in self._get_allsat(simplified_formula, residual_atoms):
+                    for ta_residual in self._get_allsat(
+                        simplified_formula, residual_atoms
+                    ):
                         curr_ta = dict(ta)
                         curr_ta.update(ta_residual)
                         yield curr_ta, len(bool_atoms - curr_ta.keys())
 
-
     def _get_allsat(self, formula, atoms, force_total=False):
-
         """
         Gets the list of assignments that satisfy the formula.
 
@@ -103,12 +116,16 @@ class MathSATEnumerator:
             result.append([converter.back(v) for v in model])
             return 1
 
-        msat_options = {
+        msat_options = (
+            {
                 "dpll.allsat_minimize_model": "true",
                 "dpll.allsat_allow_duplicates": "false",
                 "preprocessor.toplevel_propagation": "false",
                 "preprocessor.simplification": "0",
-            } if not force_total else {}
+            }
+            if not force_total
+            else {}
+        )
 
         # The current version of MathSAT returns a truth assignment on some
         # normalized version of the atoms instead of the original ones.
@@ -147,10 +164,9 @@ class MathSATEnumerator:
                         value = not value
                     known_aliases = self.normalizer.known_aliases(normalized_atom)
                     for original_atom, negated in known_aliases:
-                        assignments[original_atom] = (not value if negated else value)
+                        assignments[original_atom] = not value if negated else value
 
             yield assignments
-
 
     def _simplify_formula(self, formula, subs, truth_assignment):
         """Substitute the subs in the formula and iteratively simplify it.
@@ -189,7 +205,6 @@ class MathSATEnumerator:
             f_next = smt.And([f_next] + expressions)
         return is_convex, f_next
 
-
     @staticmethod
     def _plra_rec(formula, pos_polarity):
         """This method extract all sub formulas in the formula and returns them as a dictionary.
@@ -227,8 +242,12 @@ class MathSATEnumerator:
                 is_convex = rec_is_convex and is_convex
             return assignments, is_convex
         elif formula.is_implies() and not pos_polarity:
-            assignments, is_convex_left = MathSATEnumerator._plra_rec(formula.arg(0), True)
-            assignment_right, is_convex_right = MathSATEnumerator._plra_rec(formula.arg(1), False)
+            assignments, is_convex_left = MathSATEnumerator._plra_rec(
+                formula.arg(0), True
+            )
+            assignment_right, is_convex_right = MathSATEnumerator._plra_rec(
+                formula.arg(1), False
+            )
             assignments.update(assignment_right)
             return assignments, is_convex_left and is_convex_right
         else:

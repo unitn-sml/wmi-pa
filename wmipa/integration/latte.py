@@ -22,9 +22,9 @@ class LattEIntegrator:
     DEF_ALGORITHM = ALG_CONE_DECOMPOSE
     ALGORITHMS = [ALG_TRIANGULATE, ALG_CONE_DECOMPOSE]
 
-    _POLYNOMIAL_FILENAME = 'polynomial.txt'
-    _POLYTOPE_FILENAME = 'polytope.hrep'
-    _OUTPUT_FILENAME = 'output.txt'
+    _POLYNOMIAL_FILENAME = "polynomial.txt"
+    _POLYTOPE_FILENAME = "polytope.hrep"
+    _OUTPUT_FILENAME = "output.txt"
 
     def __init__(self, algorithm=DEF_ALGORITHM):
         if not LATTE_INSTALLED:
@@ -36,8 +36,12 @@ class LattEIntegrator:
     def integrate(self, polytope, polynomial):
 
         with TemporaryDirectory(dir=".") as tmpdir:
-            polytope_path = os.path.abspath(os.path.join(tmpdir, self._POLYTOPE_FILENAME))
-            polynomial_path = os.path.abspath(os.path.join(tmpdir, self._POLYNOMIAL_FILENAME))
+            polytope_path = os.path.abspath(
+                os.path.join(tmpdir, self._POLYTOPE_FILENAME)
+            )
+            polynomial_path = os.path.abspath(
+                os.path.join(tmpdir, self._POLYNOMIAL_FILENAME)
+            )
             output_path = os.path.abspath(os.path.join(tmpdir, self._OUTPUT_FILENAME))
             LattEIntegrator._write_polytope_file(polytope, polytope_path)
             LattEIntegrator._write_polynomial_file(polynomial, polynomial_path)
@@ -45,9 +49,14 @@ class LattEIntegrator:
             # Change the CWD (cause LattE creates a bunch of intermediate files)
             original_cwd = os.getcwd()
             os.chdir(tmpdir)
-            
-            cmd = ["integrate", "--valuation=integrate", self.algorithm,
-                   f"--monomials=" + polynomial_path, polytope_path,]
+
+            cmd = [
+                "integrate",
+                "--valuation=integrate",
+                self.algorithm,
+                f"--monomials=" + polynomial_path,
+                polytope_path,
+            ]
 
             with open(output_path, "w") as f:
                 return_value = call(cmd, stdout=f, stderr=f)
@@ -67,14 +76,12 @@ class LattEIntegrator:
             raise RuntimeError("Unhandled error while executing LattE integrale.")
         return result
 
-
     def integrate_batch(self, convex_integrals):
         volumes = []
         for polytope, polynomial in convex_integrals:
             volumes.append(self.integrate(polytope, polynomial))
 
         return np.array(volumes)
-
 
     @staticmethod
     def _write_polynomial_file(polynomial, path):
@@ -87,22 +94,20 @@ class LattEIntegrator:
             f.write("[" + ",".join(mono_str) + "]")
 
     @staticmethod
-    def _write_polytope_file(polytope, path):        
+    def _write_polytope_file(polytope, path):
         A, b = polytope.to_numpy()
         bA = np.concatenate((b.reshape(-1, 1), A), axis=1)
 
-        f_den = np.vectorize(lambda x : Fraction(x).denominator)
-        f_lcmm = lambda vec : reduce(np.lcm, vec)
+        f_den = np.vectorize(lambda x: Fraction(x).denominator)
+        f_lcmm = lambda vec: reduce(np.lcm, vec)
 
         mult = np.apply_along_axis(f_lcmm, 1, f_den(bA))
         bA_int = (bA * mult[:, None]).astype(int)
-        bAm_int = np.concatenate((bA_int[:,0].reshape(-1,1),
-                                  -bA_int[:,1:]), axis=1)
+        bAm_int = np.concatenate((bA_int[:, 0].reshape(-1, 1), -bA_int[:, 1:]), axis=1)
 
         with open(path, "w") as f:
             f.write(f"{bA.shape[0]} {bA.shape[1]}\n")
-            f.write("\n".join([" ".join(map(str, row))
-                               for row in bAm_int]))
+            f.write("\n".join([" ".join(map(str, row)) for row in bAm_int]))
 
     def lcmm(args):
 
@@ -110,10 +115,10 @@ class LattEIntegrator:
             while b:
                 a, b = b, a % b
             return a
-        
+
         def _lcm(a, b):
             return a * b // _gcd(a, b)
-        
+
         return reduce(_lcm, args)
 
     @staticmethod
@@ -127,7 +132,7 @@ class LattEIntegrator:
                     # print("Res: {}".format(line))
                     return float(line.partition(": ")[-1].strip())
 
-            txtblock = '\n'.join(lines)
+            txtblock = "\n".join(lines)
             if "The number of lattice points is 1." in txtblock:
                 return 0
             elif "Empty polytope or unbounded polytope!" in txtblock:
@@ -141,5 +146,3 @@ class LattEIntegrator:
             raise WMIIntegrationException(error)
 
         return res
-
-

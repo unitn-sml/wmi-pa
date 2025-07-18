@@ -1,9 +1,20 @@
-
 from pysmt.fnode import FNode
 import pysmt.operators as op
 from pysmt.oracles import AtomsOracle
 from pysmt.rewritings import nnf
-from pysmt.shortcuts import And, Bool, FreshSymbol, Not, Or, BOOL, REAL, get_env, simplify, serialize, substitute
+from pysmt.shortcuts import (
+    And,
+    Bool,
+    FreshSymbol,
+    Not,
+    Or,
+    BOOL,
+    REAL,
+    get_env,
+    simplify,
+    serialize,
+    substitute,
+)
 from pysmt.walkers import DagWalker, IdentityDagWalker, handles
 
 from wmipa.utils import is_atom
@@ -76,7 +87,9 @@ class Weights:
 
         # this condition contains, for example, the Times operator
         else:
-            new_children = (self._evaluate_weight(child, assignment) for child in node.args())
+            new_children = (
+                self._evaluate_weight(child, assignment) for child in node.args()
+            )
             return get_env().formula_manager.create_node(
                 node_type=node.node_type(), args=tuple(new_children)
             )
@@ -84,19 +97,17 @@ class Weights:
     def _evaluate_condition(self, condition, assignment):
         val = simplify(substitute(condition, assignment))
         assert val.is_bool_constant(), (
-                "Weight condition "
-                + serialize(condition)
-                + "\n\n cannot be evaluated with assignment "
-                + "\n".join([str((x, v)) for x, v in assignment.items()])
-                + "\n\n simplified into "
-                + serialize(condition)
+            "Weight condition "
+            + serialize(condition)
+            + "\n\n cannot be evaluated with assignment "
+            + "\n".join([str((x, v)) for x, v in assignment.items()])
+            + "\n\n simplified into "
+            + serialize(condition)
         )
         return val.constant_value()
 
     def __str__(self):
-        return ("Weight {"
-                "\t{weight}\n"
-                "}").format(
+        return ("Weight {" "\t{weight}\n" "}").format(
             weight=serialize(self.weight_func),
         )
 
@@ -111,9 +122,10 @@ class WeightAtomsFinder(AtomsOracle):
         return frozenset(x for a in args if a is not None for x in a)
 
 
-'''The following code is responsible for the generation of the "weight
+"""The following code is responsible for the generation of the "weight
 skeleton", as described in "Enhancing SMT-based Weighted Model
-Integration by structure awareness" (Spallitta et al., 2024). '''
+Integration by structure awareness" (Spallitta et al., 2024). """
+
 
 class WeightConverterSkeleton:
 
@@ -140,7 +152,7 @@ class WeightConverterSkeleton:
 
     def _process_ite(self, formula, branch_condition, conversion_list):
         phi, left, right = formula.args()
-        if is_atom(phi):            
+        if is_atom(phi):
             if branch_condition is not None:
                 l_cond = Or(branch_condition, Not(phi))
                 r_cond = Or(branch_condition, phi)
@@ -224,7 +236,11 @@ class CNFPreprocessor(IdentityDagWalker):
     def walk_implies(self, formula, args, **kwargs):
         left, right = formula.args()
         left_a, right_a = args
-        return self.walk_or(self.mgr.Or(self.mgr.Not(left), right), (self.mgr.Not(left_a), right_a), **kwargs)
+        return self.walk_or(
+            self.mgr.Or(self.mgr.Not(left), right),
+            (self.mgr.Not(left_a), right_a),
+            **kwargs
+        )
 
 
 class LabelCNFizer(DagWalker):
@@ -234,7 +250,7 @@ class LabelCNFizer(DagWalker):
         super().__init__(environment, invalidate_memoization=True)
         self.mgr = self.env.formula_manager
         self.preprocessor = CNFPreprocessor(env=self.env)
-        #self.cnf_labels = set()
+        # self.cnf_labels = set()
         self._introduced_variables = {}
 
     def _get_key(self, formula, cnf=None, **kwargs):
@@ -330,4 +346,3 @@ class LabelCNFizer(DagWalker):
     @handles(op.THEORY_OPERATORS)
     def walk_identity(self, formula, cnf=None, **kwargs):
         return formula
-

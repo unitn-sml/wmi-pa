@@ -1,5 +1,3 @@
-
-
 import argparse
 
 from pysmt.shortcuts import Bool, REAL
@@ -17,14 +15,13 @@ def parse_integrator(args):
 
     if len(curr) == 0:
         # defaults to rejection
-        return RejectionIntegrator() 
+        return RejectionIntegrator()
     elif len(rest) == 0:
-        # base integrator    
-        if curr == 'latte':        
+        # base integrator
+        if curr == "latte":
             return LattEIntegrator()
-        elif curr == 'rejection':
-            return RejectionIntegrator(n_samples=args.n_samples,
-                                       seed=args.seed)
+        elif curr == "rejection":
+            return RejectionIntegrator(n_samples=args.n_samples, seed=args.seed)
         else:
             raise NotImplementedError()
     else:
@@ -36,18 +33,18 @@ def parse_integrator(args):
             return AxisAlignedWrapper(parse_integrator(args))
         else:
             raise NotImplementedError()
-        
 
-    
 
 parser = argparse.ArgumentParser(
-    prog="WMI-PA command line",
-    description="Run WMI-PA on a given Density file")
+    prog="WMI-PA command line", description="Run WMI-PA on a given Density file"
+)
 
-parser.add_argument('filename', type=str, help="Path to the input density file")
-parser.add_argument('--integrator', type=str, default="", help="Integrator")
-parser.add_argument('--n_samples', type=int, help="# samples (for MC-based integrators)")
-parser.add_argument('--seed', type=int, help="seed (for randomized integrators)")
+parser.add_argument("filename", type=str, help="Path to the input density file")
+parser.add_argument("--integrator", type=str, default="", help="Integrator")
+parser.add_argument(
+    "--n_samples", type=int, help="# samples (for MC-based integrators)"
+)
+parser.add_argument("--seed", type=int, help="seed (for randomized integrators)")
 
 args = parser.parse_args()
 
@@ -57,9 +54,7 @@ density = Density.from_file(args.filename)
 variables = [v for v in density.domain if v.symbol_type() == REAL]
 
 t0 = time()
-solver = WMISolver(density.support,
-                   density.weight,
-                   integrator=integrator)
+solver = WMISolver(density.support, density.weight, integrator=integrator)
 
 result = solver.computeWMI(Bool(True), variables)
 tZ = time() - t0
@@ -78,4 +73,3 @@ for i, query in enumerate(density.queries):
 
 tfinal = time() - t0
 print(f"time: {tfinal}")
-
