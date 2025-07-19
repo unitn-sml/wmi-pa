@@ -77,4 +77,4 @@ class LatteInstaller(Installer):
         return remove_suffix(os.path.basename(self.filename), ".tar.gz")
 
     def add_to_path(self):
-        self.paths_to_export.append(f'PATH={self.install_path}/{self.get_dir()}/bin')
+        self.paths_to_export.append(f'{self.install_path}/{self.get_dir()}/bin')
