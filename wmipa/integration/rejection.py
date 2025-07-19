@@ -3,7 +3,6 @@ from scipy.optimize import linprog
 
 
 class RejectionIntegrator:
-
     DEF_N_SAMPLES = int(10e3)
 
     def __init__(self, n_samples=None, seed=None):
@@ -26,18 +25,16 @@ class RejectionIntegrator:
         lower, upper = [], []
         for i in range(polytope.N):
             cost = np.array([1 if j == i else 0 for j in range(polytope.N)])
-            res = linprog(cost, A_ub=A, b_ub=b)
+            res = linprog(cost, A_ub=A, b_ub=b, method='highs-ds')
             lower.append(res.x[i])
-            res = linprog(-cost, A_ub=A, b_ub=b)
+            res = linprog(-cost, A_ub=A, b_ub=b, method='highs-ds')
             upper.append(res.x[i])
 
         lower, upper = np.array(lower), np.array(upper)
 
-        # print("L", lower, "U", upper)
-
         # sample uniformly from the AA-BB and reject the samples outside the polytope
         sample = (
-            np.random.random((self.n_samples, polytope.N)) * (upper - lower) + lower
+                np.random.random((self.n_samples, polytope.N)) * (upper - lower) + lower
         )
         valid_sample = sample[np.all(sample @ A.T < b, axis=1)]
 
@@ -60,7 +57,6 @@ class RejectionIntegrator:
 
 
 if __name__ == "__main__":
-
     from pysmt.shortcuts import *
     from wmipa.datastructures import Polynomial, Polytope
 

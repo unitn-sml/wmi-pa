@@ -2,27 +2,27 @@ import itertools
 import sys
 
 import numpy as np
-import pytest
 from pysmt.shortcuts import LE, Plus, Real, Symbol, Times
 from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
-from wmipa.integration.latte_integrator import LatteIntegrator
-from wmipa.integration.volesti_integrator import VolestiIntegrator
+from wmipa.datastructures import Polynomial, Polytope
+from wmipa.integration import LattEIntegrator, RejectionIntegrator
 
 
-def _assignment_from_equations(A, b):
-    atom_assignment = {}
+def _polytope_from_inequalities(A, b):
+    inequalities = []
+    variables = {"x_{}".format(i): Symbol("x_{}".format(i), REAL) for i in range(A.shape[1])}
     for left, right in zip(A, b):
         left = Plus(
             [
-                Times(Real(float(c)), Symbol("x_{}".format(i), REAL))
+                Times(Real(float(c)), variables["x_{}".format(i)])
                 for i, c in enumerate(left)
             ]
         )
         right = Real(float(right))
-        atom_assignment[LE(left, right)] = True
-    return atom_assignment
+        inequalities.append(LE(left, right))
+    return inequalities, set(variables.values())
 
 
 def _unit_hypercube_equations(n):
@@ -33,7 +33,7 @@ def _unit_hypercube_equations(n):
 
 def axis_aligned_hypercube(n):
     A, b = _unit_hypercube_equations(n)
-    return _assignment_from_equations(A, b), 1.0
+    return _polytope_from_inequalities(A, b), 1.0
 
 
 def _rotation_matrix(i, j, theta, n):
@@ -69,16 +69,15 @@ def rotated_hypercube(n):
         A_, b_ = _hessian_normal(A, b)
         A = np.inner(A_, R)
         b = b_
-    return _assignment_from_equations(A, b), 1.0
+    return _polytope_from_inequalities(A, b), 1.0
 
 
 def _assignment_from_points(points):
     hull = ConvexHull(points)
-    print(f"Number of edges {len(hull.equations)}", file=sys.stderr)
     # use the hyperplanes' equations to generate the H-Polytope
     A, b = hull.equations[:, :-1], hull.equations[:, -1]
     volume = hull.volume
-    return _assignment_from_equations(A, -b), volume
+    return _polytope_from_inequalities(A, -b), volume
 
 
 def random_polytope(n):
@@ -97,7 +96,7 @@ def axis_aligned_cross_polytope(n):
 
 
 def pytest_generate_tests(metafunc):
-    argnames = ["polytope_assignment", "volume", "integrator"]
+    argnames = ["inequalities", "variables", "volume", "integrator"]
     argvalues = []
     idlist = []
     # axis_aligned_cube
@@ -108,32 +107,25 @@ def pytest_generate_tests(metafunc):
             axis_aligned_cross_polytope,
     ):
         for dim in (2, 3, 4):
-            polytope, volume = polytope_generator(dim)
+            (inequalities, variables), volume = polytope_generator(dim)
             # latte integrator
-            argvalues.append((polytope, volume, LatteIntegrator()))
+            argvalues.append((inequalities, variables, volume, LattEIntegrator()))
             idlist.append(
-                f"{'LatteIntegrator':>20} {polytope_generator.__name__:>25}"
+                f"{'LattEIntegrator':>20} {polytope_generator.__name__:>25}"
                 f"(n={dim})"
             )
-            # volesti integrator
-            walk_length = dim ** 3
-            argvalues.append((polytope, volume, VolestiIntegrator(seed=666, error=0.1, walk_length=None)))
+            # rejection integrator
+            argvalues.append((inequalities, variables, volume, RejectionIntegrator(n_samples=1000, seed=666)))
             idlist.append(
-                f"{'VolestiIntegrator':>20} {polytope_generator.__name__:>25}"
-                f"(n={dim}, error=0.1, walk_length=d^{walk_length})"
+                f"{'RejectionIntegrator':>20} {polytope_generator.__name__:>25}"
+                f"(n={dim}, n_samples=1000)"
             )
 
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_volume(polytope_assignment, volume, integrator):
-    weight = Real(1.0)
-    aliases = {}
-    cache = -1
-    print(polytope_assignment, file=sys.stderr)
-    result, _ = integrator.integrate(polytope_assignment, weight, aliases, cache)
-    if isinstance(integrator, VolestiIntegrator):
-        # add also an absolute tolerance as sometimes the results are not within the error
-        assert np.isclose(result, volume, atol=0.05, rtol=integrator.error)
-    else:
-        assert np.isclose(result, volume)
+def test_volume(inequalities, variables, volume, integrator):
+    polynomial = Polynomial(Real(1.0), variables)
+    polytope = Polytope(inequalities, variables)
+    result = integrator.integrate(polytope, polynomial)
+    assert np.isclose(result, volume), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"

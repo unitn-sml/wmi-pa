@@ -1,13 +1,14 @@
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
+import os
+import subprocess
 from fractions import Fraction
 from functools import reduce
-import numpy as np
-import os
 from shutil import which
-import subprocess
 from tempfile import TemporaryDirectory
+
+import numpy as np
 
 LATTE_INSTALLED = which("integrate") is not None
 
@@ -28,9 +29,9 @@ class LattEIntegrator:
 
     def __init__(self, algorithm=DEF_ALGORITHM):
         if not LATTE_INSTALLED:
-            raise RuntimeError("Can't execute LattE's 'integrate' command.")
+            raise RuntimeError("Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it.")
         if algorithm not in LattEIntegrator.ALGORITHMS:
-            raise ValueError(f"Algorithm should be one of {ALGORITHMS}.")
+            raise ValueError(f"Algorithm should be one of {self.ALGORITHMS}.")
         self.algorithm = algorithm
 
     def integrate(self, polytope, polynomial):
@@ -46,10 +47,6 @@ class LattEIntegrator:
             LattEIntegrator._write_polytope_file(polytope, polytope_path)
             LattEIntegrator._write_polynomial_file(polynomial, polynomial_path)
 
-            # Change the CWD (cause LattE creates a bunch of intermediate files)
-            original_cwd = os.getcwd()
-            os.chdir(tmpdir)
-
             cmd = [
                 "integrate",
                 "--valuation=integrate",
@@ -59,18 +56,15 @@ class LattEIntegrator:
             ]
 
             with open(output_path, "w") as f:
-                process_output = subprocess.run(cmd, stdout=f, stderr=f)
+                process_output = subprocess.run(cmd, stdout=f, stderr=f, cwd=tmpdir)
                 if process_output.returncode != 0:
-                    print(f"LattE returned non-zero value: {return_value}")
+                    raise RuntimeError(f"LattE returned non-zero value: {process_output.returncode}")
                     # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
                     # TODO HANDLE THIS PROPERLY!!
 
                 result = LattEIntegrator._read_output_file(output_path)
-
-            # Change back to the original CWD
-            os.chdir(original_cwd)
 
         if not result:
             raise RuntimeError("Unhandled error while executing LattE integrale.")
@@ -136,13 +130,12 @@ class LattEIntegrator:
             if "The number of lattice points is 1." in txtblock:
                 return 0
             elif "Empty polytope or unbounded polytope!" in txtblock:
-                error = WMIIntegrationException.OTHER_ERROR
-            elif "Cannot compute valuation for unbounded polyhedron." in txtblock:
-                error = WMIIntegrationException.UNBOUNDED_POLYHEDRON
+                error = "Empty or unbounded polytope"
+            elif "Given polyhedron is unbounded!" in txtblock:
+                error = "Unbounded polytope"
             else:
-                # TODO: are we sure about this?
-                error = WMIIntegrationException.MEMORY_LIMIT
+                error = "LattE reached an unexpected state (memory limit?)"
 
-            raise WMIIntegrationException(error)
+            raise RuntimeError(error + txtblock)
 
         return res

@@ -66,8 +66,39 @@ class Polynomial:
 
         return " + ".join(str_monos)
 
+    @classmethod
+    def _power_expand(cls, base_poly, exp_val):
+        """Expand (polynomial)^n by repeated multiplication"""
+        if exp_val == 0:
+            N = len(next(iter(base_poly.keys())))
+            return {tuple(0 for _ in range(N)): 1}
+
+        result = base_poly.copy()
+        for _ in range(exp_val - 1):
+            result = cls._multiply_polys(result, base_poly)
+
+        return result
+
     @staticmethod
-    def _parse(expr, variables):
+    def _multiply_polys(poly1, poly2):
+        """Multiply two polynomials represented as monomial dictionaries"""
+        result = {}
+        N = len(next(iter(poly1.keys()))) if poly1 else len(next(iter(poly2.keys())))
+
+        for expkey1, coeff1 in poly1.items():
+            for expkey2, coeff2 in poly2.items():
+                expkey_new = tuple(expkey1[i] + expkey2[i] for i in range(N))
+                coeff_new = coeff1 * coeff2
+
+                if expkey_new not in result:
+                    result[expkey_new] = coeff_new
+                else:
+                    result[expkey_new] += coeff_new
+
+        return result
+
+    @classmethod
+    def _parse(cls, expr, variables):
         N = len(variables)
         if expr.is_real_constant():
             expkey = tuple(0 for _ in range(N))
@@ -79,26 +110,21 @@ class Polynomial:
             coeff = 1
             monos = {expkey: coeff}
         elif is_pow(expr):
-            var, exp = expr.args()
-            expkey = tuple(0 if v != var else exp.constant_value() for v in variables)
-            coeff = 1
-            monos = {expkey: coeff}
+            base, exp = expr.args()
+            if not exp.is_constant(smt.REAL) or not (c := exp.constant_value()).is_integer() or c < 0:
+                raise ValueError(f"Exponent {exp} is not a non-negative integer constant in {expr.serialize()}")
+            exp_val = int(exp.constant_value())
+            if base.is_symbol(smt.REAL):
+                expkey = tuple(0 if v != base else exp_val for v in variables)
+                monos = {expkey: 1}
+            else:
+                base_poly = Polynomial._parse(base, variables)
+                monos = cls._power_expand(base_poly, exp_val)
         elif expr.is_times():
             args = expr.args()
             monofirst = Polynomial._parse(args[0], variables)
             monorest = Polynomial._parse(smt.Times(args[1:]), variables)
-            monoprod = {}
-            for expkey1, coeff1 in monofirst.items():
-                for expkey2, coeff2 in monorest.items():
-                    expkeynew = tuple(expkey1[i] + expkey2[i] for i in range(N))
-                    coeffnew = coeff1 * coeff2
-                    if expkeynew not in monoprod:
-                        monoprod[expkeynew] = coeffnew
-                    else:
-                        monoprod[expkeynew] += coeffnew
-
-            monos = monoprod
-
+            monos = cls._multiply_polys(monofirst, monorest)
         elif expr.is_plus():
             args = expr.args()
             monofirst = Polynomial._parse(args[0], variables)
@@ -118,13 +144,10 @@ class Polynomial:
         else:
             raise ValueError(f"Unhandled expression {expr}")
 
-        # print(f"expr: {expr} --- monos: {dict(monos)}")
         return dict(monos)
 
 
 if __name__ == "__main__":
-
-    import numpy as np
     from pysmt.shortcuts import *
 
     x = Symbol("x", REAL)

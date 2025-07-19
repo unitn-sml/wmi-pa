@@ -1,9 +1,7 @@
-import pytest
 from pysmt.shortcuts import Real, Ite, Symbol, Times, get_free_variables, GE, LE, Bool
 from pysmt.typing import BOOL, REAL
 
 from wmipa.weights import Weights
-from wmipa.wmiexception import WMIParsingException
 
 a = Symbol("A", BOOL)
 b = Symbol("B", BOOL)
@@ -54,9 +52,9 @@ def test_init():
 
     assert len(get_free_variables(weight.weight_func)) == len(get_free_variables(formula))
 
-    
+
 def test_init_not_correct_weight_function():
-    pass     # TODO? Check weight structure?
+    pass  # TODO? Check weight structure?
     '''
     formula = GE(x, v1)
     with pytest.raises(WMIParsingException):

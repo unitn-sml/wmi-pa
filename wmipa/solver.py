@@ -9,7 +9,6 @@ This WMI solver is based upon:
 __version__ = "1.1"
 __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 
-
 import networkx as nx
 import numpy as np
 import pysmt.shortcuts as smt
@@ -58,7 +57,7 @@ class WMISolver:
             )
             n_unassigned_bools.append(nub)
 
-        factors = [2**nb for nb in n_unassigned_bools]
+        factors = [2 ** nb for nb in n_unassigned_bools]
         wmi = np.sum(
             self.integrator.integrate_batch(convex_integrals) * factors, axis=-1
         )
@@ -82,13 +81,13 @@ class WMISolver:
             if atom.is_le() or atom.is_lt():
                 inequalities.append(atom if truth_value else smt.Not(atom))
             elif atom.is_equals() and truth_value:
-                left, right = equality.args()
+                left, right = atom.args()
                 if left.is_symbol(smt.REAL):
                     alias, expr = left, right
                 elif right.is_symbol(smt.REAL):
                     alias, expr = right, left
                 else:
-                    raise ValueError("Malformed alias {equality}")
+                    raise ValueError(f"Malformed alias {atom}")
 
                 if alias in aliases:
                     msg = f"Multiple aliases {alias}:\n1) {expr}\n2) {aliases[alias]}"
@@ -100,6 +99,10 @@ class WMISolver:
 
                 if len(expr.get_free_variables()) == 0:  # constant handled separately
                     constants.update({alias: expr})
+            elif atom.is_symbol(smt.BOOL):
+                pass
+            else:
+                raise ValueError(f"Unsupported atom in assignment: {atom}")
 
         # order of substitutions is determined by a topological sort of the digraph
         try:
@@ -107,7 +110,7 @@ class WMISolver:
         except nx.exception.NetworkXUnfeasible:
             raise ValueError("Cyclic aliases definition")
 
-        convex_formula = smt.And(*inequalities)
+        convex_formula = smt.And(inequalities)
         for alias in order:
             convex_formula = convex_formula.substitute({alias: aliases[alias]})
             uncond_weight = uncond_weight.substitute({alias: aliases[alias]})
@@ -149,7 +152,6 @@ class WMISolver:
 
 
 if __name__ == "__main__":
-
     from pysmt.shortcuts import *
 
     x = Symbol("x", REAL)
