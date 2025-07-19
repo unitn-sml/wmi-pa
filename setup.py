@@ -17,7 +17,6 @@ REQUIRED = [
     "numpy",
     "PySMT>=0.9.6.dev53",
     "scipy",
-    "sympy",
 ]
 
 # What packages are optional?
