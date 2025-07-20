@@ -1,23 +1,31 @@
 import numpy as np
-from pysmt.shortcuts import GE, LE, And, Bool, Equals, FreshSymbol, Iff, Ite, Not, Or, Plus, Real, Symbol, Times
+import pysmt.shortcuts as smt
 from pysmt.typing import BOOL, REAL
 
 from wmipa import WMISolver
 from wmipa.integration import LattEIntegrator
 
-a = Symbol("A", BOOL)
-b = Symbol("B", BOOL)
-c = Symbol("C", BOOL)
-d = Symbol("D", BOOL)
-e = Symbol("E", BOOL)
-x = Symbol("x", REAL)
-y = Symbol("y", REAL)
-z = Symbol("z", REAL)
-phi = Bool(True)
+a = smt.Symbol("A", BOOL)
+b = smt.Symbol("B", BOOL)
+c = smt.Symbol("C", BOOL)
+d = smt.Symbol("D", BOOL)
+e = smt.Symbol("E", BOOL)
+x = smt.Symbol("x", REAL)
+y = smt.Symbol("y", REAL)
+z = smt.Symbol("z", REAL)
+phi = smt.Bool(True)
+r0 = smt.Real(0)
+r1 = smt.Real(1)
+rn1 = smt.Real(-1)
+r2 = smt.Real(2)
+rn2 = smt.Real(-2)
+r3 = smt.Real(3)
+rn3 = smt.Real(-3)
+r4 = smt.Real(4)
 
 
 def test_no_booleans_constant_weight():
-    chi = And(GE(x, Real(0)), LE(x, Real(1)))
+    chi = smt.And(smt.GE(x, r0), smt.LE(x, r1))
 
     wmi = WMISolver(chi, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -26,9 +34,9 @@ def test_no_booleans_constant_weight():
 
 
 def test_no_booleans_condition_weight():
-    chi = And(GE(x, Real(0)), LE(x, Real(1)))
+    chi = smt.And(smt.GE(x, r0), smt.LE(x, r1))
 
-    w = Ite(LE(x, Real(0.5)), x, Times(Real(-1), x))
+    w = smt.Ite(smt.LE(x, smt.Real(0.5)), x, smt.Times(rn1, x))
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -37,7 +45,7 @@ def test_no_booleans_condition_weight():
 
 
 def test_booleans_constant_weight():
-    chi = And(Iff(a, GE(x, Real(0))), GE(x, Real(-2)), LE(x, Real(1)))
+    chi = smt.And(smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn2), smt.LE(x, r1))
 
     wmi = WMISolver(chi, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -46,9 +54,13 @@ def test_booleans_constant_weight():
 
 
 def test_boolean_condition_weight():
-    chi = And(Iff(a, GE(x, Real(0))), GE(x, Real(-1)), LE(x, Real(1)))
+    chi = smt.And(smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn1), smt.LE(x, r1))
 
-    w = Ite(LE(x, Real(-0.5)), x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
+    w = smt.Ite(
+        smt.LE(x, smt.Real(-0.5)),
+        x,
+        smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)),
+    )
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -57,16 +69,20 @@ def test_boolean_condition_weight():
 
 
 def test_boolean_and_not_simplify():
-    chi = And(
-        Iff(a, GE(x, Real(0))),
-        Or(
-            And(GE(x, Real(-3)), LE(x, Real(-2))),
-            And(GE(x, Real(-1)), LE(x, Real(1))),
-            And(GE(x, Real(2)), LE(x, Real(3))),
+    chi = smt.And(
+        smt.Iff(a, smt.GE(x, r0)),
+        smt.Or(
+            smt.And(smt.GE(x, rn3), smt.LE(x, rn2)),
+            smt.And(smt.GE(x, rn1), smt.LE(x, r1)),
+            smt.And(smt.GE(x, r2), smt.LE(x, r3)),
         ),
     )
 
-    w = Ite(LE(x, Real(-0.5)), x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
+    w = smt.Ite(
+        smt.LE(x, smt.Real(-0.5)),
+        x,
+        smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)),
+    )
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -75,9 +91,11 @@ def test_boolean_and_not_simplify():
 
 
 def test_not_boolean_satisfiable():
-    chi = And(Iff(a, GE(x, Real(0))), GE(x, Real(-1)), LE(x, Real(1)), b, Not(b))
+    chi = smt.And(
+        smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn1), smt.LE(x, r1), b, smt.Not(b)
+    )
 
-    w = Ite(b, x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
+    w = smt.Ite(b, x, smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)))
 
     wmi = WMISolver(chi, w)
     ans = wmi.computeWMI(phi, {x})
@@ -86,9 +104,14 @@ def test_not_boolean_satisfiable():
 
 
 def test_not_lra_satisfiable():
-    chi = And(Iff(a, GE(x, Real(0))), GE(x, Real(-1)), LE(x, Real(1)), GE(x, Real(2)))
+    chi = smt.And(
+        smt.Iff(a, smt.GE(x, r0)),
+        smt.GE(x, rn1),
+        smt.LE(x, r1),
+        smt.GE(x, r2),
+    )
 
-    w = Ite(b, x, Ite(a, Times(Real(-1), x), Times(Real(2), x)))
+    w = smt.Ite(b, x, smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)))
 
     wmi = WMISolver(chi, w)
     ans = wmi.computeWMI(phi, {x})
@@ -97,16 +120,16 @@ def test_not_lra_satisfiable():
 
 
 def test_multiplication_in_weight():
-    chi = And(
-        Iff(a, GE(x, Real(0))),
-        Or(
-            And(GE(x, Real(-3)), LE(x, Real(-2))),
-            And(GE(x, Real(-1)), LE(x, Real(1))),
-            And(GE(x, Real(2)), LE(x, Real(3))),
+    chi = smt.And(
+        smt.Iff(a, smt.GE(x, r0)),
+        smt.Or(
+            smt.And(smt.GE(x, rn3), smt.LE(x, rn2)),
+            smt.And(smt.GE(x, rn1), smt.LE(x, r1)),
+            smt.And(smt.GE(x, r2), smt.LE(x, r3)),
         ),
     )
 
-    w = Times(Ite(a, x, Times(x, Real(-1))), x)
+    w = smt.Times(smt.Ite(a, x, smt.Times(x, rn1)), x)
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -115,7 +138,7 @@ def test_multiplication_in_weight():
 
 
 def test_aliases():
-    chi = And(GE(x, Real(0)), Equals(y, Plus(x, Real(-2))), LE(y, Real(4)))
+    chi = smt.And(smt.GE(x, r0), smt.Equals(y, smt.Plus(x, rn2)), smt.LE(y, r4))
     w = y
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
@@ -126,7 +149,7 @@ def test_aliases():
 
 
 def test_aliases_leads_to_not_sat():
-    chi = And(GE(x, Real(0)), LE(x, Real(2)), Equals(y, x), LE(x - y, Real(-2)))
+    chi = smt.And(smt.GE(x, r0), smt.LE(x, r2), smt.Equals(y, x), smt.LE(x - y, rn2))
 
     wmi = WMISolver(chi, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x})
@@ -136,11 +159,11 @@ def test_aliases_leads_to_not_sat():
 
 
 def test_double_assignment_same_variable_no_theory_consistent():
-    chi = And(
-        GE(x, Real(0)),
-        Equals(y, Plus(x, Real(-2))),
-        Equals(y, Plus(x, Real(5))),
-        LE(y, Real(4)),
+    chi = smt.And(
+        smt.GE(x, r0),
+        smt.Equals(y, smt.Plus(x, rn2)),
+        smt.Equals(y, smt.Plus(x, smt.Real(5))),
+        smt.LE(y, r4),
     )
 
     wmi = WMISolver(chi, integrator=LattEIntegrator())
@@ -151,21 +174,21 @@ def test_double_assignment_same_variable_no_theory_consistent():
 
 
 def test_reserved_variables_name():
-    a = Symbol("wmi_1_a", BOOL)
-    b = Symbol("cond_a", BOOL)
-    x = Symbol("query_45", REAL)
-    y = FreshSymbol(REAL)
+    a = smt.Symbol("wmi_1_a", BOOL)
+    b = smt.Symbol("cond_a", BOOL)
+    x = smt.Symbol("query_45", REAL)
+    y = smt.FreshSymbol(REAL)
 
-    chi = And(
-        GE(x, Real(0)),
-        LE(x, Real(2)),
-        GE(y, Real(2)),
-        LE(y, Real(4)),
-        Iff(a, LE(x, Real(1))),
-        Iff(b, LE(y, Real(3))),
+    chi = smt.And(
+        smt.GE(x, r0),
+        smt.LE(x, r2),
+        smt.GE(y, r2),
+        smt.LE(y, r4),
+        smt.Iff(a, smt.LE(x, r1)),
+        smt.Iff(b, smt.LE(y, r3)),
     )
 
-    w = Ite(a, x, y)
+    w = smt.Ite(a, x, y)
 
     wmi = WMISolver(chi, w, integrator=LattEIntegrator())
     ans = wmi.computeWMI(phi, {x, y})

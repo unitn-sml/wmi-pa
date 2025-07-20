@@ -36,7 +36,14 @@ class WMISolver:
     DEF_ENUMERATOR = MathSATEnumerator
     DEF_INTEGRATOR = RejectionIntegrator()
 
-    def __init__(self, support, w=smt.Real(1), enumerator=None, integrator=None):
+    def __init__(
+        self,
+        support: FNode,
+        weight: FNode | None = None,
+        enumerator = None,
+        integrator = None,
+        env: Environment | None = None,
+    ):
         self.support = support
 
         if env is not None:
