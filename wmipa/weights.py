@@ -1,18 +1,12 @@
+from typing import Generator, Collection
+
 import pysmt.operators as op
+from pysmt.environment import Environment
 from pysmt.fnode import FNode
+from pysmt.formula import FormulaManager
 from pysmt.oracles import AtomsOracle
 from pysmt.rewritings import NNFizer
-from pysmt.shortcuts import (
-    Bool,
-    FreshSymbol,
-    Not,
-    Or,
-    BOOL,
-    get_env,
-    simplify,
-    serialize,
-    substitute,
-)
+from pysmt.shortcuts import Bool, FreshSymbol, Not, Or, BOOL, simplify, serialize, substitute
 from pysmt.walkers import DagWalker, IdentityDagWalker, handles, TreeWalker
 
 from wmipa.utils import is_atom
@@ -27,7 +21,7 @@ class Weights:
         weight_func (FNode): The pysmt formula that represents the weight function.
     """
 
-    def __init__(self, weight_func):
+    def __init__(self, weight_func: FNode):
         """Initializes the weight object.
 
         Args:
@@ -35,15 +29,16 @@ class Weights:
         """
         self.weight_func = weight_func
         self.atoms_finder = WeightAtomsFinder()
+        self.evaluator = WeightsEvaluator(self.weight_func)
 
-    def compute_skeleton(self):
+    def compute_skeleton(self) -> FNode:
         return WeightConverterSkeleton().convert(self.weight_func)
 
-    def get_atoms(self):
+    def get_atoms(self) -> Collection[FNode]:
         atoms = self.atoms_finder.get_atoms(self.weight_func)
         return atoms if atoms is not None else frozenset([])
 
-    def weight_from_assignment(self, assignment):
+    def weight_from_assignment(self, assignment: dict[FNode, bool]) -> FNode:
         """Given a truth assignment of the conditions inside the weight function,
             this method evaluates the resulting value based on the assignment.
 
@@ -54,60 +49,65 @@ class Weights:
         Returns:
             FNode: The result of the weight function on the given assignment.
         """
-        assignment = {atom: Bool(v) for atom, v in assignment.items()}
+        return self.evaluator.evaluate(assignment)
 
-        return self._evaluate_weight(self.weight_func, assignment)
+    def __str__(self):
+        return "Weight {" "\t{weight}\n" "}".format(
+            weight=serialize(self.weight_func),
+        )
 
-    def _evaluate_weight(self, node, assignment):
-        """Evaluates the value of the given formula applied to the given assignment.
 
-        Args:
-            node (FNode): The pysmt formula representing (part of) the weight function.
-            assignment (list(bool)): The dictionary containing the truth value of
-                each assignment.
+class WeightsEvaluator(TreeWalker):
+    """This class evaluates a weight function given a truth assignment of the conditions inside the
+        weight function.
+    """
 
-        Returns:
-            FNode: The result of the formula representing (part of) the weight function
-                applied to the given assignment.
+    def __init__(self, weight_func: FNode, env: Environment | None = None):
+        super().__init__(env)
+        self.mgr: FormulaManager = self.env.formula_manager
+        self.weight_node: FNode = weight_func
 
+        self.assignment: dict[FNode, FNode] = {}
+        self.result: list[FNode] = []  # stack to store the results of the evaluation
+
+    def evaluate(self, assignment: dict[FNode, bool]) -> FNode:
+        """Evaluate the weight function given a truth assignment of the conditions inside the
+            weight function.
         """
-        if node.is_ite():
-            cond, then, _else = node.args()
-            value = self._evaluate_condition(cond, assignment)
-            if value:
-                return self._evaluate_weight(then, assignment)
-            else:
-                return self._evaluate_weight(_else, assignment)
+        self.result.clear()
+        self.assignment = {atom: Bool(v) for atom, v in assignment.items()}
+        self.walk(self.weight_node)
+        assert len(self.result) == 1, f"Expected a single result, got {self.result}"
+        return self.result.pop()
 
-        # found a leaf, return it
-        elif len(node.args()) == 0:
-            return node
+    def walk_ite(self, formula: FNode) -> Generator[FNode, None, None]:
+        cond, then, _else = formula.args()
+        value = self._evaluate_condition(cond)
+        yield then if value else _else  # recursion on the branch that is True
 
-        # this condition contains, for example, the Times operator
-        else:
-            new_children = (
-                self._evaluate_weight(child, assignment) for child in node.args()
-            )
-            return get_env().formula_manager.create_node(
-                node_type=node.node_type(), args=tuple(new_children)
-            )
+    @handles(op.SYMBOL)
+    @handles(op.CONSTANTS)
+    def walk_leaf(self, formula: FNode) -> None:
+        self.result.append(formula)
 
-    def _evaluate_condition(self, condition, assignment):
-        val = simplify(substitute(condition, assignment))
+    @handles(op.IRA_OPERATORS)
+    def walk_operator(self, formula: FNode) -> Generator[FNode, None, None]:
+        for arg in formula.args():
+            yield arg  # recurse on children
+        new_children = (self.result.pop() for _ in formula.args())
+        self.result.append(self.mgr.create_node(node_type=formula.node_type(), args=tuple(new_children)))
+
+    def _evaluate_condition(self, condition: FNode) -> bool:
+        val = simplify(substitute(condition, self.assignment))
         assert val.is_bool_constant(), (
                 "Weight condition "
                 + serialize(condition)
                 + "\n\n cannot be evaluated with assignment "
-                + "\n".join([str((x, v)) for x, v in assignment.items()])
+                + "\n".join([str((x, v)) for x, v in self.assignment.items()])
                 + "\n\n simplified into "
                 + serialize(condition)
         )
         return val.constant_value()
-
-    def __str__(self):
-        return ("Weight {" "\t{weight}\n" "}").format(
-            weight=serialize(self.weight_func),
-        )
 
 
 class WeightAtomsFinder(AtomsOracle):
