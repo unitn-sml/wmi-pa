@@ -1,21 +1,31 @@
+from typing import Collection
+
 import numpy as np
-from pysmt.shortcuts import LT, And, Bool, Plus, Real, Symbol, Times, REAL
+from pysmt.environment import Environment
+from pysmt.fnode import FNode
+
 from wmipa.datastructures.inequality import Inequality
 
 
 class Polytope:
     """Internal data structure for H-polytopes."""
 
-    def __init__(self, expressions, variables):
-        self.inequalities = [Inequality(e, variables) for e in expressions]
+    def __init__(
+        self,
+        expressions: Collection[FNode],
+        variables: Collection[FNode],
+        env: Environment,
+    ):
+        self.inequalities = [Inequality(e, variables, env) for e in expressions]
         self.N = len(variables)
         self.H = len(expressions)
+        self.mgr = env.formula_manager
 
     def to_pysmt(self):
         """Returns a pysmt formula (FNode) encoding the polytope."""
         if not self.inequalities:
-            return Bool(True)
-        return And(*map(lambda x: x.to_pysmt(), self.inequalities))
+            return self.mgr.Bool(True)
+        return self.mgr.And(*map(lambda x: x.to_pysmt(), self.inequalities))
 
     def to_numpy(self):
         """Returns two numpy arrays A, b encoding the polytope.
@@ -35,18 +45,20 @@ class Polytope:
 
 if __name__ == "__main__":
 
-    from pysmt.shortcuts import *
+    import pysmt.shortcuts as smt
 
-    x = Symbol("x", REAL)
-    y = Symbol("y", REAL)
+    x = smt.Symbol("x", smt.REAL)
+    y = smt.Symbol("y", smt.REAL)
     variables = [x, y]
 
-    h1 = LE(Plus(Times(Real(3), x), Times(Real(5), y), Real(7)), x)
-    h2 = LE(x, y)
+    h1 = smt.LE(
+        smt.Plus(smt.Times(smt.Real(3), x), smt.Times(smt.Real(5), y), smt.Real(7)), x
+    )
+    h2 = smt.LE(x, y)
 
-    p = Polytope([h1, h2], variables)
+    p = Polytope([h1, h2], variables, smt.get_env())
     print("p:", p)
-    print("pysmt:", serialize(p.to_pysmt()))
+    print("pysmt:", smt.serialize(p.to_pysmt()))
     A, b = p.to_numpy()
     print("A:", A)
     print("b:", b)

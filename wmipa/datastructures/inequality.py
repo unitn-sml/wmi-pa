@@ -1,4 +1,8 @@
-import pysmt.shortcuts as smt
+from typing import Collection
+
+from pysmt.environment import Environment
+from pysmt.fnode import FNode
+
 from wmipa.datastructures.polynomial import Polynomial
 
 
@@ -11,21 +15,23 @@ class Inequality:
 
     """
 
-    def __init__(self, expr, variables):
+    def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
         if expr.is_le() or expr.is_lt():
             self.strict = expr.is_lt()
         else:
             raise ValueError("Not an inequality")
 
+        self.mgr = env.formula_manager
+
         p1, p2 = expr.args()
         # (p1 OP p2) => (p1 - p2 OP 0)
-        polysub = smt.Plus(p1, smt.Times(smt.Real(-1), p2))
-        self.polynomial = Polynomial(polysub, variables)
+        poly_sub = self.mgr.Plus(p1, self.mgr.Times(self.mgr.Real(-1), p2))
+        self.polynomial = Polynomial(poly_sub, variables, env)
         assert self.polynomial.degree == 1
 
     def to_pysmt(self):
-        op = smt.LT if self.strict else smt.LE
-        return op(self.polynomial.to_pysmt(), smt.Real(0))
+        op = self.mgr.LT if self.strict else self.mgr.LE
+        return op(self.polynomial.to_pysmt(), self.mgr.Real(0))
 
     def __str__(self):
         opstr = "<" if self.strict else "<="

@@ -1,22 +1,24 @@
-from pysmt.shortcuts import Symbol, REAL, Plus, Real, Times, Pow, Minus
+import pysmt.shortcuts as smt
+from pysmt.typing import REAL
 
 from wmipa.datastructures import Polynomial
 
-x = Symbol("X", REAL)
-y = Symbol("Y", REAL)
-z = Symbol("Z", REAL)
-pi = Symbol("PI", REAL)
+x = smt.Symbol("X", REAL)
+y = smt.Symbol("Y", REAL)
+z = smt.Symbol("Z", REAL)
+pi = smt.Symbol("PI", REAL)
 v1 = -3
 v2 = 5
 v3 = 2
-r1 = Real(v1)
-r2 = Real(v2)
-r3 = Real(v3)
+r1 = smt.Real(v1)
+r2 = smt.Real(v2)
+r3 = smt.Real(v3)
+env = smt.get_env()
 
 
 def test_monomial_constant():
     expression = r3
-    polynomial = Polynomial(expression, {})
+    polynomial = Polynomial(expression, {}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
@@ -25,8 +27,8 @@ def test_monomial_constant():
 
 
 def test_monomial_constant_multiplication():
-    expression = Times(r3, r1, r2)
-    polynomial = Polynomial(expression, {})
+    expression = smt.Times(r3, r1, r2)
+    polynomial = Polynomial(expression, {}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
@@ -35,28 +37,28 @@ def test_monomial_constant_multiplication():
 
 
 def test_monomial_constant_exponent():
-    expression = Pow(r1, r2)
-    polynomial = Polynomial(expression, {})
+    expression = smt.Pow(r1, r2)
+    polynomial = Polynomial(expression, {}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
-    assert float(coefficient) == v1 ** v2
+    assert float(coefficient) == v1**v2
     assert not exponents
 
 
 def test_monomial_constant_exponent_multiplication():
-    expression = Times(Pow(r1, r2), Pow(r3, r3), r2)
-    polynomial = Polynomial(expression, {})
+    expression = smt.Times(smt.Pow(r1, r2), smt.Pow(r3, r3), r2)
+    polynomial = Polynomial(expression, {}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
-    assert float(coefficient) == v1 ** v2 * v3 ** v3 * v2
+    assert float(coefficient) == v1**v2 * v3**v3 * v2
     assert not exponents
 
 
 def test_monomial_symbol():
     expression = x
-    polynomial = Polynomial(expression, {x})
+    polynomial = Polynomial(expression, {x}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
@@ -65,8 +67,8 @@ def test_monomial_symbol():
 
 
 def test_monomial_symbol_and_constant():
-    expression = Times(x, r1)
-    polynomial = Polynomial(expression, {x})
+    expression = smt.Times(x, r1)
+    polynomial = Polynomial(expression, {x}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
@@ -75,8 +77,8 @@ def test_monomial_symbol_and_constant():
 
 
 def test_monomial_symbol_exponent_and_constant():
-    expression = Times(r2, Pow(x, r3))
-    polynomial = Polynomial(expression, {x})
+    expression = smt.Times(r2, smt.Pow(x, r3))
+    polynomial = Polynomial(expression, {x}, env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
@@ -85,61 +87,72 @@ def test_monomial_symbol_exponent_and_constant():
 
 
 def test_monomial_more_symbols():
-    expression = Times(r1, Pow(x, r2), Pow(r1, r3), Pow(x, r3), Pow(y, r2))
-    polynomial = Polynomial(expression, [x, y])
+    expression = smt.Times(
+        r1, smt.Pow(x, r2), smt.Pow(r1, r3), smt.Pow(x, r3), smt.Pow(y, r2)
+    )
+    polynomial = Polynomial(expression, [x, y], env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
-    assert float(coefficient) == v1 * (v1 ** v3)
+    assert float(coefficient) == v1 * (v1**v3)
     assert exponents == (v2 + v3, v2)
 
 
 def test_monomial_all():
     # ((((x * y^r2))^r2)^r3) * (r2^r1))^r3
-    expression = Pow(Times(Pow(Pow(Times(x, Pow(y, r2)), r2), r3), Pow(r2, r1)), r3)
-    polynomial = Polynomial(expression, [x, y])
+    expression = smt.Pow(
+        smt.Times(
+            smt.Pow(smt.Pow(smt.Times(x, smt.Pow(y, r2)), r2), r3), smt.Pow(r2, r1)
+        ),
+        r3,
+    )
+    polynomial = Polynomial(expression, [x, y], env=env)
     assert len(polynomial.monomials) == 1
     monomial = next(iter(polynomial.monomials.items()))
     exponents, coefficient = monomial
-    assert float(coefficient) == (v2 ** v1) ** v3
+    assert float(coefficient) == (v2**v1) ** v3
     assert exponents == (v2 * v3 * v3, v2 * v2 * v3 * v3)
 
 
 def test_polynomial_constant():
-    expression = Plus(Times(r3, r1), Pow(r1, r1))
-    polynomial = Polynomial(expression, set())
+    expression = smt.Plus(smt.Times(r3, r1), smt.Pow(r1, r1))
+    polynomial = Polynomial(expression, set(), env=env)
     assert len(polynomial.monomials) == 1
     assert polynomial.variables == set()
     assert polynomial.degree == 0
 
 
 def test_polynomial_as_monomial():
-    expression = Times(r3, Pow(x, r3), r2)
-    polynomial = Polynomial(expression, {x})
+    expression = smt.Times(r3, smt.Pow(x, r3), r2)
+    polynomial = Polynomial(expression, {x}, env=env)
     assert len(polynomial.monomials) == 1
     assert polynomial.variables == {x}
     assert polynomial.degree == v3
 
 
 def test_polynomial_as_monomial_and_constants():
-    expression = Minus(Plus(r3, Times(r1, Pow(x, r2))), r2)
-    polynomial = Polynomial(expression, {x})
+    expression = smt.Minus(smt.Plus(r3, smt.Times(r1, smt.Pow(x, r2))), r2)
+    polynomial = Polynomial(expression, {x}, env=env)
     assert len(polynomial.monomials) == 2
     assert polynomial.variables == {x}
     assert polynomial.degree == v2
 
 
 def test_polynomial_with_multiple_monomials():
-    expression = Plus(Times(r1, Pow(x, r2)), Times(r2, Pow(y, r3)), r3)
-    polynomial = Polynomial(expression, {x, y})
+    expression = smt.Plus(
+        smt.Times(r1, smt.Pow(x, r2)), smt.Times(r2, smt.Pow(y, r3)), r3
+    )
+    polynomial = Polynomial(expression, {x, y}, env=env)
     assert len(polynomial.monomials) == 3
     assert polynomial.variables == {x, y}
     assert polynomial.degree == max(v2, v3)
 
 
 def test_polynomial_monomials_same_variable():
-    expression = Plus(Times(r1, Pow(x, r2)), Times(r2, Pow(y, r2)), r3, Pow(x, r3))
-    polynomial = Polynomial(expression, {x, y})
+    expression = smt.Plus(
+        smt.Times(r1, smt.Pow(x, r2)), smt.Times(r2, smt.Pow(y, r2)), r3, smt.Pow(x, r3)
+    )
+    polynomial = Polynomial(expression, {x, y}, env=env)
     assert len(polynomial.monomials) == 4
     assert polynomial.variables == {x, y}
     assert polynomial.degree == max(v2, v2, v3)

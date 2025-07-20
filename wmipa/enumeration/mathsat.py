@@ -1,16 +1,25 @@
+from typing import Generator, Collection
+from typing import TYPE_CHECKING
+
 import mathsat
-import pysmt.shortcuts as smt
+from pysmt.fnode import FNode
+from pysmt.typing import BOOL
 
 from wmipa.utils import BooleanSimplifier, TermNormalizer
+
+if TYPE_CHECKING:  # avoid circular import
+    from wmipa.solver import WMISolver
 
 
 class MathSATEnumerator:
 
-    def __init__(self, solver):
+    def __init__(self, solver: "WMISolver"):
         self.solver = solver
+        self.env = solver.env
+        self.mgr = self.env.formula_manager
         self.weights_skeleton = self.weights.compute_skeleton()
-        self.simplifier = BooleanSimplifier()
-        self.normalizer = TermNormalizer()
+        self.simplifier = BooleanSimplifier(solver.env)
+        self.normalizer = TermNormalizer(solver.env)
 
     @property
     def support(self):
@@ -20,7 +29,9 @@ class MathSATEnumerator:
     def weights(self):
         return self.solver.weights
 
-    def enumerate(self, phi):
+    def enumerate(
+        self, phi: FNode
+    ) -> Generator[tuple[dict[FNode, bool], int], None, None]:
         """Enumerates the convex fragments of (phi & support), using
         MathSAT's partial enumeration and structurally aware WMI
         enumeration. Since the truth assignments (TA) are partial,
@@ -34,13 +45,13 @@ class MathSATEnumerator:
         - n is int
         """
         # conjoin query and support
-        formula = smt.And(phi, self.support)
+        formula = self.mgr.And(phi, self.support)
 
         # sort the different atoms
-        atoms = smt.get_atoms(formula) | self.weights.get_atoms()
+        atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
         bool_atoms, lra_atoms = set(), set()
         for a in atoms:
-            if a.is_symbol(smt.BOOL):
+            if a.is_symbol(BOOL):
                 bool_atoms.add(a)
             elif a.is_theory_relation():
                 lra_atoms.add(a)
@@ -48,7 +59,7 @@ class MathSATEnumerator:
                 raise ValueError(f"Unhandled atom type: {a}")
 
         # conjoin the skeleton of the weight function
-        formula = smt.And(formula, self.weights_skeleton)
+        formula = self.mgr.And(formula, self.weights_skeleton)
 
         if len(bool_atoms) == 0:
             # no Boolean atoms -> enumerate *partial* TAs over LRA atoms only
@@ -77,7 +88,7 @@ class MathSATEnumerator:
                         {
                             a
                             for a in simplified_formula.get_free_variables()
-                            if a.symbol_type() == smt.BOOL and a in bool_atoms
+                            if a.symbol_type() == BOOL and a in bool_atoms
                         }
                     )
                     residual_atoms.extend(
@@ -98,14 +109,16 @@ class MathSATEnumerator:
                         curr_ta.update(ta_residual)
                         yield curr_ta, len(bool_atoms - curr_ta.keys())
 
-    def _get_allsat(self, formula, atoms, force_total=False):
+    def _get_allsat(
+        self, formula: FNode, atoms: Collection[FNode], force_total: bool = False
+    ) -> Generator[dict[FNode, bool], None, None]:
         """
         Gets the list of assignments that satisfy the formula.
 
         Args:
-            formula (FNode): The formula to satisfy
-            atoms (list): List of atoms on which to find the assignments.
-            force_total (bool, optional): Forces total truth assignements.
+            formula: The formula to satisfy
+            atoms: List of atoms on which to find the assignments.
+            force_total: Forces total truth assignments.
                 Defaults to False.
 
         Yields:
@@ -133,10 +146,10 @@ class MathSATEnumerator:
         # given a truth assignment, we need to know the truth assignment on
         # the original atoms.
         for atom in atoms:
-            if not atom.is_symbol(smt.BOOL):
+            if not atom.is_symbol(BOOL):
                 _ = self.normalizer.normalize(atom, remember_alias=True)
 
-        solver = smt.Solver(name="msat", solver_options=msat_options)
+        solver = self.env.factory.Solver(name="msat", solver_options=msat_options)
         converter = solver.converter
         solver.add_assertion(formula)
 
@@ -148,14 +161,14 @@ class MathSATEnumerator:
             lambda model: _callback(model, converter, models),
         )
 
-        # convert each conjunction of literals to a dict {atoms : bool}
+        # convert each conjunction of literals to a dict {atoms: bool}
         for model in models:
             assignments = {}
             for lit in model:
                 atom = lit.arg(0) if lit.is_not() else lit
                 value = not lit.is_not()
 
-                if atom.is_symbol(smt.BOOL):
+                if atom.is_symbol(BOOL):
                     assignments[atom] = value
                 else:
                     # retrieve the original (unnormalized) atom
@@ -181,14 +194,14 @@ class MathSATEnumerator:
             bool: True if the formula is completely simplified.
             FNode: The simplified formula.
         """
-        subs = {k: smt.Bool(v) for k, v in subs.items()}
+        subs = {k: self.mgr.Bool(v) for k, v in subs.items()}
         f_next = formula
         # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
         while True:
             f_before = f_next
             f_next = self.simplifier.simplify(f_before.substitute(subs))
             lra_assignments, is_convex = MathSATEnumerator._plra_rec(f_next, True)
-            subs = {k: smt.Bool(v) for k, v in lra_assignments.items()}
+            subs = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
             truth_assignment.update(lra_assignments)
             if is_convex or lra_assignments == {}:
                 break
@@ -201,8 +214,8 @@ class MathSATEnumerator:
                     if v:
                         expressions.append(k)
                     else:
-                        expressions.append(smt.Not(k))
-            f_next = smt.And([f_next] + expressions)
+                        expressions.append(self.mgr.Not(k))
+            f_next = self.mgr.And([f_next] + expressions)
         return is_convex, f_next
 
     @staticmethod
@@ -221,7 +234,7 @@ class MathSATEnumerator:
         """
         if formula.is_bool_constant():
             return {}, True
-        elif formula.is_theory_relation() or formula.is_symbol(smt.BOOL):
+        elif formula.is_theory_relation() or formula.is_symbol(BOOL):
             return {formula: pos_polarity}, True
         elif formula.is_not():
             return MathSATEnumerator._plra_rec(formula.arg(0), not pos_polarity)

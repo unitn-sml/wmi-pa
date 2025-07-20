@@ -6,7 +6,7 @@ from pysmt.fnode import FNode
 from pysmt.formula import FormulaManager
 from pysmt.oracles import AtomsOracle
 from pysmt.rewritings import NNFizer
-from pysmt.shortcuts import Bool, FreshSymbol, Not, Or, BOOL, simplify, serialize, substitute
+from pysmt.typing import BOOL
 from pysmt.walkers import DagWalker, IdentityDagWalker, handles, TreeWalker
 
 from wmipa.utils import is_atom
@@ -21,18 +21,19 @@ class Weights:
         weight_func (FNode): The pysmt formula that represents the weight function.
     """
 
-    def __init__(self, weight_func: FNode):
+    def __init__(self, weight_func: FNode, env: Environment):
         """Initializes the weight object.
 
         Args:
             weight_func (FNode): The pysmt formula representing the weight function.
         """
+        self.env = env
         self.weight_func = weight_func
-        self.atoms_finder = WeightAtomsFinder()
-        self.evaluator = WeightsEvaluator(self.weight_func)
+        self.atoms_finder = WeightAtomsFinder(env=env)
+        self.evaluator = WeightsEvaluator(self)
 
     def compute_skeleton(self) -> FNode:
-        return WeightConverterSkeleton().convert(self.weight_func)
+        return WeightConverterSkeleton(env=self.env).convert(self.weight_func)
 
     def get_atoms(self) -> Collection[FNode]:
         atoms = self.atoms_finder.get_atoms(self.weight_func)
@@ -52,30 +53,36 @@ class Weights:
         return self.evaluator.evaluate(assignment)
 
     def __str__(self):
-        return "Weight {" "\t{weight}\n" "}".format(
-            weight=serialize(self.weight_func),
+        return (
+            "Weight {"
+            "\t{weight}\n"
+            "}".format(
+                weight=self.weight_func.serialize(),
+            )
         )
 
 
 class WeightsEvaluator(TreeWalker):
     """This class evaluates a weight function given a truth assignment of the conditions inside the
-        weight function.
+    weight function.
     """
 
-    def __init__(self, weight_func: FNode, env: Environment | None = None):
-        super().__init__(env)
+    def __init__(self, weights):
+        super().__init__(weights.env)
         self.mgr: FormulaManager = self.env.formula_manager
-        self.weight_node: FNode = weight_func
+        self.simplifier = self.env.simplifier
+        self.substituter = self.env.substituter
+        self.weight_node: FNode = weights.weight_func
 
         self.assignment: dict[FNode, FNode] = {}
         self.result: list[FNode] = []  # stack to store the results of the evaluation
 
     def evaluate(self, assignment: dict[FNode, bool]) -> FNode:
         """Evaluate the weight function given a truth assignment of the conditions inside the
-            weight function.
+        weight function.
         """
         self.result.clear()
-        self.assignment = {atom: Bool(v) for atom, v in assignment.items()}
+        self.assignment = {atom: self.mgr.Bool(v) for atom, v in assignment.items()}
         self.walk(self.weight_node)
         assert len(self.result) == 1, f"Expected a single result, got {self.result}"
         return self.result.pop()
@@ -92,20 +99,26 @@ class WeightsEvaluator(TreeWalker):
 
     @handles(op.IRA_OPERATORS)
     def walk_operator(self, formula: FNode) -> Generator[FNode, None, None]:
-        for arg in formula.args():
+        for arg in reversed(formula.args()):
             yield arg  # recurse on children
         new_children = (self.result.pop() for _ in formula.args())
-        self.result.append(self.mgr.create_node(node_type=formula.node_type(), args=tuple(new_children)))
+        self.result.append(
+            self.mgr.create_node(
+                node_type=formula.node_type(), args=tuple(new_children)
+            )
+        )
 
     def _evaluate_condition(self, condition: FNode) -> bool:
-        val = simplify(substitute(condition, self.assignment))
+        val = self.simplifier.simplify(
+            self.substituter.substitute(condition, self.assignment)
+        )
         assert val.is_bool_constant(), (
-                "Weight condition "
-                + serialize(condition)
-                + "\n\n cannot be evaluated with assignment "
-                + "\n".join([str((x, v)) for x, v in self.assignment.items()])
-                + "\n\n simplified into "
-                + serialize(condition)
+            "Weight condition "
+            + self.env.serializer.serialize(condition)
+            + "\n\n cannot be evaluated with assignment "
+            + "\n".join([str((x, v)) for x, v in self.assignment.items()])
+            + "\n\n simplified into "
+            + self.env.serializer.serialize(condition)
         )
         return val.constant_value()
 
@@ -126,16 +139,18 @@ class WeightConverterSkeleton(TreeWalker):
     (Spallitta et al., 2024).
     """
 
-    def __init__(self, env=None):
+    def __init__(self, env: Environment):
         super().__init__(env)
         self.mgr = self.env.formula_manager
         self.cond_labels = set()
         self.cnfizer = PolarityCNFizer(env=self.env)
         self.branch_condition: list[FNode] = []  # clause as a list of FNodes
-        self.clauses: list[FNode] = []  # list of clauses, each clause is an Or of FNodes
+        self.clauses: list[FNode] = (
+            []
+        )  # list of clauses, each clause is an Or of FNodes
 
     def new_cond_label(self):
-        b = FreshSymbol(typename=BOOL, template="CNDB%s")
+        b = self.mgr.FreshSymbol(typename=BOOL, template="CNDB%s")
         self.cond_labels.add(b)
         return b
 
@@ -172,9 +187,13 @@ class WeightConverterSkeleton(TreeWalker):
             # using a custom MathSAT version.
             # (k is implicitly existentially quantified since we do not enumerate on it)
             k = self.new_cond_label()
-            self.clauses.append(Or(*self.branch_condition, Not(k), phi))
-            self.clauses.append(Or(*self.branch_condition, k, Not(phi)))
-            self.branch_condition.append(Not(phi))
+            self.clauses.append(
+                self.mgr.Or(*self.branch_condition, self.mgr.Not(k), phi)
+            )
+            self.clauses.append(
+                self.mgr.Or(*self.branch_condition, k, self.mgr.Not(phi))
+            )
+            self.branch_condition.append(self.mgr.Not(phi))
             yield left  # recursion on the left branch
             self.branch_condition.pop()
             self.branch_condition.append(phi)
@@ -188,15 +207,15 @@ class WeightConverterSkeleton(TreeWalker):
             #   (branch_condition -> exists b.CNF(b <-> phi))
 
             # add (conds & b) -> CNF(phi)
-            self.branch_condition.append(Not(b))
+            self.branch_condition.append(self.mgr.Not(b))
             for clause in self.cnfizer.convert(phi):
-                self.clauses.append(Or(*self.branch_condition, *clause))
+                self.clauses.append(self.mgr.Or(*self.branch_condition, *clause))
             yield left  # recursion on the left branch
             self.branch_condition.pop()
             # add (conds & not b) -> CNF(not phi)
             self.branch_condition.append(b)
-            for clause in self.cnfizer.convert(Not(phi)):
-                self.clauses.append(Or(*self.branch_condition, *clause))
+            for clause in self.cnfizer.convert(self.mgr.Not(phi)):
+                self.clauses.append(self.mgr.Or(*self.branch_condition, *clause))
             yield right  # recursion on the right branch
             self.branch_condition.pop()
 
@@ -206,7 +225,7 @@ class CNFPreprocessor(IdentityDagWalker):
     Convert nested ORs and ANDs into flat lists of ORs and ANDs, and Implies into Or.
     """
 
-    def __init__(self, env=None):
+    def __init__(self, env: Environment):
         super().__init__(env)
         self.nnfizer = NNFizer(env)
 
@@ -248,7 +267,7 @@ class CNFPreprocessor(IdentityDagWalker):
 class PolarityCNFizer(DagWalker):
     """Implements the Plaisted&Greenbaum CNF conversion algorithm."""
 
-    def __init__(self, env=None):
+    def __init__(self, env: Environment):
         super().__init__(env)
         self.mgr = self.env.formula_manager
         self.preprocessor = CNFPreprocessor(env=self.env)
@@ -262,7 +281,7 @@ class PolarityCNFizer(DagWalker):
         if formula in self._introduced_variables:
             res = self._introduced_variables[formula]
         else:
-            res = FreshSymbol(typename=BOOL, template="CNFB%s")
+            res = self.mgr.FreshSymbol(typename=BOOL, template="CNFB%s")
             self._introduced_variables[formula] = res
         return res
 

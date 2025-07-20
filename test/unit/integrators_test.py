@@ -1,8 +1,7 @@
 import itertools
-import sys
 
 import numpy as np
-from pysmt.shortcuts import LE, Plus, Real, Symbol, Times
+import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
@@ -12,16 +11,18 @@ from wmipa.integration import LattEIntegrator, RejectionIntegrator
 
 def _polytope_from_inequalities(A, b):
     inequalities = []
-    variables = {"x_{}".format(i): Symbol("x_{}".format(i), REAL) for i in range(A.shape[1])}
+    variables = {
+        "x_{}".format(i): smt.Symbol("x_{}".format(i), REAL) for i in range(A.shape[1])
+    }
     for left, right in zip(A, b):
-        left = Plus(
+        left = smt.Plus(
             [
-                Times(Real(float(c)), variables["x_{}".format(i)])
+                smt.Times(smt.Real(float(c)), variables["x_{}".format(i)])
                 for i, c in enumerate(left)
             ]
         )
-        right = Real(float(right))
-        inequalities.append(LE(left, right))
+        right = smt.Real(float(right))
+        inequalities.append(smt.LE(left, right))
     return inequalities, set(variables.values())
 
 
@@ -101,10 +102,10 @@ def pytest_generate_tests(metafunc):
     idlist = []
     # axis_aligned_cube
     for polytope_generator in (
-            axis_aligned_hypercube,
-            rotated_hypercube,
-            random_polytope,
-            axis_aligned_cross_polytope,
+        axis_aligned_hypercube,
+        rotated_hypercube,
+        random_polytope,
+        axis_aligned_cross_polytope,
     ):
         for dim in (2, 3, 4):
             (inequalities, variables), volume = polytope_generator(dim)
@@ -115,7 +116,14 @@ def pytest_generate_tests(metafunc):
                 f"(n={dim})"
             )
             # rejection integrator
-            argvalues.append((inequalities, variables, volume, RejectionIntegrator(n_samples=1000, seed=666)))
+            argvalues.append(
+                (
+                    inequalities,
+                    variables,
+                    volume,
+                    RejectionIntegrator(n_samples=1000, seed=666),
+                )
+            )
             idlist.append(
                 f"{'RejectionIntegrator':>20} {polytope_generator.__name__:>25}"
                 f"(n={dim}, n_samples=1000)"
@@ -125,7 +133,10 @@ def pytest_generate_tests(metafunc):
 
 
 def test_volume(inequalities, variables, volume, integrator):
-    polynomial = Polynomial(Real(1.0), variables)
-    polytope = Polytope(inequalities, variables)
+    env = smt.get_env()
+    polynomial = Polynomial(smt.Real(1.0), variables, env)
+    polytope = Polytope(inequalities, variables, env)
     result = integrator.integrate(polytope, polynomial)
-    assert np.isclose(result, volume), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"
+    assert np.isclose(
+        result, volume
+    ), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"

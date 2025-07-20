@@ -2,8 +2,9 @@ from functools import reduce
 from typing import Collection, Callable
 
 import numpy as np
-import pysmt.shortcuts as smt
+from pysmt.environment import Environment
 from pysmt.fnode import FNode
+from pysmt.typing import REAL
 from pysmt.walkers import DagWalker
 
 Monomials = dict[tuple[int, ...], float]  # Maps exponent tuples to coefficients
@@ -17,10 +18,11 @@ class Polynomial:
     E.g. {(2,0,1): 3} = "3 * x^2 * y^0 * z^1"
     """
 
-    def __init__(self, expr: FNode, variables: Collection[FNode]):
+    def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
         self.monomials = PolynomialParser(variables).parse(expr)
         self.variables = variables
         self.ordered_keys = sorted(self.monomials.keys())
+        self.mgr = env.formula_manager
 
     @property
     def degree(self) -> int:
@@ -37,16 +39,16 @@ class Polynomial:
     def to_pysmt(self) -> FNode:
         pysmt_monos = []
         for key in self.ordered_keys:
-            factors = [smt.Real(self.monomials[key])]
+            factors = [self.mgr.Real(self.monomials[key])]
             for i, var in enumerate(self.variables):
                 if key[i] > 1 or key[i] < 0:
-                    factors.append(smt.Pow(var, smt.Real(key[i])))
+                    factors.append(self.mgr.Pow(var, self.mgr.Real(key[i])))
                 elif key[i] == 1:
                     factors.append(var)
 
-            pysmt_monos.append(smt.Times(*factors))
+            pysmt_monos.append(self.mgr.Times(*factors))
 
-        return smt.Plus(*pysmt_monos)
+        return self.mgr.Plus(*pysmt_monos)
 
     def __len__(self):
         return len(self.monomials)
@@ -87,7 +89,7 @@ class PolynomialParser(DagWalker):
         return {exp_key: coeff}
 
     def walk_symbol(self, formula: FNode, **kwargs) -> Monomials:
-        assert formula.is_symbol(smt.REAL)
+        assert formula.is_symbol(REAL)
         exp_key = tuple(0 if v != formula else 1 for v in self.variables)
         assert any(e != 0 for e in exp_key)
         coeff = 1
@@ -106,10 +108,16 @@ class PolynomialParser(DagWalker):
 
     def walk_pow(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
         base, exp = formula.args()
-        if not exp.is_constant(smt.REAL) or not (c := exp.constant_value()).is_integer() or c < 0:
-            raise ValueError(f"Exponent {exp} is not a non-negative integer constant in {formula.serialize()}")
+        if (
+            not exp.is_constant(REAL)
+            or not (c := exp.constant_value()).is_integer()
+            or c < 0
+        ):
+            raise ValueError(
+                f"Exponent {exp} is not a non-negative integer constant in {formula.serialize()}"
+            )
         exp_val = int(exp.constant_value())
-        if base.is_symbol(smt.REAL):
+        if base.is_symbol(REAL):
             exp_key = tuple(0 if v != base else exp_val for v in self.variables)
             return {exp_key: 1}
         else:
@@ -131,7 +139,11 @@ class PolynomialParser(DagWalker):
     def _multiply_polys(mono_first: Monomials, mono_second: Monomials) -> Monomials:
         """Multiply two polynomials represented as monomial dictionaries."""
         result = {}
-        n = len(next(iter(mono_first.keys()))) if mono_first else len(next(iter(mono_second.keys())))
+        n = (
+            len(next(iter(mono_first.keys())))
+            if mono_first
+            else len(next(iter(mono_second.keys())))
+        )
 
         for exp_key1, coeff1 in mono_first.items():
             for exp_key2, coeff2 in mono_second.items():
@@ -160,11 +172,11 @@ class PolynomialParser(DagWalker):
 
 
 if __name__ == "__main__":
-    from pysmt.shortcuts import *
+    import pysmt.shortcuts as smt
 
-    x = Symbol("x", REAL)
-    y = Symbol("y", REAL)
-    z = Symbol("z", REAL)
+    x = smt.Symbol("x", REAL)
+    y = smt.Symbol("y", REAL)
+    z = smt.Symbol("z", REAL)
     vv = [x, y, z]
 
     """
@@ -183,7 +195,11 @@ if __name__ == "__main__":
 
     """
 
-    p = Polynomial(Plus(Times(Real(3), Pow(x, Real(2))), Times(y, z)), vv)
+    p = Polynomial(
+        smt.Plus(smt.Times(smt.Real(3), smt.Pow(x, smt.Real(2))), smt.Times(y, z)),
+        vv,
+        smt.get_env(),
+    )
     f = p.to_numpy()
 
     x = np.array(list(range(12))).reshape(-1, 3)

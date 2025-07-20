@@ -1,45 +1,47 @@
+import pysmt.shortcuts as smt
 import pytest
-from pysmt.shortcuts import Real, LE, Pow, REAL, Symbol, Times, Plus
+from pysmt.typing import REAL
 
 from wmipa.datastructures import Inequality
 
-x = Symbol("X", REAL)
-y = Symbol("Y", REAL)
-z = Symbol("Z", REAL)
-pi = Symbol("PI", REAL)
+x = smt.Symbol("X", REAL)
+y = smt.Symbol("Y", REAL)
+z = smt.Symbol("Z", REAL)
+pi = smt.Symbol("PI", REAL)
 v1 = -3
 v2 = 5
 v3 = 2
-r1 = Real(v1)
-r2 = Real(v2)
-r3 = Real(v3)
+r1 = smt.Real(v1)
+r2 = smt.Real(v2)
+r3 = smt.Real(v3)
+env = smt.get_env()
 
 
 def test_ineq_degree_more_than_one():
-    expression = LE(Pow(x, Real(2)), r1)
+    expression = smt.LE(smt.Pow(x, smt.Real(2)), r1)
     with pytest.raises(AssertionError):
-        _ = Inequality(expression, {x})
+        _ = Inequality(expression, {x}, env=env)
 
 
 def test_ineq_right_constant_integer():
-    expression = LE(x, Real(5))
-    ineq = Inequality(expression, {x})
+    expression = smt.LE(x, smt.Real(5))
+    ineq = Inequality(expression, {x}, env=env)
     assert len(ineq.polynomial) == 2
 
 
 def test_ineq_left_constant_integer():
-    expression = LE(Real(5), x)
-    ineq = Inequality(expression, {x})
+    expression = smt.LE(smt.Real(5), x)
+    ineq = Inequality(expression, {x}, env=env)
     assert len(ineq.polynomial) == 2
 
 
 def test_ineq_constant_decimal():
-    expression = LE(x, Real(3.5))
-    ineq = Inequality(expression, {x})
+    expression = smt.LE(x, smt.Real(3.5))
+    ineq = Inequality(expression, {x}, env=env)
     assert len(ineq.polynomial) == 2
 
 
 def test_ineq_no_constant_part():
-    expression = LE(Plus(x, y), Times(x, Real(-1)))  # x+y < -x
-    ineq = Inequality(expression, {x, y})
+    expression = smt.LE(smt.Plus(x, y), smt.Times(x, smt.Real(-1)))  # x+y < -x
+    ineq = Inequality(expression, {x, y}, env=env)
     assert len(ineq.polynomial) == 2

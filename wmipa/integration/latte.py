@@ -7,8 +7,11 @@ from fractions import Fraction
 from functools import reduce
 from shutil import which
 from tempfile import TemporaryDirectory
+from typing import Iterable
 
 import numpy as np
+
+from wmipa.datastructures import Polytope, Polynomial
 
 LATTE_INSTALLED = which("integrate") is not None
 
@@ -29,12 +32,14 @@ class LattEIntegrator:
 
     def __init__(self, algorithm=DEF_ALGORITHM):
         if not LATTE_INSTALLED:
-            raise RuntimeError("Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it.")
+            raise RuntimeError(
+                "Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it."
+            )
         if algorithm not in LattEIntegrator.ALGORITHMS:
             raise ValueError(f"Algorithm should be one of {self.ALGORITHMS}.")
         self.algorithm = algorithm
 
-    def integrate(self, polytope, polynomial):
+    def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
 
         with TemporaryDirectory(dir=".") as tmpdir:
             polytope_path = os.path.abspath(
@@ -58,7 +63,9 @@ class LattEIntegrator:
             with open(output_path, "w") as f:
                 process_output = subprocess.run(cmd, stdout=f, stderr=f, cwd=tmpdir)
                 if process_output.returncode != 0:
-                    raise RuntimeError(f"LattE returned non-zero value: {process_output.returncode}")
+                    raise RuntimeError(
+                        f"LattE returned non-zero value: {process_output.returncode}"
+                    )
                     # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
@@ -70,7 +77,9 @@ class LattEIntegrator:
             raise RuntimeError("Unhandled error while executing LattE integrale.")
         return result
 
-    def integrate_batch(self, convex_integrals):
+    def integrate_batch(
+        self, convex_integrals: Iterable[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
         volumes = []
         for polytope, polynomial in convex_integrals:
             volumes.append(self.integrate(polytope, polynomial))
@@ -103,20 +112,8 @@ class LattEIntegrator:
             f.write(f"{bA.shape[0]} {bA.shape[1]}\n")
             f.write("\n".join([" ".join(map(str, row)) for row in bAm_int]))
 
-    def lcmm(args):
-
-        def _gcd(a, b):
-            while b:
-                a, b = b, a % b
-            return a
-
-        def _lcm(a, b):
-            return a * b // _gcd(a, b)
-
-        return reduce(_lcm, args)
-
     @staticmethod
-    def _read_output_file(path):
+    def _read_output_file(path: str) -> float:
         res = None
         with open(path, "r") as f:
             lines = f.readlines()
@@ -126,16 +123,14 @@ class LattEIntegrator:
                     # print("Res: {}".format(line))
                     return float(line.partition(": ")[-1].strip())
 
-            txtblock = "\n".join(lines)
-            if "The number of lattice points is 1." in txtblock:
+            txt_block = "\n".join(lines)
+            if "The number of lattice points is 1." in txt_block:
                 return 0
-            elif "Empty polytope or unbounded polytope!" in txtblock:
+            elif "Empty polytope or unbounded polytope!" in txt_block:
                 error = "Empty or unbounded polytope"
-            elif "Given polyhedron is unbounded!" in txtblock:
+            elif "Given polyhedron is unbounded!" in txt_block:
                 error = "Unbounded polytope"
             else:
                 error = "LattE reached an unexpected state (memory limit?)"
 
-            raise RuntimeError(error + txtblock)
-
-        return res
+            raise RuntimeError(error + txt_block)

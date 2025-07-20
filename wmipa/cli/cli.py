@@ -1,8 +1,8 @@
 import argparse
-
-from pysmt.shortcuts import Bool, REAL
-
 from time import time
+
+from pysmt.shortcuts import Bool
+from pysmt.typing import REAL
 
 from wmipa import WMISolver
 from wmipa.cli.io import Density
@@ -10,7 +10,6 @@ from wmipa.integration import *
 
 
 def parse_integrator(args):
-
     curr, _, rest = args.integrator.partition("-")
 
     if len(curr) == 0:
@@ -74,7 +73,6 @@ for i, query in enumerate(density.queries):
     print(f"query{i}: {result['wmi']}")
     print(f"npolys{i}: {result['npolys']}")
     print(f"time{i}: {tif}")
-
 
 tfinal = time() - t0
 print(f"time: {tfinal}")
