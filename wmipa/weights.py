@@ -1,21 +1,19 @@
-from pysmt.fnode import FNode
 import pysmt.operators as op
+from pysmt.fnode import FNode
 from pysmt.oracles import AtomsOracle
-from pysmt.rewritings import nnf
+from pysmt.rewritings import NNFizer
 from pysmt.shortcuts import (
-    And,
     Bool,
     FreshSymbol,
     Not,
     Or,
     BOOL,
-    REAL,
     get_env,
     simplify,
     serialize,
     substitute,
 )
-from pysmt.walkers import DagWalker, IdentityDagWalker, handles
+from pysmt.walkers import DagWalker, IdentityDagWalker, handles, TreeWalker
 
 from wmipa.utils import is_atom
 
@@ -97,12 +95,12 @@ class Weights:
     def _evaluate_condition(self, condition, assignment):
         val = simplify(substitute(condition, assignment))
         assert val.is_bool_constant(), (
-            "Weight condition "
-            + serialize(condition)
-            + "\n\n cannot be evaluated with assignment "
-            + "\n".join([str((x, v)) for x, v in assignment.items()])
-            + "\n\n simplified into "
-            + serialize(condition)
+                "Weight condition "
+                + serialize(condition)
+                + "\n\n cannot be evaluated with assignment "
+                + "\n".join([str((x, v)) for x, v in assignment.items()])
+                + "\n\n simplified into "
+                + serialize(condition)
         )
         return val.constant_value()
 
@@ -117,49 +115,51 @@ class WeightAtomsFinder(AtomsOracle):
     def walk_ite(self, formula, args, **kwargs):
         return frozenset(x for a in args if a is not None for x in a)
 
-    @handles(op.THEORY_OPERATORS - {op.ARRAY_SELECT})
+    @handles(op.IRA_OPERATORS)
     def walk_theory_op(self, formula, args, **kwargs):
         return frozenset(x for a in args if a is not None for x in a)
 
 
-"""The following code is responsible for the generation of the "weight
-skeleton", as described in "Enhancing SMT-based Weighted Model
-Integration by structure awareness" (Spallitta et al., 2024). """
+class WeightConverterSkeleton(TreeWalker):
+    """Implements the conversion of a weight function into a weight skeleton,
+    as described in "Enhancing SMT-based Weighted Model Integration by structure awareness"
+    (Spallitta et al., 2024).
+    """
 
-
-class WeightConverterSkeleton:
-
-    def __init__(self):
+    def __init__(self, env=None):
+        super().__init__(env)
+        self.mgr = self.env.formula_manager
         self.cond_labels = set()
-        self.cnfizer = LabelCNFizer()
+        self.cnfizer = PolarityCNFizer(env=self.env)
+        self.branch_condition: list[FNode] = []  # clause as a list of FNodes
+        self.clauses: list[FNode] = []  # list of clauses, each clause is an Or of FNodes
 
     def new_cond_label(self):
-        B = FreshSymbol(typename=BOOL, template="CNDB%s")
-        self.cond_labels.add(B)
-        return B
+        b = FreshSymbol(typename=BOOL, template="CNDB%s")
+        self.cond_labels.add(b)
+        return b
 
-    def convert(self, weight_func):
-        conversion_list = list()
-        self._convert_rec(weight_func, Bool(False), conversion_list)
-        return And(conversion_list)
+    def convert(self, weight_func: FNode) -> FNode:
+        self.clauses.clear()
+        self.walk(weight_func)
+        return self.mgr.And(self.clauses)
 
-    def _convert_rec(self, formula, branch_condition, conversion_list):
-        if formula.is_ite():
-            return self._process_ite(formula, branch_condition, conversion_list)
-        elif formula.is_theory_op():
-            for arg in formula.args():
-                self._convert_rec(arg, branch_condition, conversion_list)
+    @handles(op.SYMBOL)
+    @handles(op.CONSTANTS)
+    def walk_no_conditions(self, formula: FNode):
+        return
 
-    def _process_ite(self, formula, branch_condition, conversion_list):
+    @handles(op.IRA_OPERATORS)
+    def walk_operator(self, formula: FNode):
+        for arg in formula.args():
+            yield arg
+
+    def walk_ite(self, formula: FNode):
+        phi: FNode
+        left: FNode
+        right: FNode
         phi, left, right = formula.args()
         if is_atom(phi):
-            if branch_condition is not None:
-                l_cond = Or(branch_condition, Not(phi))
-                r_cond = Or(branch_condition, phi)
-            else:
-                l_cond = Not(phi)
-                r_cond = phi
-
             # Trick to force the splitting on phi on the current branch represented by branch_condition
             # (here branch_condition is Not(conds)).
             # In the original algorithm, we would have added:
@@ -172,36 +172,47 @@ class WeightConverterSkeleton:
             # using a custom MathSAT version.
             # (k is implicitly existentially quantified since we do not enumerate on it)
             k = self.new_cond_label()
-            conversion_list.append(Or(branch_condition, Not(k), phi))
-            conversion_list.append(Or(branch_condition, k, Not(phi)))
-            self._convert_rec(left, l_cond, conversion_list)
-            self._convert_rec(right, r_cond, conversion_list)
+            self.clauses.append(Or(*self.branch_condition, Not(k), phi))
+            self.clauses.append(Or(*self.branch_condition, k, Not(phi)))
+            self.branch_condition.append(Not(phi))
+            yield left  # recursion on the left branch
+            self.branch_condition.pop()
+            self.branch_condition.append(phi)
+            yield right  # recursion on the right branch
+            self.branch_condition.pop()
         else:
             b = self.new_cond_label()
-            if branch_condition is not None:
-                l_cond = Or(branch_condition, Not(b))
-                r_cond = Or(branch_condition, b)
-            else:
-                l_cond = Not(b)
-                r_cond = b
-            for clause in self.cnfizer.convert(nnf(phi)):
-                conversion_list.append(Or(l_cond, *clause))
-
-            for clause in self.cnfizer.convert(nnf(Not(phi))):
-                conversion_list.append(Or(r_cond, *clause))
-
             # Here we are not adding the clause
             #   (branch_condition -> (b v not b))
             # since it is subsumed by the CNF clauses of
             #   (branch_condition -> exists b.CNF(b <-> phi))
-            self._convert_rec(left, l_cond, conversion_list)
-            self._convert_rec(right, r_cond, conversion_list)
+
+            # add (conds & b) -> CNF(phi)
+            self.branch_condition.append(Not(b))
+            for clause in self.cnfizer.convert(phi):
+                self.clauses.append(Or(*self.branch_condition, *clause))
+            yield left  # recursion on the left branch
+            self.branch_condition.pop()
+            # add (conds & not b) -> CNF(not phi)
+            self.branch_condition.append(b)
+            for clause in self.cnfizer.convert(Not(phi)):
+                self.clauses.append(Or(*self.branch_condition, *clause))
+            yield right  # recursion on the right branch
+            self.branch_condition.pop()
 
 
 class CNFPreprocessor(IdentityDagWalker):
     """
     Convert nested ORs and ANDs into flat lists of ORs and ANDs, and Implies into Or.
     """
+
+    def __init__(self, env=None):
+        super().__init__(env)
+        self.nnfizer = NNFizer(env)
+
+    def walk(self, formula, **kwargs):
+        formula = self.nnfizer.convert(formula)
+        return super().walk(formula, **kwargs)
 
     def walk_or(self, formula, args, **kwargs):
         children = []
@@ -233,21 +244,12 @@ class CNFPreprocessor(IdentityDagWalker):
                 children.append(arg)
         return self.mgr.And(children)
 
-    def walk_implies(self, formula, args, **kwargs):
-        left, right = formula.args()
-        left_a, right_a = args
-        return self.walk_or(
-            self.mgr.Or(self.mgr.Not(left), right),
-            (self.mgr.Not(left_a), right_a),
-            **kwargs
-        )
 
-
-class LabelCNFizer(DagWalker):
+class PolarityCNFizer(DagWalker):
     """Implements the Plaisted&Greenbaum CNF conversion algorithm."""
 
-    def __init__(self, environment=None):
-        super().__init__(environment, invalidate_memoization=True)
+    def __init__(self, env=None):
+        super().__init__(env)
         self.mgr = self.env.formula_manager
         self.preprocessor = CNFPreprocessor(env=self.env)
         # self.cnf_labels = set()
