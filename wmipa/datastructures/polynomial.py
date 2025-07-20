@@ -1,11 +1,12 @@
+from functools import reduce
+from typing import Collection, Callable
+
 import numpy as np
 import pysmt.shortcuts as smt
-from pysmt.operators import POW
+from pysmt.fnode import FNode
+from pysmt.walkers import DagWalker
 
-
-def is_pow(expr):
-    # current missing in pysmt
-    return expr.node_type() == POW
+Monomials = dict[tuple[int, ...], float]  # Maps exponent tuples to coefficients
 
 
 class Polynomial:
@@ -13,19 +14,19 @@ class Polynomial:
     Implemented as a dict, having for each monomial: {key : coefficient}
     where key is a tuple encoding exponents of the ordered variables.
 
-    E.g. {(2,0,1) : 3} = "3 * x^2 * y^0 * z^1"
+    E.g. {(2,0,1): 3} = "3 * x^2 * y^0 * z^1"
     """
 
-    def __init__(self, expr, variables):
-        self.monomials = Polynomial._parse(expr, variables)
+    def __init__(self, expr: FNode, variables: Collection[FNode]):
+        self.monomials = PolynomialParser(variables).parse(expr)
         self.variables = variables
         self.ordered_keys = sorted(self.monomials.keys())
 
     @property
-    def degree(self):
+    def degree(self) -> int:
         return max(sum(exponents) for exponents in self.monomials)
 
-    def to_numpy(self):
+    def to_numpy(self) -> Callable[[np.ndarray], np.ndarray]:
         return lambda x: np.sum(
             np.array(
                 [k * np.prod(np.pow(x, e), axis=1) for e, k in self.monomials.items()]
@@ -33,7 +34,7 @@ class Polynomial:
             axis=1,
         )
 
-    def to_pysmt(self):
+    def to_pysmt(self) -> FNode:
         pysmt_monos = []
         for key in self.ordered_keys:
             factors = [smt.Real(self.monomials[key])]
@@ -53,98 +54,109 @@ class Polynomial:
     def __str__(self):
         str_monos = []
         for key in self.ordered_keys:
-            mono = f"{self.monomials[key]} "
-            mono += " ".join(
+            coeff = f"{self.monomials[key]}"
+
+            term = "*".join(
                 [
-                    f"{var.symbol_name()}{key[i]}"
+                    f"{var.symbol_name()}^{key[i]}"
                     # " * ".join([f"{var.symbol_name()}^{key[i]}"
                     for i, var in enumerate(self.variables)
                     if key[i] != 0
                 ]
             )
+
+            mono = f"{coeff}*{term}" if term else coeff
             str_monos.append(mono)
 
         return " + ".join(str_monos)
 
+
+class PolynomialParser(DagWalker):
+    """A walker to parse a polynomial expression (pysmt.FNode) into a dictionary of monomials."""
+
+    def __init__(self, variables: Collection[FNode]):
+        super().__init__()
+        self.variables = variables
+
+    def parse(self, expr: FNode) -> Monomials:
+        return self.walk(expr)
+
+    def walk_real_constant(self, formula: FNode, **kwargs) -> Monomials:
+        exp_key = tuple(0 for _ in range(len(self.variables)))
+        coeff = formula.constant_value()
+        return {exp_key: coeff}
+
+    def walk_symbol(self, formula: FNode, **kwargs) -> Monomials:
+        assert formula.is_symbol(smt.REAL)
+        exp_key = tuple(0 if v != formula else 1 for v in self.variables)
+        assert any(e != 0 for e in exp_key)
+        coeff = 1
+        return {exp_key: coeff}
+
+    def walk_plus(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+        return reduce(self._sum_polys, args)
+
+    def walk_minus(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+        mono_first, mono_second = args
+        mono_second = {exp_key: -coeff for exp_key, coeff in mono_second.items()}
+        return self.walk_plus(formula, [mono_first, mono_second])
+
+    def walk_times(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+        return reduce(self._multiply_polys, args)
+
+    def walk_pow(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+        base, exp = formula.args()
+        if not exp.is_constant(smt.REAL) or not (c := exp.constant_value()).is_integer() or c < 0:
+            raise ValueError(f"Exponent {exp} is not a non-negative integer constant in {formula.serialize()}")
+        exp_val = int(exp.constant_value())
+        if base.is_symbol(smt.REAL):
+            exp_key = tuple(0 if v != base else exp_val for v in self.variables)
+            return {exp_key: 1}
+        else:
+            base_poly = args[0]
+            return self._expand_power(base_poly, exp_val)
+
+    @staticmethod
+    def _sum_polys(mono_first: Monomials, mono_second: Monomials) -> Monomials:
+        """Sum two polynomials represented as monomial dictionaries."""
+        result = mono_first.copy()
+        for exp_key, coeff in mono_second.items():
+            if exp_key not in result:
+                result[exp_key] = coeff
+            else:
+                result[exp_key] += coeff
+        return result
+
+    @staticmethod
+    def _multiply_polys(mono_first: Monomials, mono_second: Monomials) -> Monomials:
+        """Multiply two polynomials represented as monomial dictionaries."""
+        result = {}
+        n = len(next(iter(mono_first.keys()))) if mono_first else len(next(iter(mono_second.keys())))
+
+        for exp_key1, coeff1 in mono_first.items():
+            for exp_key2, coeff2 in mono_second.items():
+                exp_key_new = tuple(exp_key1[i] + exp_key2[i] for i in range(n))
+                coeff_new = coeff1 * coeff2
+
+                if exp_key_new not in result:
+                    result[exp_key_new] = coeff_new
+                else:
+                    result[exp_key_new] += coeff_new
+
+        return result
+
     @classmethod
-    def _power_expand(cls, base_poly, exp_val):
-        """Expand (polynomial)^n by repeated multiplication"""
+    def _expand_power(cls, base_poly: Monomials, exp_val: int) -> Monomials:
+        """Expand (polynomial)^n by repeated multiplication."""
         if exp_val == 0:
-            N = len(next(iter(base_poly.keys())))
-            return {tuple(0 for _ in range(N)): 1}
+            n = len(next(iter(base_poly.keys())))
+            return {tuple(0 for _ in range(n)): 1}
 
         result = base_poly.copy()
         for _ in range(exp_val - 1):
             result = cls._multiply_polys(result, base_poly)
 
         return result
-
-    @staticmethod
-    def _multiply_polys(poly1, poly2):
-        """Multiply two polynomials represented as monomial dictionaries"""
-        result = {}
-        N = len(next(iter(poly1.keys()))) if poly1 else len(next(iter(poly2.keys())))
-
-        for expkey1, coeff1 in poly1.items():
-            for expkey2, coeff2 in poly2.items():
-                expkey_new = tuple(expkey1[i] + expkey2[i] for i in range(N))
-                coeff_new = coeff1 * coeff2
-
-                if expkey_new not in result:
-                    result[expkey_new] = coeff_new
-                else:
-                    result[expkey_new] += coeff_new
-
-        return result
-
-    @classmethod
-    def _parse(cls, expr, variables):
-        N = len(variables)
-        if expr.is_real_constant():
-            expkey = tuple(0 for _ in range(N))
-            coeff = expr.constant_value()
-            monos = {expkey: coeff}
-        elif expr.is_symbol(smt.REAL):
-            expkey = tuple(0 if v != expr else 1 for v in variables)
-            assert any(e != 0 for e in expkey)
-            coeff = 1
-            monos = {expkey: coeff}
-        elif is_pow(expr):
-            base, exp = expr.args()
-            if not exp.is_constant(smt.REAL) or not (c := exp.constant_value()).is_integer() or c < 0:
-                raise ValueError(f"Exponent {exp} is not a non-negative integer constant in {expr.serialize()}")
-            exp_val = int(exp.constant_value())
-            if base.is_symbol(smt.REAL):
-                expkey = tuple(0 if v != base else exp_val for v in variables)
-                monos = {expkey: 1}
-            else:
-                base_poly = Polynomial._parse(base, variables)
-                monos = cls._power_expand(base_poly, exp_val)
-        elif expr.is_times():
-            args = expr.args()
-            monofirst = Polynomial._parse(args[0], variables)
-            monorest = Polynomial._parse(smt.Times(args[1:]), variables)
-            monos = cls._multiply_polys(monofirst, monorest)
-        elif expr.is_plus():
-            args = expr.args()
-            monofirst = Polynomial._parse(args[0], variables)
-            monorest = Polynomial._parse(smt.Plus(args[1:]), variables)
-            for expkey1, coeff1 in monofirst.items():
-                if expkey1 not in monorest:
-                    monorest[expkey1] = coeff1
-                else:
-                    monorest[expkey1] += coeff1
-
-            monos = monorest
-
-        elif expr.is_minus():
-            args = expr.args()
-            new_expr = smt.Plus(args[0], smt.Times(smt.Real(-1)), args[1])
-            return Polynomial._parse(new_expr, variables)
-        else:
-            raise ValueError(f"Unhandled expression {expr}")
-
-        return dict(monos)
 
 
 if __name__ == "__main__":
@@ -153,7 +165,7 @@ if __name__ == "__main__":
     x = Symbol("x", REAL)
     y = Symbol("y", REAL)
     z = Symbol("z", REAL)
-    variables = [x, y, z]
+    vv = [x, y, z]
 
     """
 
@@ -171,7 +183,7 @@ if __name__ == "__main__":
 
     """
 
-    p = Polynomial(Plus(Times(Real(3), Pow(x, Real(2))), Times(y, z)), variables)
+    p = Polynomial(Plus(Times(Real(3), Pow(x, Real(2))), Times(y, z)), vv)
     f = p.to_numpy()
 
     x = np.array(list(range(12))).reshape(-1, 3)
