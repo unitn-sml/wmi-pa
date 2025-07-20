@@ -40,8 +40,8 @@ class WMISolver:
         self,
         support: FNode,
         weight: FNode | None = None,
-        enumerator = None,
-        integrator = None,
+        enumerator: Enumerator | None = None,
+        integrator: Integrator | None = None,
         env: Environment | None = None,
     ):
         self.support = support
