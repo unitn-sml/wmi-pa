@@ -25,7 +25,7 @@ def is_literal(node: FNode) -> bool:
 
 def is_clause(formula: FNode) -> bool:
     return is_literal(formula) or (
-        formula.is_or() and all(is_literal(l) for l in formula.args())
+        formula.is_or() and all(is_literal(lit) for lit in formula.args())
     )
 
 
@@ -40,8 +40,10 @@ class TermNormalizer:
 
     def __init__(self, env: Environment):
         self._solver = env.factory.Solver(name="msat")
-        self._cache = {}
-        self._known_aliases = defaultdict(set)
+        self._cache: dict[FNode, FNode] = {}  # term -> normalized term
+        self._known_aliases: dict[FNode, set[tuple[FNode, bool]]] = defaultdict(
+            set
+        )  # term -> terms normalized into it in the form (atom, negated)
 
     def __del__(self):
         self._solver.exit()
@@ -73,7 +75,7 @@ class TermNormalizer:
             self._known_aliases[normalized_phi].add((phi, negated))
         return normalized_phi, negated
 
-    def known_aliases(self, term: FNode) -> set[FNode]:
+    def known_aliases(self, term: FNode) -> set[tuple[FNode, bool]]:
         """Return the set of known aliases of the term.
 
         Args:

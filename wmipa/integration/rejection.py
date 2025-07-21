@@ -26,15 +26,15 @@ class RejectionIntegrator:
         # print("b", b)
 
         # compute the enclosing axis-aligned bounding box (lower, upper)
-        lower, upper = [], []
+        lowerl, upperl = [], []
         for i in range(polytope.N):
             cost = np.array([1 if j == i else 0 for j in range(polytope.N)])
             res = linprog(cost, A_ub=A, b_ub=b, method="highs-ds")
-            lower.append(res.x[i])
+            lowerl.append(res.x[i])
             res = linprog(-cost, A_ub=A, b_ub=b, method="highs-ds")
-            upper.append(res.x[i])
+            upperl.append(res.x[i])
 
-        lower, upper = np.array(lower), np.array(upper)
+        lower, upper = np.array(lowerl), np.array(upperl)
 
         # sample uniformly from the AA-BB and reject the samples outside the polytope
         sample = (
@@ -50,7 +50,7 @@ class RejectionIntegrator:
             result = 0.0
 
         # print(f"{result} ({len(valid_sample)} samples)")
-        return result
+        return float(result)
 
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]

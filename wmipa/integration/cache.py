@@ -12,7 +12,7 @@ class CacheWrapper:
 
     def __init__(self, integrator: "Integrator"):
         self.integrator = integrator
-        self.cache = dict()
+        self.cache: dict[int, float] = dict()
 
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
         key = CacheWrapper._compute_key(polytope, polynomial)
@@ -24,7 +24,7 @@ class CacheWrapper:
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
     ) -> np.ndarray:
-        volumes = [None] * len(convex_integrals)
+        volumes: list[float | None] = [None] * len(convex_integrals)
         miss_indices, miss_batch = [], []
         for i, conv_int in enumerate(convex_integrals):
             key = CacheWrapper._compute_key(*conv_int)

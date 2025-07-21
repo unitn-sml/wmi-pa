@@ -158,7 +158,7 @@ class MathSATEnumerator:
         solver.add_assertion(formula)
 
         # the MathSAT call returns models as conjunction of literals
-        models = []
+        models: list[Collection[FNode]] = []
         mathsat.msat_all_sat(
             solver.msat_env(),
             [converter.convert(v) for v in atoms],
@@ -203,14 +203,14 @@ class MathSATEnumerator:
             bool: True if the formula is completely simplified.
             FNode: The simplified formula.
         """
-        subs = {k: self.mgr.Bool(v) for k, v in subs.items()}
+        subs_node = {k: self.mgr.Bool(v) for k, v in subs.items()}
         f_next = formula
         # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
         while True:
             f_before = f_next
-            f_next = self.simplifier.simplify(f_before.substitute(subs))
+            f_next = self.simplifier.simplify(f_before.substitute(subs_node))
             lra_assignments, is_convex = self.assignment_extractor.extract(f_next)
-            subs = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
+            subs_node = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
             truth_assignment.update(lra_assignments)
             if is_convex or lra_assignments == {}:
                 break
@@ -241,7 +241,7 @@ class AssignmentExtractor(TreeWalker):
         super().__init__(env)
         self.polarity = True
         self.is_convex = False
-        self.assignment = {}
+        self.assignment: dict[FNode, bool] = {}
 
     def extract(self, formula: FNode) -> tuple[dict[FNode, bool], bool]:
         """Extracts the assignment of forced literals from a formula.

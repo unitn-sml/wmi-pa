@@ -97,9 +97,9 @@ class WMISolver:
 
         # build a dependency graph of the alias substitutions
         # handle non-constant and constant definitions separately
-        Gsub = nx.DiGraph()
+        Gsub: nx.DiGraph = nx.DiGraph()
         constants = {}
-        aliases = {}
+        aliases: dict[FNode, FNode] = {}
         inequalities = []
         for atom, truth_value in truth_assignment.items():
 
@@ -133,7 +133,7 @@ class WMISolver:
         # order of substitutions is determined by a topological sort of the digraph
         try:
             order = [node for node in nx.topological_sort(Gsub) if node in aliases]
-        except nx.exception.NetworkXUnfeasible:
+        except nx.NetworkXUnfeasible:
             raise ValueError("Cyclic aliases definition")
 
         convex_formula = self.mgr.And(inequalities)
