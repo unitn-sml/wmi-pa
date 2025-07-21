@@ -2,8 +2,11 @@ from typing import Generator, Collection
 from typing import TYPE_CHECKING
 
 import mathsat
+import pysmt.operators as op
+from pysmt.environment import Environment
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL
+from pysmt.walkers import TreeWalker, handles
 
 from wmipa.utils import BooleanSimplifier, TermNormalizer
 
@@ -20,6 +23,7 @@ class MathSATEnumerator:
         self.weights_skeleton = self.weights.compute_skeleton()
         self.simplifier = BooleanSimplifier(solver.env)
         self.normalizer = TermNormalizer(solver.env)
+        self.assignment_extractor = AssignmentExtractor(solver.env)
 
     @property
     def support(self):
@@ -181,7 +185,12 @@ class MathSATEnumerator:
 
             yield assignments
 
-    def _simplify_formula(self, formula, subs, truth_assignment):
+    def _simplify_formula(
+        self,
+        formula: FNode,
+        subs: dict[FNode, bool],
+        truth_assignment: dict[FNode, bool],
+    ) -> tuple[bool, FNode]:
         """Substitute the subs in the formula and iteratively simplify it.
         truth_assignment is updated with unit-propagated atoms.
 
@@ -200,7 +209,7 @@ class MathSATEnumerator:
         while True:
             f_before = f_next
             f_next = self.simplifier.simplify(f_before.substitute(subs))
-            lra_assignments, is_convex = MathSATEnumerator._plra_rec(f_next, True)
+            lra_assignments, is_convex = self.assignment_extractor.extract(f_next)
             subs = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
             truth_assignment.update(lra_assignments)
             if is_convex or lra_assignments == {}:
@@ -218,50 +227,74 @@ class MathSATEnumerator:
             f_next = self.mgr.And([f_next] + expressions)
         return is_convex, f_next
 
-    @staticmethod
-    def _plra_rec(formula, pos_polarity):
-        """This method extract all sub formulas in the formula and returns them as a dictionary.
+
+class AssignmentExtractor(TreeWalker):
+    """Extracts forced literals from a formula.
+
+    A forced literal is a literal that must be true for the formula to be satisfied.
+    Such literals are found recursively in the formula structure:
+    - If the formula is a conjunction, all literals in the conjunction are forced.
+    - If the formula is a negated disjunction, all literals in the disjunction are forced with a negated value.
+    """
+
+    def __init__(self, env: Environment):
+        super().__init__(env)
+        self.polarity = True
+        self.is_convex = False
+        self.assignment = {}
+
+    def extract(self, formula: FNode) -> tuple[dict[FNode, bool], bool]:
+        """Extracts the assignment of forced literals from a formula.
 
         Args:
-            formula (FNode): The formula to parse.
-            pos_polarity (bool): The polarity of the formula.
-
+            formula: The formula to extract the assignment from.
         Returns:
-            dict: the list of FNode in the formula with the corresponding truth value.
-            bool: boolean that indicates if there are no more truth assignment to
-                extract.
-
+            A tuple containing:
+                - A dictionary with forced literals as keys and their truth values as values.
+                - A boolean indicating whether the formula is convex (i.e., can be expressed as a conjunction of literals).
         """
-        if formula.is_bool_constant():
-            return {}, True
-        elif formula.is_theory_relation() or formula.is_symbol(BOOL):
-            return {formula: pos_polarity}, True
-        elif formula.is_not():
-            return MathSATEnumerator._plra_rec(formula.arg(0), not pos_polarity)
-        elif formula.is_and() and pos_polarity:
-            assignments = {}
-            is_convex = True
-            for a in formula.args():
-                assignment, rec_is_convex = MathSATEnumerator._plra_rec(a, True)
-                assignments.update(assignment)
-                is_convex = rec_is_convex and is_convex
-            return assignments, is_convex
-        elif formula.is_or() and not pos_polarity:
-            assignments = {}
-            is_convex = True
-            for a in formula.args():
-                assignment, rec_is_convex = MathSATEnumerator._plra_rec(a, False)
-                assignments.update(assignment)
-                is_convex = rec_is_convex and is_convex
-            return assignments, is_convex
-        elif formula.is_implies() and not pos_polarity:
-            assignments, is_convex_left = MathSATEnumerator._plra_rec(
-                formula.arg(0), True
-            )
-            assignment_right, is_convex_right = MathSATEnumerator._plra_rec(
-                formula.arg(1), False
-            )
-            assignments.update(assignment_right)
-            return assignments, is_convex_left and is_convex_right
+
+        self.assignment = {}
+        self.polarity = True
+        self.is_convex = True
+
+        self.walk(formula)
+
+        return self.assignment, self.is_convex
+
+    def walk_bool_constant(self, node: FNode) -> None:
+        return
+
+    @handles(op.SYMBOL)
+    @handles(op.IRA_RELATIONS)
+    def walk_term(self, node: FNode) -> None:
+        assert node.is_symbol(BOOL) or node.is_theory_relation()
+        self.assignment[node] = self.polarity
+
+    def walk_not(self, node: FNode) -> Generator[FNode, None, None]:
+        self.polarity = not self.polarity
+        yield node.arg(0)  # recursion into the negated argument
+        self.polarity = not self.polarity
+
+    def walk_and(self, node: FNode) -> Generator[FNode, None, None]:
+        if self.polarity:
+            for arg in node.args():
+                yield arg  # recursion into the arguments
         else:
-            return {}, False
+            self.is_convex = False
+
+    def walk_or(self, node: FNode) -> Generator[FNode, None, None]:
+        if not self.polarity:
+            for arg in node.args():
+                yield arg  # recursion into the arguments
+        else:
+            self.is_convex = False
+
+    def walk_implies(self, node: FNode) -> Generator[FNode, None, None]:
+        if not self.polarity:
+            self.polarity = False
+            yield node.arg(0)
+            self.polarity = True
+            yield node.arg(1)
+        else:
+            self.is_convex = False
