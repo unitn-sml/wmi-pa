@@ -7,7 +7,7 @@ from fractions import Fraction
 from functools import reduce
 from shutil import which
 from tempfile import TemporaryDirectory
-from typing import Iterable
+from typing import Collection
 
 import numpy as np
 
@@ -30,7 +30,7 @@ class LattEIntegrator:
     _POLYTOPE_FILENAME = "polytope.hrep"
     _OUTPUT_FILENAME = "output.txt"
 
-    def __init__(self, algorithm=DEF_ALGORITHM):
+    def __init__(self, algorithm: str = DEF_ALGORITHM):
         if not LATTE_INSTALLED:
             raise RuntimeError(
                 "Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it."
@@ -78,7 +78,7 @@ class LattEIntegrator:
         return result
 
     def integrate_batch(
-        self, convex_integrals: Iterable[tuple[Polytope, Polynomial]]
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
     ) -> np.ndarray:
         volumes = []
         for polytope, polynomial in convex_integrals:
@@ -87,7 +87,7 @@ class LattEIntegrator:
         return np.array(volumes)
 
     @staticmethod
-    def _write_polynomial_file(polynomial, path):
+    def _write_polynomial_file(polynomial: Polynomial, path: str) -> None:
         mono_str = []
         for exponents, coefficient in polynomial.monomials.items():
             exp_str = "[" + ",".join(str(e) for e in exponents) + "]"
@@ -97,7 +97,7 @@ class LattEIntegrator:
             f.write("[" + ",".join(mono_str) + "]")
 
     @staticmethod
-    def _write_polytope_file(polytope, path):
+    def _write_polytope_file(polytope: Polytope, path: str) -> None:
         A, b = polytope.to_numpy()
         bA = np.concatenate((b.reshape(-1, 1), A), axis=1)
 

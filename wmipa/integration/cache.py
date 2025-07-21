@@ -1,20 +1,29 @@
+from typing import TYPE_CHECKING, Collection
+
 import numpy as np
+
+from wmipa.datastructures import Polytope, Polynomial
+
+if TYPE_CHECKING:  # avoid circular import
+    from wmipa.integration import Integrator
 
 
 class CacheWrapper:
 
-    def __init__(self, integrator):
+    def __init__(self, integrator: "Integrator"):
         self.integrator = integrator
         self.cache = dict()
 
-    def integrate(self, polytope, polynomial):
+    def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
         key = CacheWrapper._compute_key(polytope, polynomial)
         if key in self.cache:
             return self.cache[key]
         else:
             return self.integrator.integrate(polytope, polynomial)
 
-    def integrate_batch(self, convex_integrals):
+    def integrate_batch(
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
         volumes = [None] * len(convex_integrals)
         miss_indices, miss_batch = [], []
         for i, conv_int in enumerate(convex_integrals):
@@ -31,5 +40,5 @@ class CacheWrapper:
         return np.array(volumes)
 
     @staticmethod
-    def _compute_key(polytope, polynomial):
+    def _compute_key(polytope: Polytope, polynomial: Polynomial) -> int:
         return hash(str(polytope) + str(polynomial))

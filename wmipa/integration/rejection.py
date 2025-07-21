@@ -1,16 +1,20 @@
+from typing import Collection
+
 import numpy as np
 from scipy.optimize import linprog
+
+from wmipa.datastructures import Polytope, Polynomial
 
 
 class RejectionIntegrator:
     DEF_N_SAMPLES = int(10e3)
 
-    def __init__(self, n_samples=None, seed=None):
-        self.n_samples = n_samples or RejectionIntegrator.DEF_N_SAMPLES
+    def __init__(self, n_samples: int = DEF_N_SAMPLES, seed: int | None = None):
+        self.n_samples = n_samples
         if seed is not None:
             np.random.seed(seed)
 
-    def integrate(self, polytope, integrand):
+    def integrate(self, polytope: Polytope, integrand: Polynomial) -> float:
 
         # print("\n\n", "integrate")
         # print(polytope)
@@ -25,16 +29,16 @@ class RejectionIntegrator:
         lower, upper = [], []
         for i in range(polytope.N):
             cost = np.array([1 if j == i else 0 for j in range(polytope.N)])
-            res = linprog(cost, A_ub=A, b_ub=b, method='highs-ds')
+            res = linprog(cost, A_ub=A, b_ub=b, method="highs-ds")
             lower.append(res.x[i])
-            res = linprog(-cost, A_ub=A, b_ub=b, method='highs-ds')
+            res = linprog(-cost, A_ub=A, b_ub=b, method="highs-ds")
             upper.append(res.x[i])
 
         lower, upper = np.array(lower), np.array(upper)
 
         # sample uniformly from the AA-BB and reject the samples outside the polytope
         sample = (
-                np.random.random((self.n_samples, polytope.N)) * (upper - lower) + lower
+            np.random.random((self.n_samples, polytope.N)) * (upper - lower) + lower
         )
         valid_sample = sample[np.all(sample @ A.T < b, axis=1)]
 
@@ -48,7 +52,9 @@ class RejectionIntegrator:
         # print(f"{result} ({len(valid_sample)} samples)")
         return result
 
-    def integrate_batch(self, convex_integrals):
+    def integrate_batch(
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
         volumes = []
         for polytope, integrand in convex_integrals:
             volumes.append(self.integrate(polytope, integrand))
@@ -57,26 +63,27 @@ class RejectionIntegrator:
 
 
 if __name__ == "__main__":
-    from pysmt.shortcuts import *
-    from wmipa.datastructures import Polynomial, Polytope
+    # avoid polluting the global namespace
+    import pysmt.shortcuts as smt
+    import pysmt.typing as smt_typing
+    import wmipa.datastructures as wmipa_ds
 
-    x = Symbol("x", REAL)
-    y = Symbol("y", REAL)
+    x = smt.Symbol("x", smt_typing.REAL)
+    y = smt.Symbol("y", smt_typing.REAL)
+    env = smt.get_env()
 
     variables = [x, y]
 
-    h1 = LE(Real(0), x)
-    h2 = LE(Real(0), y)
-    h3 = LE(Plus(x, y), Real(1))
+    h1 = smt.LE(smt.Real(0), x)
+    h2 = smt.LE(smt.Real(0), y)
+    h3 = smt.LE(smt.Plus(x, y), smt.Real(1))
 
-    w = Minus(Real(1), Plus(x, y))
-    w = Plus(x, y)
+    # w = smt.Minus(smt.Real(1), smt.Plus(x, y))
+    w = smt.Plus(x, y)
 
-    polytope = Polytope([h1, h2, h3], variables)
-    integrand = Polynomial(w, variables)
+    pt = wmipa_ds.Polytope([h1, h2, h3], variables, env=env)
+    pn = wmipa_ds.Polynomial(w, variables, env=env)
 
-    n_samples = 100000
+    integrator = RejectionIntegrator(100000)
 
-    integrator = RejectionIntegrator()
-
-    print("integral:", integrator.integrate(polytope, integrand))
+    print("integral:", integrator.integrate(pt, pn))

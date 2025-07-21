@@ -1,4 +1,4 @@
-from typing import Protocol, Iterable
+from typing import Protocol, Collection
 
 import numpy as np
 
@@ -26,7 +26,7 @@ class Integrator(Protocol):
         """
         ...
 
-    def integrate_batch(self, convex_integrals: Iterable[tuple[Polytope, Polynomial]]) -> np.ndarray:
+    def integrate_batch(self, convex_integrals: Collection[tuple[Polytope, Polynomial]]) -> np.ndarray:
         """
         Perform batch integration of multiple polynomial-polytope pairs.
 

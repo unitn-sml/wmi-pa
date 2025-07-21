@@ -229,11 +229,11 @@ class CNFPreprocessor(IdentityDagWalker):
         super().__init__(env)
         self.nnfizer = NNFizer(env)
 
-    def walk(self, formula, **kwargs):
+    def walk(self, formula: FNode, **kwargs) -> FNode:
         formula = self.nnfizer.convert(formula)
         return super().walk(formula, **kwargs)
 
-    def walk_or(self, formula, args, **kwargs):
+    def walk_or(self, formula: FNode, args: list[FNode], **kwargs) -> FNode:
         children = []
         for arg in args:
             if arg.is_true():
@@ -248,7 +248,7 @@ class CNFPreprocessor(IdentityDagWalker):
                 children.append(arg)
         return self.mgr.Or(children)
 
-    def walk_and(self, formula, args, **kwargs):
+    def walk_and(self, formula: FNode, args: list[FNode], **kwargs) -> FNode:
         children = []
         for arg in args:
             if arg.is_false():
@@ -267,6 +267,8 @@ class CNFPreprocessor(IdentityDagWalker):
 class PolarityCNFizer(DagWalker):
     """Implements the Plaisted&Greenbaum CNF conversion algorithm."""
 
+    CNF = list[list[FNode]]
+
     def __init__(self, env: Environment):
         super().__init__(env)
         self.mgr = self.env.formula_manager
@@ -274,10 +276,10 @@ class PolarityCNFizer(DagWalker):
         # self.cnf_labels = set()
         self._introduced_variables = {}
 
-    def _get_key(self, formula, cnf=None, **kwargs):
+    def _get_key(self, formula: FNode, cnf=None, **kwargs) -> FNode:
         return formula
 
-    def _key_var(self, formula):
+    def _key_var(self, formula: FNode) -> FNode:
         if formula in self._introduced_variables:
             res = self._introduced_variables[formula]
         else:
@@ -285,13 +287,13 @@ class PolarityCNFizer(DagWalker):
             self._introduced_variables[formula] = res
         return res
 
-    def _neg(self, formula):
+    def _neg(self, formula: FNode) -> FNode:
         if formula.is_not():
             return formula.arg(0)
         else:
             return self.mgr.Not(formula)
 
-    def convert(self, formula):
+    def convert(self, formula: FNode) -> frozenset[frozenset[FNode]]:
         """Convert formula into an equisatisfiable CNF.
 
         Returns a set of clauses: a set of sets of literals.
@@ -305,7 +307,7 @@ class PolarityCNFizer(DagWalker):
         res = []
         for clause in cnf:
             if len(clause) == 0:
-                return {frozenset()}
+                return frozenset(frozenset())
             simp = []
             for lit in clause:
                 if lit is tl or lit.is_true():
@@ -321,7 +323,9 @@ class PolarityCNFizer(DagWalker):
 
         return frozenset(res)
 
-    def walk_not(self, formula, args, cnf=None, **kwargs):
+    def walk_not(
+        self, formula: FNode, args: list[FNode], cnf: CNF | None = None, **kwargs
+    ) -> FNode:
         a = args[0]
         if a.is_true():
             return self.mgr.Bool(False)
@@ -330,7 +334,9 @@ class PolarityCNFizer(DagWalker):
         else:
             return self._neg(a)
 
-    def walk_and(self, formula, args, cnf=None, **kwargs):
+    def walk_and(
+        self, formula: FNode, args: list[FNode], cnf: CNF | None = None, **kwargs
+    ) -> FNode:
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
@@ -340,7 +346,9 @@ class PolarityCNFizer(DagWalker):
 
         return k
 
-    def walk_or(self, formula, args, cnf=None, **kwargs):
+    def walk_or(
+        self, formula: FNode, args: list[FNode], cnf: CNF | None = None, **kwargs
+    ) -> FNode:
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
@@ -349,7 +357,9 @@ class PolarityCNFizer(DagWalker):
 
         return k
 
-    def walk_iff(self, formula, args, cnf=None, **kwargs):
+    def walk_iff(
+        self, formula: FNode, args: list[FNode], cnf: CNF | None = None, **kwargs
+    ) -> FNode:
         left, right = args
         if left == right:
             return self.mgr.Bool(True)

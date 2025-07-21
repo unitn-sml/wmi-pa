@@ -1,23 +1,31 @@
+from multiprocessing import Pool
+from typing import TYPE_CHECKING, Collection
+
 import numpy as np
 
-from multiprocessing import Pool
+from wmipa.datastructures import Polytope, Polynomial
+
+if TYPE_CHECKING:  # avoid circular import
+    from wmipa.integration import Integrator
 
 
 class ParallelWrapper:
 
     DEF_N_PROCESSES = 8
 
-    def __init__(self, integrator, n_processes=None):
+    def __init__(self, integrator: "Integrator", n_processes: int = DEF_N_PROCESSES):
         self.integrator = integrator
-        self.n_processes = n_processes or ParallelWrapper.DEF_N_PROCESSES
+        self.n_processes = n_processes
 
-    def integrate(self, polytope, polynomial):
+    def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
         # do not even bother multiprocessing
         return self.integrator.integrate(polytope, polynomial)
 
-    def integrate_batch(self, convex_integrals):
+    def integrate_batch(
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
         with Pool(self.n_processes) as p:
             return np.array(p.map(self._unpack, convex_integrals))
 
-    def _unpack(self, args):
+    def _unpack(self, args: tuple[Polytope, Polynomial]) -> float:
         return self.integrator.integrate(*args)

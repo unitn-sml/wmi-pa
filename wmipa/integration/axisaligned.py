@@ -1,4 +1,11 @@
+from typing import TYPE_CHECKING, Collection
+
 import numpy as np
+
+from wmipa.datastructures import Polytope, Polynomial
+
+if TYPE_CHECKING:
+    from wmipa.integration import Integrator
 
 
 class AxisAlignedWrapper:
@@ -11,10 +18,10 @@ class AxisAlignedWrapper:
 
     """
 
-    def __init__(self, integrator):
+    def __init__(self, integrator: "Integrator"):
         self.integrator = integrator
 
-    def integrate(self, polytope, polynomial):
+    def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
         w = AxisAlignedWrapper._constant_integrand(polynomial)
         if w is not None:
             vol = AxisAlignedWrapper._axis_aligned_volume(polytope)
@@ -23,7 +30,9 @@ class AxisAlignedWrapper:
 
         return self.integrator.integrate(polytope, polynomial)
 
-    def integrate_batch(self, convex_integrals):
+    def integrate_batch(
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
         volumes = []
         for polytope, polynomial in convex_integrals:
             volumes.append(self.integrate(polytope, polynomial))
@@ -31,14 +40,14 @@ class AxisAlignedWrapper:
         return np.array(volumes)
 
     @staticmethod
-    def _constant_integrand(polynomial):
+    def _constant_integrand(polynomial: Polynomial) -> float | None:
         if polynomial.degree == 0:
             return list(polynomial.monomials.values())[0]
         else:
             return None
 
     @staticmethod
-    def _axis_aligned_volume(polytope):
+    def _axis_aligned_volume(polytope: Polytope) -> np.ndarray | None:
 
         def parse_bound(inequality):
             monos = inequality.polynomial.monomials
