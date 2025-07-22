@@ -9,21 +9,17 @@ from wmipa.datastructures import Polytope, Polynomial
 class RejectionIntegrator:
     DEF_N_SAMPLES = int(10e3)
 
-    def __init__(self, n_samples: int = DEF_N_SAMPLES, seed: int | None = None):
-        self.n_samples = n_samples
+    def __init__(self, n_samples: int | None = None, seed: int | None = None):
+
+        self.n_samples = (
+            RejectionIntegrator.DEF_N_SAMPLES if n_samples is None else n_samples
+        )
         if seed is not None:
             np.random.seed(seed)
 
     def integrate(self, polytope: Polytope, integrand: Polynomial) -> float:
 
-        # print("\n\n", "integrate")
-        # print(polytope)
-        # print("---")
-
         A, b = polytope.to_numpy()
-
-        # print("A", A)
-        # print("b", b)
 
         # compute the enclosing axis-aligned bounding box (lower, upper)
         lowerl, upperl = [], []
@@ -49,7 +45,6 @@ class RejectionIntegrator:
         else:
             result = 0.0
 
-        # print(f"{result} ({len(valid_sample)} samples)")
         return float(result)
 
     def integrate_batch(
