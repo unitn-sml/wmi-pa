@@ -22,7 +22,7 @@ REQUIRED = [
 
 # What packages are optional?
 EXTRAS = {
-    "test": ["pytest", "pytest-runner"],
+    "test": ["pytest", "pytest-runner", "pytest-cov"],
     "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 
