@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Collection
+from typing import TYPE_CHECKING, Collection, Optional
 
 import numpy as np
 
@@ -40,14 +40,14 @@ class AxisAlignedWrapper:
         return np.array(volumes)
 
     @staticmethod
-    def _constant_integrand(polynomial: Polynomial) -> float | None:
+    def _constant_integrand(polynomial: Polynomial) -> Optional[float]:
         if polynomial.degree == 0:
             return list(polynomial.monomials.values())[0]
         else:
             return None
 
     @staticmethod
-    def _axis_aligned_volume(polytope: Polytope) -> np.ndarray | None:
+    def _axis_aligned_volume(polytope: Polytope) -> Optional[np.ndarray]:
 
         def parse_bound(inequality):
             monos = inequality.polynomial.monomials

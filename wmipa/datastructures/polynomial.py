@@ -1,4 +1,6 @@
+from fractions import Fraction
 from functools import reduce
+from numbers import Real
 from typing import Collection, Callable
 
 import numpy as np
@@ -110,7 +112,7 @@ class PolynomialParser(DagWalker):
         base, exp = formula.args()
         if (
             not exp.is_constant(REAL)
-            or not (c := exp.constant_value()).is_integer()
+            or not _is_integral(c := exp.constant_value())
             or c < 0
         ):
             raise ValueError(
@@ -169,6 +171,17 @@ class PolynomialParser(DagWalker):
             result = cls._multiply_polys(result, base_poly)
 
         return result
+
+
+def _is_integral(v: Real) -> bool:
+    if isinstance(v, int):
+        return True
+    elif isinstance(v, float):
+        return v.is_integer()
+    elif isinstance(v, Fraction):
+        return v.denominator == 1
+    else:
+        return False
 
 
 if __name__ == "__main__":

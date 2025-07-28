@@ -8,20 +8,20 @@ DESCRIPTION = "Weighted Model Integration PA (Predicate Abstraction) solver."
 URL = "http://github.com/unitn-sml/wmi-pa"
 EMAIL = "paolo.morettin@unitn.it"
 AUTHOR = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
-REQUIRES_PYTHON = ">=3.5.0"
+REQUIRES_PYTHON = ">=3.9.0"
 VERSION = "0.1.8"
 
 # What packages are required for this module to be executed?
 REQUIRED = [
     "networkx",
     "numpy",
-    "PySMT>=0.9.6.dev53",
+    "PySMT>=0.9.7.dev333",
     "scipy",
 ]
 
 # What packages are optional?
 EXTRAS = {
-    'test': ["pytest", "pytest-runner", "scipy"],
+    'test': ["pytest", "pytest-runner"],
     'nra': ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 

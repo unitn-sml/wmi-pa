@@ -1,6 +1,6 @@
 # WMI-PA
 
-[![Build Status](https://travis-ci.org/unitn-sml/wmi-pa.svg?branch=master)](https://travis-ci.org/unitn-sml/wmi-pa)
+[![Build and Test (Python 3.9+, macOS, Linux)](https://github.com/unitn-sml/wmi-pa/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/unitn-sml/wmi-pa/actions/workflows/build-and-test.yml)
 
 Python 3 implementation of the methods presented in:
 
@@ -30,68 +30,60 @@ pip install wmipa
 
 ### Additional requirements
 
-The base version of the solver requires at least one integration backend to be installed.
+WMI-PA comes installed with a default enumerator (based on the `z3` SMT-solver) and a default integration backend (based
+on rejection-sampling).
 
-Additional dependencies are needed to also support NRA theory.
+To use the most up-to-date algorithms, however, you need to install additional requirements.
+The script `wmipa-install` can be used to install all the requirements automatically on Unix-like systems (Linux,
+macOS).
+For macOS users, see the section below for specific instructions.
 
-We provide a script that automatically installs all the requirements. The script has only been tested on Ubuntu
-distributions.
+```
+usage: wmipa-install [-h] [--msat] [--nra] [--latte] [--volesti] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH]
+                     [--cxx CXX]
 
-#### All-in-one installation
-
-To install all the mandatory and optional requirements, run
-
-```bash
-wmipa-install --all
+options:
+  -h, --help            show this help message and exit
+  --msat                Install MathSAT
+  --nra                 Install PySMT version with NRA support
+  --latte               Install LattE Integrale
+  --volesti             Install Volesti
+  --all                 Install all dependencies
+  --install-path INSTALL_PATH
+                        Install path for external tools
+  --assume-yes, -y      Automatic yes to prompts
+  --force-reinstall, -f
+                        Force reinstallation of dependencies
+  --include-path INCLUDE_PATH
+                        Additional include paths for compilation (can be specified multiple times)
+  --lib-path LIB_PATH   Additional library paths for compilation (can be specified multiple times)
+  --cxx CXX             C++ compiler to use (default: g++)
 ```
 
-and then add the following lines to the `~/.bashrc` file:
+E.g., for using the latest `SAE4WMI` enumeration algorithm, you should install the `MathSAT5` SMT solver.
+For an exact integration backend, you should install the `LattE integrale` library.
+
+To install these requirements, you can run the following command:
+
+```bash
+wmipa-install --msat --latte --assume-yes
+````
+
+Then, a message will be shown to add the following lines to the `~/.bashrc` file:
 
 ```
 PATH=$HOME/.wmipa/latte/bin:$PATH
-PATH=$HOME/.wmipa/approximate-integration/bin:$PATH
 ```
 
-#### Separate installation
+#### MacOS users
 
-If you want to install the requirements separately, you can use the following commands.
-
-At least one following integration backend is needed:
-
-* [LattE integrale](https://www.math.ucdavis.edu/~latte/) - Exact integration (recommended):
-  ```bash
-  wmipa-install --latte
-  ```
-  Add `$HOME/latte/bin` to the PATH environment variable by adding the following line to the `~/.bashrc` file:
-  ```
-  PATH=$HOME/.wmipa/latte/bin:$PATH
-  ```
-
-* [VolEsti](https://github.com/masinag/approximate-integration) - Approximated integration:
-  ```bash
-  wmipa-install --volesti
-  ```
-  Add `bin` to the PATH environment variable by adding the following line to the `~/.bashrc` file:
-  ```
-  PATH=$HOME/.wmipa/approximate-integration/bin:$PATH
-  ```
-
-* [PyXadd](https://github.com/weighted-model-integration/pywmi) - Symbolic integration:
-  ```bash
-  wmipa-install --symbolic
-  ```
-
-The [MathSAT5](http://mathsat.fbk.eu/) SMT solver is required
+On macOS, you will typically have some system libraries (e.g., `gmp`) installed with `homebrew`.
+In this case, you can use the `--include-path` and `--lib-path` options to specify the paths to these libraries:
 
 ```bash
-wmipa-install --msat
-```
-
-To support NRA theory (PI, Sin, Exp,
-ecc.), [a customized version of PySMT](https://github.com/masinag/pysmt/tree/nrat) must be installed via
-
-```bash
-wmipa-install --nra
+wmipa-install --msat --latte --assume-yes \
+  --include-path /opt/homebrew/include \
+  --lib-path /opt/homebrew/lib
 ```
 
 ## Examples
@@ -100,7 +92,6 @@ We provide some examples that show how to write a model and evaluate weighted mo
 To run the code in *examples/*, type:
 
     python exampleX.py
-
 
 ## Experiments
 

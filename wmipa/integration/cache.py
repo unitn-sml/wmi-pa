@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Collection
+from typing import TYPE_CHECKING, Collection, Optional
 
 import numpy as np
 
@@ -24,7 +24,7 @@ class CacheWrapper:
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
     ) -> np.ndarray:
-        volumes: list[float | None] = [None] * len(convex_integrals)
+        volumes: list[Optional[float]] = [None] * len(convex_integrals)
         miss_indices, miss_batch = [], []
         for i, conv_int in enumerate(convex_integrals):
             key = CacheWrapper._compute_key(*conv_int)

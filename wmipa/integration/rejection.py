@@ -1,4 +1,4 @@
-from typing import Collection
+from typing import Collection, Optional
 
 import numpy as np
 from scipy.optimize import linprog
@@ -9,7 +9,7 @@ from wmipa.datastructures import Polytope, Polynomial
 class RejectionIntegrator:
     DEF_N_SAMPLES = int(10e3)
 
-    def __init__(self, n_samples: int | None = None, seed: int | None = None):
+    def __init__(self, n_samples: Optional[int] = None, seed: Optional[int] = None):
 
         self.n_samples = (
             RejectionIntegrator.DEF_N_SAMPLES if n_samples is None else n_samples

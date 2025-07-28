@@ -10,7 +10,7 @@ This WMI solver is based upon:
 __version__ = "1.1"
 __author__ = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta"
 
-from typing import Collection, cast
+from typing import Collection, cast, Optional
 
 import networkx as nx
 import numpy as np
@@ -19,7 +19,7 @@ from pysmt.fnode import FNode
 from pysmt.typing import REAL, BOOL
 
 from wmipa.datastructures import Polynomial, Polytope
-from wmipa.enumeration import Enumerator, Z3Enumerator
+from wmipa.enumeration import Enumerator, Z3Enumerator, MathSATEnumerator
 from wmipa.integration import Integrator, RejectionIntegrator
 from wmipa.weights import Weights
 
@@ -41,10 +41,10 @@ class WMISolver:
     def __init__(
         self,
         support: FNode,
-        weight: FNode | None = None,
-        enumerator: Enumerator | None = None,
-        integrator: Integrator | None = None,
-        env: Environment | None = None,
+        weight: Optional[FNode] = None,
+        enumerator: Optional[Enumerator] = None,
+        integrator: Optional[Integrator] = None,
+        env: Optional[Environment] = None,
     ):
         self.support = support
 
@@ -183,7 +183,6 @@ class WMISolver:
 
 if __name__ == "__main__":
     import pysmt.shortcuts as smt
-    from wmipa.integration import LattEIntegrator
 
     x = smt.Symbol("x", REAL)
     y = smt.Symbol("y", REAL)
