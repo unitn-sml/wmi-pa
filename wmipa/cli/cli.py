@@ -6,7 +6,27 @@ from pysmt.typing import REAL
 
 from wmipa import WMISolver
 from wmipa.cli.io import Density
+from wmipa.enumeration import *
 from wmipa.integration import *
+
+
+def parse_enumerator(args):
+    curr, _, rest = args.enumerator.partition("-")
+
+    if len(curr) == 0:
+        # defaults to z3
+        return Z3Enumerator()
+    elif len(rest) == 0:
+        # base enumerators
+        if curr == "msat":
+            return MathSATEnumerator()
+        elif curr == "z3":
+            return Z3Enumerator()
+        else:
+            raise NotImplementedError()
+    else:
+        # wrapper around enumerators
+        raise NotImplementedError()
 
 
 def parse_integrator(args):
@@ -16,7 +36,7 @@ def parse_integrator(args):
         # defaults to rejection
         return RejectionIntegrator()
     elif len(rest) == 0:
-        # base integrator
+        # base integrators
         if curr == "latte":
             return LattEIntegrator()
         elif curr == "rejection":
@@ -41,6 +61,7 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument("filename", type=str, help="Path to the input density file")
+parser.add_argument("--enumerator", type=str, default="", help="Enumerator")
 parser.add_argument("--integrator", type=str, default="", help="Integrator")
 parser.add_argument(
     "--n_processes", type=int, help="# processes (for parallel integrators)"
@@ -51,14 +72,16 @@ parser.add_argument(
 parser.add_argument("--seed", type=int, help="seed (for randomized integrators)")
 
 args = parser.parse_args()
-
+enumerator = parse_enumerator(args)
 integrator = parse_integrator(args)
 
 density = Density.from_file(args.filename)
 variables = [v for v in density.domain if v.symbol_type() == REAL]
 
 t0 = time()
-solver = WMISolver(density.support, density.weight, integrator=integrator)
+solver = WMISolver(
+    density.support, density.weight, enumerator=enumerator, integrator=integrator
+)
 
 result = solver.computeWMI(Bool(True), variables)
 tZ = time() - t0

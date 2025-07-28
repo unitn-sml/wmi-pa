@@ -1,5 +1,6 @@
 """This module implements the main solver class.
 
+TODO: rewrite
 This WMI solver is based upon:
     - a Satisfiability Modulo Theories solver supporting All-SMT (e.g. MathSAT)
     - a procedure for computing the integral of polynomials over polytopes (e.g. LattE Integrale)
@@ -18,7 +19,7 @@ from pysmt.fnode import FNode
 from pysmt.typing import REAL, BOOL
 
 from wmipa.datastructures import Polynomial, Polytope
-from wmipa.enumeration import Enumerator, MathSATEnumerator
+from wmipa.enumeration import Enumerator, Z3Enumerator
 from wmipa.integration import Integrator, RejectionIntegrator
 from wmipa.weights import Weights
 
@@ -30,11 +31,12 @@ class WMISolver:
     Attributes:
         weights (Weights): The representation of the weight function.
         support (FNode): The pysmt formula that contains the support of the formula
+        enumerator (Enumerator): The enumerator to use.
         integrator (Integrator): The integrator to use.
     """
 
-    DEF_ENUMERATOR = MathSATEnumerator
-    DEF_INTEGRATOR = RejectionIntegrator()
+    DEF_ENUMERATOR = Z3Enumerator
+    DEF_INTEGRATOR = RejectionIntegrator
 
     def __init__(
         self,
@@ -61,12 +63,14 @@ class WMISolver:
         if enumerator is not None:
             self.enumerator = enumerator
         else:
-            self.enumerator = self.DEF_ENUMERATOR(self)
+            self.enumerator = self.DEF_ENUMERATOR()
+
+        self.enumerator.initialize(self)
 
         if integrator is not None:
             self.integrator = integrator
         else:
-            self.integrator = self.DEF_INTEGRATOR
+            self.integrator = self.DEF_INTEGRATOR()
 
     def computeWMI(
         self, phi: FNode, domain: Collection[FNode], cache: int = -1
@@ -204,6 +208,6 @@ if __name__ == "__main__":
     result1 = solver1.computeWMI(smt.Bool(True), variables)
     print("result1", result1)
 
-    solver2 = WMISolver(s, w, integrator=LattEIntegrator())
+    solver2 = WMISolver(s, w, enumerator=MathSATEnumerator)
     result2 = solver2.computeWMI(smt.Bool(True), variables)
     print("result2", result2)

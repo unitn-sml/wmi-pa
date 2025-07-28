@@ -16,14 +16,20 @@ if TYPE_CHECKING:  # avoid circular import
 
 class MathSATEnumerator:
 
-    def __init__(self, solver: "WMISolver"):
+    def initialize(self, solver: "WMISolver"):
         self.solver = solver
-        self.env = solver.env
-        self.mgr = self.env.formula_manager
         self.weights_skeleton = self.weights.compute_skeleton()
         self.simplifier = BooleanSimplifier(solver.env)
         self.normalizer = TermNormalizer(solver.env)
         self.assignment_extractor = AssignmentExtractor(solver.env)
+
+    @property
+    def env(self):
+        return self.solver.env
+
+    @property
+    def mgr(self):
+        return self.env.formula_manager
 
     @property
     def support(self):
