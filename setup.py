@@ -17,25 +17,19 @@ REQUIRED = [
     "numpy",
     "PySMT>=0.9.7.dev333",
     "scipy",
+    "z3-solver", # default SMT-solver comes pre-installed
 ]
 
 # What packages are optional?
 EXTRAS = {
-    'test': ["pytest", "pytest-runner"],
-    'nra': ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
+    "test": ["pytest", "pytest-runner"],
+    "nra": ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"],
 }
 
 here = os.path.abspath(os.path.dirname(__file__))
 
 with open(path.join(here, "README.md")) as ref:
     long_description = ref.read()
-
-"""
-class PostInstallCommand(install):
-    def run(self):
-        install.run(self)
-        os.system("pysmt-install --msat --confirm-agreement") # additionally install mathsat
-"""
 
 setup(
     name=NAME,
@@ -57,10 +51,6 @@ setup(
     zip_safe=False,
     install_requires=REQUIRED,
     extras_require=EXTRAS,
-    cmdclass={
-        #        'upload': UploadCommand,
-        #        'install': PostInstallCommand,
-    },
     entry_points={
         "console_scripts": [
             "wmipa-install = wmipa_cli.install:run",
