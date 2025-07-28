@@ -57,9 +57,11 @@ jobs:
           echo "$GITHUB_WORKSPACE/wmipa-bin/latte/bin" >> $GITHUB_PATH
         shell: bash
 
-      - name: Run tests
+      - name: Run tests and collect coverage
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
           fi
-          pytest test/
+          pytest --cov=wmipa test/
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
