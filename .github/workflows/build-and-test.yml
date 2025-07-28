@@ -64,4 +64,5 @@ jobs:
           fi
           pytest --cov=wmipa test/
       - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v5
