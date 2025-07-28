@@ -5,7 +5,7 @@ import sys
 from wmipa_cli.installers.latte import LatteInstaller
 from wmipa_cli.installers.volesti import VolestiInstaller
 from wmipa_cli.log import logger
-from wmipa_cli.utils import safe_cmd
+from wmipa_cli.utils import safe_cmd, get_default_include_lib_paths
 
 
 def run() -> None:
@@ -46,7 +46,12 @@ def run() -> None:
 
 
 def parse_args(args: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog="wmipa-install",
+        description="Install dependencies for WMI-PA command line interface.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+
     parser.add_argument("--msat", help="Install MathSAT", action="store_true")
     parser.add_argument(
         "--nra", help="Install PySMT version with NRA support", action="store_true"
@@ -70,27 +75,27 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         action="store_true",
     )
 
+    default_include, default_lib = get_default_include_lib_paths()
+
     parser.add_argument(
         "--include-path",
         help="Additional include paths for compilation (can be specified multiple times)",
         action="append",
         dest="include_path",
+        default=default_include,
     )
     parser.add_argument(
         "--lib-path",
         help="Additional library paths for compilation (can be specified multiple times)",
         action="append",
         dest="lib_path",
+        default=default_lib,
     )
     parser.add_argument(
-        "--cxx", help="C++ compiler to use (default: g++)", default="g++", type=str
+        "--cxx", help="C++ compiler to use", default="g++", type=str
     )
 
     args = parser.parse_args(args)
-    if args.include_path is None:
-        args.include_path = []
-    if args.lib_path is None:
-        args.lib_path = []
 
     return args
 

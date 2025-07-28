@@ -36,27 +36,29 @@ on rejection-sampling).
 To use the most up-to-date algorithms, however, you need to install additional requirements.
 The script `wmipa-install` can be used to install all the requirements automatically on Unix-like systems (Linux,
 macOS).
-For macOS users, see the section below for specific instructions.
+For Windows users, see the section below for specific instructions.
 
 ```
 usage: wmipa-install [-h] [--msat] [--nra] [--latte] [--volesti] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH]
                      [--cxx CXX]
 
+Install dependencies for WMI-PA command line interface.
+
 options:
   -h, --help            show this help message and exit
-  --msat                Install MathSAT
-  --nra                 Install PySMT version with NRA support
-  --latte               Install LattE Integrale
-  --volesti             Install Volesti
-  --all                 Install all dependencies
+  --msat                Install MathSAT (default: False)
+  --nra                 Install PySMT version with NRA support (default: False)
+  --latte               Install LattE Integrale (default: False)
+  --volesti             Install Volesti (default: False)
+  --all                 Install all dependencies (default: False)
   --install-path INSTALL_PATH
-                        Install path for external tools
-  --assume-yes, -y      Automatic yes to prompts
+                        Install path for external tools (default: $HOME/.wmipa)
+  --assume-yes, -y      Automatic yes to prompts (default: False)
   --force-reinstall, -f
-                        Force reinstallation of dependencies
+                        Force reinstallation of dependencies (default: False)
   --include-path INCLUDE_PATH
-                        Additional include paths for compilation (can be specified multiple times)
-  --lib-path LIB_PATH   Additional library paths for compilation (can be specified multiple times)
+                        Additional include paths for compilation (can be specified multiple times) (default: [])
+  --lib-path LIB_PATH   Additional library paths for compilation (can be specified multiple times) (default: [])
   --cxx CXX             C++ compiler to use (default: g++)
 ```
 
@@ -75,16 +77,10 @@ Then, a message will be shown to add the following lines to the `~/.bashrc` file
 PATH=$HOME/.wmipa/latte/bin:$PATH
 ```
 
-#### MacOS users
+#### Windows users
 
-On macOS, you will typically have some system libraries (e.g., `gmp`) installed with `homebrew`.
-In this case, you can use the `--include-path` and `--lib-path` options to specify the paths to these libraries:
-
-```bash
-wmipa-install --msat --latte --assume-yes \
-  --include-path /opt/homebrew/include \
-  --lib-path /opt/homebrew/lib
-```
+The `wmipa-install` script is not directly supported on Windows.
+We recommend using the Windows Subsystem for Linux (WSL) to run the script.
 
 ## Examples
 

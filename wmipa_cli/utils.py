@@ -1,5 +1,7 @@
 import os
 import subprocess
+import sys
+from pathlib import Path
 from typing import Optional
 
 from wmipa_cli.log import logger
@@ -76,3 +78,19 @@ def remove_suffix(s: str, suffix: str) -> str:
     if s.endswith(suffix):
         return s[: -len(suffix)]
     return s
+
+
+def get_default_include_lib_paths() -> tuple[list[str], list[str]]:
+    """Get Homebrew paths for macOS"""
+    include_paths, lib_paths = [], []
+
+    if sys.platform != "darwin":
+        return include_paths, lib_paths
+
+    for prefix in ["/opt/homebrew", "/usr/local"]:
+        if Path(prefix).exists():
+            include_path = os.path.join(prefix, "include")
+            lib_path = os.path.join(prefix, "lib")
+            include_paths.append(include_path)
+            lib_paths.append(lib_path)
+    return include_paths, lib_paths
