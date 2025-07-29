@@ -32,7 +32,7 @@ jobs:
         run: pip install setuptools
 
       - name: Install dependencies
-        run: pip install ".[test]"
+        run: pip install -e ".[test]"
 
       - name: Install system dependencies
         run: |
