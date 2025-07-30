@@ -85,7 +85,7 @@ class MathSATEnumerator:
 
                 # try to simplify the formula using the partial TA
                 is_convex, simplified_formula = self._simplify_formula(
-                    formula, ta_bool, ta
+                    formula, ta_bool, ta, atoms
                 )
 
                 if is_convex:
@@ -196,6 +196,7 @@ class MathSATEnumerator:
         formula: FNode,
         subs: dict[FNode, bool],
         truth_assignment: dict[FNode, bool],
+        scope: set[FNode],
     ) -> tuple[bool, FNode]:
         """Substitute the subs in the formula and iteratively simplify it.
         truth_assignment is updated with unit-propagated atoms.
@@ -204,6 +205,7 @@ class MathSATEnumerator:
             formula (FNode): The formula to simplify.
             subs (dict): Dictionary with the substitutions to perform.
             truth_assignment (dict): Dictionary with atoms and assigned value.
+            scope (set): Set of atoms that should end up in 'truth_assignment'
 
         Returns:
             bool: True if the formula is completely simplified.
@@ -217,7 +219,9 @@ class MathSATEnumerator:
             f_next = self.simplifier.simplify(f_before.substitute(subs_node))
             lra_assignments, is_convex = self.assignment_extractor.extract(f_next)
             subs_node = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
-            truth_assignment.update(lra_assignments)
+            truth_assignment.update(
+                {k: v for k, v in lra_assignments.items() if k in scope}
+            )
             if is_convex or lra_assignments == {}:
                 break
 
