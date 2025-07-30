@@ -6,6 +6,7 @@ Credits: least common multiple code by J.F. Sebastian
 """
 
 from collections import defaultdict
+from typing import Iterable
 
 from pysmt import operators as op
 from pysmt.environment import Environment
@@ -33,6 +34,20 @@ def is_cnf(formula: FNode) -> bool:
     return is_clause(formula) or (
         formula.is_and() and all(is_clause(c) for c in formula.args())
     )
+
+
+def get_literals(clause: FNode) -> Iterable[FNode]:
+    if is_literal(clause):
+        yield clause
+    else:
+        yield from clause.args()
+
+
+def get_clauses(formula: FNode) -> Iterable[Iterable[FNode]]:
+    if is_clause(formula):
+        yield get_literals(formula)
+    else:
+        yield from (get_literals(clause) for clause in formula.args())
 
 
 class TermNormalizer:

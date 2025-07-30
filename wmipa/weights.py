@@ -9,7 +9,7 @@ from pysmt.rewritings import NNFizer
 from pysmt.typing import BOOL
 from pysmt.walkers import DagWalker, IdentityDagWalker, handles, TreeWalker
 
-from wmipa.utils import is_atom
+from wmipa.utils import get_clauses, is_atom, is_cnf
 
 
 class Weights:
@@ -302,11 +302,11 @@ class PolarityCNFizer(DagWalker):
         Returns a set of clauses: a set of sets of literals.
         """
         formula = self.preprocessor.walk(formula)
+        if is_cnf(formula):
+            return frozenset(map(frozenset, get_clauses(formula)))
         cnf: list[list[FNode]] = list()
         tl: FNode = self.walk(formula, cnf=cnf)
 
-        if not cnf:
-            return frozenset((frozenset(),))
         res = []
         for clause in cnf:
             if len(clause) == 0:
