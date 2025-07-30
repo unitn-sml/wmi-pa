@@ -6,11 +6,7 @@ from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
 from wmipa.datastructures import Polynomial, Polytope
-from wmipa.integration import LattEIntegrator, RejectionIntegrator
-
-REJ_SAMPLES = int(1e4)
-REJ_SEED = 666
-RELATIVE_TOLERANCE = 0.1
+from wmipa.integration import LattEIntegrator
 
 
 def _polytope_from_inequalities(A, b):
@@ -119,42 +115,15 @@ def pytest_generate_tests(metafunc):
                 f"{'LattEIntegrator':>20} {polytope_generator.__name__:>25}"
                 f"(n={dim})"
             )
-            '''
-            # rejection integrator
-            argvalues.append(
-                (
-                    inequalities,
-                    variables,
-                    volume,
-                    RejectionIntegrator(n_samples=REJ_SAMPLES, seed=REJ_SEED),
-                )
-            )
-            idlist.append(
-                f"{'RejectionIntegrator':>20} {polytope_generator.__name__:>25}"
-                f"(n={dim}, n_samples={REJ_SAMPLES})"
-            )
-            '''
 
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
-
-from wmipa.cli.io import Density
 
 def test_volume(inequalities, variables, volume, integrator):
     env = smt.get_env()
     polynomial = Polynomial(smt.Real(1.0), variables, env)
     polytope = Polytope(inequalities, variables, env)
     result = integrator.integrate(polytope, polynomial)
-
-    if not np.isclose(result, volume, rtol=RELATIVE_TOLERANCE):
-        support = polytope.to_pysmt()
-        weight = smt.Real(1)
-        domain = {v : [-np.inf, +np.inf] for v in variables}
-        wtfindex = np.random.randint(0, 999)
-        Density(support, weight, domain).to_file(f"wtf{wtfindex}.json")        
-
-        
-
     assert np.isclose(
-        result, volume, rtol=RELATIVE_TOLERANCE
+        result, volume
     ), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"
