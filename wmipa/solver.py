@@ -85,9 +85,7 @@ class WMISolver:
             n_unassigned_bools.append(nub)
 
         factors = [2**nb for nb in n_unassigned_bools]
-        wmi = np.sum(
-            self.integrator.integrate_batch(convex_integrals) * factors, axis=-1
-        )
+        wmi = np.dot(self.integrator.integrate_batch(convex_integrals), factors)
 
         result = {"wmi": wmi, "npolys": len(convex_integrals)}
 
