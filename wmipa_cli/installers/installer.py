@@ -11,7 +11,7 @@ class Installer(metaclass=ABCMeta):
         self.install_path = os.path.abspath(install_path)
         self.include_paths = include_paths
         self.lib_paths = lib_paths
-        self.paths_to_export = []
+        self.paths_to_export: list[str] = []
 
     def install(self, yes: bool = False, force: bool = False) -> None:
         if not self.check_environment(yes):

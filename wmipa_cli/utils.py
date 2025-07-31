@@ -82,6 +82,8 @@ def remove_suffix(s: str, suffix: str) -> str:
 
 def get_default_include_lib_paths() -> tuple[list[str], list[str]]:
     """Get Homebrew paths for macOS"""
+    include_paths: list[str]
+    lib_paths: list[str]
     include_paths, lib_paths = [], []
 
     if sys.platform != "darwin":

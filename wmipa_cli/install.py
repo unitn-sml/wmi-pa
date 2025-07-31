@@ -2,6 +2,7 @@ import argparse
 import os
 import sys
 
+from wmipa_cli.installers.installer import Installer
 from wmipa_cli.installers.latte import LatteInstaller
 from wmipa_cli.installers.volesti import VolestiInstaller
 from wmipa_cli.log import logger
@@ -19,7 +20,7 @@ def run() -> None:
     elif args.msat:
         install_msat(args.force_reinstall, args.include_path, args.lib_path)
 
-    installers = []
+    installers: list[Installer] = []
 
     if args.all or args.latte:
         installers.append(
@@ -95,9 +96,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         "--cxx", help="C++ compiler to use", default="g++", type=str
     )
 
-    args = parser.parse_args(args)
-
-    return args
+    return parser.parse_args(args)
 
 
 def _msat_set_paths(env, include_paths: list[str], lib_paths: list[str]) -> None:
