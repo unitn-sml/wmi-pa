@@ -47,7 +47,7 @@ class AxisAlignedWrapper:
             return None
 
     @staticmethod
-    def _axis_aligned_volume(polytope: Polytope) -> Optional[np.ndarray]:
+    def _axis_aligned_volume(polytope: Polytope) -> Optional[float]:
 
         def parse_bound(inequality):
             monos = inequality.polynomial.monomials
