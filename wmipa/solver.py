@@ -205,6 +205,6 @@ if __name__ == "__main__":
     result1 = solver1.computeWMI(smt.Bool(True), variables)
     print("result1", result1)
 
-    solver2 = WMISolver(s, w, enumerator=MathSATEnumerator)
+    solver2 = WMISolver(s, w, enumerator=MathSATEnumerator())
     result2 = solver2.computeWMI(smt.Bool(True), variables)
     print("result2", result2)

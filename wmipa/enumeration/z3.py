@@ -1,10 +1,7 @@
-from typing import Generator, Collection
+from typing import Iterable
 from typing import TYPE_CHECKING
 
-import pysmt.operators as op
-from pysmt.environment import Environment
 from pysmt.fnode import FNode
-from pysmt.typing import BOOL
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
@@ -31,9 +28,7 @@ class Z3Enumerator:
     def weights(self):
         return self.solver.weights
 
-    def enumerate(
-        self, phi: FNode
-    ) -> Generator[tuple[dict[FNode, bool], int], None, None]:
+    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using
         Z3 with blocking clauses. Since the truth assignments (TA) are total,
         the number of unassigned Boolean variables is always 0.

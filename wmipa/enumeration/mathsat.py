@@ -1,4 +1,4 @@
-from typing import Generator, Collection
+from typing import Generator, Collection, Iterable
 from typing import TYPE_CHECKING
 
 import mathsat
@@ -41,7 +41,7 @@ class MathSATEnumerator:
 
     def enumerate(
         self, phi: FNode
-    ) -> Generator[tuple[dict[FNode, bool], int], None, None]:
+    ) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using
         MathSAT's partial enumeration and structurally aware WMI
         enumeration. Since the truth assignments (TA) are partial,
