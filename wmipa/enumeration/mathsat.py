@@ -43,7 +43,7 @@ class MathSATEnumerator:
         return self.solver.weights
 
     def enumerate(
-        self, phi: FNode, blocking: bool = False
+        self, phi: FNode, blocking: bool = True
     ) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using
         MathSAT's partial enumeration and structurally aware WMI
