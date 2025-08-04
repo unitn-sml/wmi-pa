@@ -1,4 +1,4 @@
-from typing import Generator, Collection, Iterable
+from typing import Callable, Generator, Collection, Iterable
 from typing import TYPE_CHECKING
 
 import mathsat
@@ -7,6 +7,7 @@ from pysmt.environment import Environment
 from pysmt.fnode import FNode
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
+from pysmt.solvers.msat import MSatConverter
 
 import queue
 import threading
@@ -123,8 +124,11 @@ class MathSATEnumerator:
                         yield curr_ta, len(bool_atoms - curr_ta.keys())
 
     def _get_allsat(
-        self, formula: FNode, atoms: Collection[FNode], force_total: bool = False,
-        blocking: bool = False
+        self,
+        formula: FNode,
+        atoms: Collection[FNode],
+        force_total: bool = False,
+        blocking: bool = False,
     ) -> Generator[dict[FNode, bool], None, None]:
         """
         Gets the list of assignments that satisfy the formula.
@@ -161,28 +165,14 @@ class MathSATEnumerator:
                 _ = self.normalizer.normalize(atom, remember_alias=True)
 
         solver = self.env.factory.Solver(name="msat", solver_options=msat_options)
-        converter = solver.converter
+        converter: MSatConverter = solver.converter
         solver.add_assertion(formula)
 
         msat_env = solver.msat_env()
 
-        def _callback2(model, converter, result):
-            result.append([converter.back(v) for v in model])
-            return 1
-        
-        # the MathSAT call returns models as conjunction of literals
-        # models: list[Collection[FNode]] = []
-        # mathsat.msat_all_sat(
-        #     solver.msat_env(),
-        #     [converter.convert(v) for v in atoms],
-        #     lambda model: _callback2(model, converter, models),
-        # )
-
-
         def callback(model):
-            print("hi")
             converted_model = [converter.back(v) for v in model]
-            assignments = {}
+            assignments: dict[FNode, bool] = {}
             for lit in converted_model:
                 atom = lit.arg(0) if lit.is_not() else lit
                 value = not lit.is_not()
@@ -200,27 +190,18 @@ class MathSATEnumerator:
 
             return assignments
 
-        # the MathSAT call returns models as conjunction of literals
-        # models2: list[Collection[FNode]] = []
-        # def _callback3(model):
-        #     models2.append(callback(model))
-        #     return 1
-        # mathsat.msat_all_sat(
-        #     solver.msat_env(),
-        #     [converter.convert(v) for v in atoms],
-        #     _callback3,
-        # )
-
         if blocking:
-            return self.all_sat_blocking(
-                msat_env, atoms, converter, callback
-            )
+            return self._all_sat_blocking(msat_env, atoms, converter, callback)
         else:
-            return self.all_sat_stream(
-                msat_env, atoms, converter, callback
-            )
+            return self._all_sat_stream(msat_env, atoms, converter, callback)
 
-    def all_sat_stream(self, msat_env, atoms, converter, f) -> Generator:
+    def _all_sat_stream(
+        self,
+        msat_env: MSatConverter,
+        atoms: Collection[FNode],
+        converter: MSatConverter,
+        f: Callable[[list[FNode]], dict[FNode, bool]],
+    ) -> Generator[dict[FNode, bool]]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT
         environment. This function runs asynchronously and yields results as
@@ -231,7 +212,7 @@ class MathSATEnumerator:
             converter: The converter to convert atoms to MathSAT format.
             f: A function to apply to each model found.
         """
-        q = queue.Queue()
+        q: queue.Queue = queue.Queue()
         stop_token = object()
         error_token = object()
 
@@ -242,9 +223,7 @@ class MathSATEnumerator:
         def run():
             try:
                 mathsat.msat_all_sat(
-                    msat_env,
-                    [converter.convert(v) for v in atoms],
-                    _callback
+                    msat_env, [converter.convert(v) for v in atoms], _callback
                 )
                 q.put(stop_token)
             except Exception as e:
@@ -259,9 +238,17 @@ class MathSATEnumerator:
                 break
             elif isinstance(item, tuple) and item[0] is error_token:
                 raise item[1]  # Re-raise the exception from the thread
-            yield item  # here we yield before even finishing the msat_all_sat-call
+            else:
+                # Only yield valid assignments
+                yield item  # type: ignore
 
-    def all_sat_blocking(self, msat_env, atoms, converter, f) -> Generator:
+    def _all_sat_blocking(
+        self,
+        msat_env: MSatConverter,
+        atoms: Collection[FNode],
+        converter: MSatConverter,
+        f: Callable[[list[FNode]], dict[FNode, bool]],
+    ) -> Generator[dict[FNode, bool]]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT
         environment. This function works synchronously and blocks until all
@@ -278,11 +265,7 @@ class MathSATEnumerator:
             results.append(f(model))
             return 1
 
-        mathsat.msat_all_sat(
-            msat_env,
-            [converter.convert(v) for v in atoms],
-            _callback
-        )
+        mathsat.msat_all_sat(msat_env, [converter.convert(v) for v in atoms], _callback)
 
         for result in results:
             yield result
