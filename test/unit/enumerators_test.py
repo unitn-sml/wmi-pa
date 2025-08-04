@@ -41,7 +41,7 @@ ENUMERATORS_WITH_KWARGS = [
         (MathSATEnumerator, {"max_queue_size": 1}),
         (MathSATEnumerator, {"max_queue_size": 0}),
         (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
-        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 10}),
+        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
     ]
 
 
