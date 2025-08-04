@@ -201,7 +201,7 @@ class MathSATEnumerator:
         atoms: Collection[FNode],
         converter: MSatConverter,
         f: Callable[[list[FNode]], dict[FNode, bool]],
-    ) -> Generator[dict[FNode, bool]]:
+    ) -> Generator[dict[FNode, bool], None, None]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT
         environment. This function runs asynchronously and yields results as
@@ -248,7 +248,7 @@ class MathSATEnumerator:
         atoms: Collection[FNode],
         converter: MSatConverter,
         f: Callable[[list[FNode]], dict[FNode, bool]],
-    ) -> Generator[dict[FNode, bool]]:
+    ) -> Generator[dict[FNode, bool], None, None]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT
         environment. This function works synchronously and blocks until all
