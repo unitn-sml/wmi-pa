@@ -4,7 +4,7 @@ import numpy as np
 import pysmt.shortcuts as smt
 
 from wmipa import WMISolver
-from wmipa.enumeration import Z3Enumerator, MathSATEnumerator
+from wmipa.enumeration import Z3Enumerator, MathSATEnumerator, AsyncEnumerator
 
 
 x = smt.Symbol("X", smt.REAL)
@@ -43,8 +43,9 @@ def pytest_generate_tests(metafunc):
     idlist = []
     for enumerator_with_kwargs in [
         (Z3Enumerator, {}),
-        (MathSATEnumerator, {"blocking": False}),
-        (MathSATEnumerator, {"blocking": True})
+        (MathSATEnumerator, {"max_queue_size": 1}),
+        (MathSATEnumerator, {"max_queue_size": 0}),
+        (AsyncEnumerator, {"enumerator": MathSATEnumerator()}),
     ]:
         for ncase, support_weight in enumerate(product(supports, weights)):
             print(ncase, enumerator_with_kwargs, support_weight)
@@ -73,9 +74,9 @@ def test_enumeration(enumerator_class, support, weight, enumerate_kwargs):
 
         return smt.And(*literals)
 
-    enumerator = enumerator_class()
+    enumerator = enumerator_class(**enumerate_kwargs)
     wmisolver = WMISolver(support, weight, enumerator=enumerator)
-    truth_assignments = list(enumerator.enumerate(smt.Bool(True), **enumerate_kwargs))
+    truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
     nta = len(truth_assignments)
 
     for ta, _ in truth_assignments:
