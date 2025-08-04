@@ -48,7 +48,7 @@ ENUMERATORS_WITH_KWARGS = [
 
 
 def pytest_generate_tests(metafunc):
-    argnames = ["enumerator_class", "support", "weight", "enumerate_kwargs"]
+    argnames = ["enumerator_class", "support", "weight", "enumerator_kwargs"]
     argvalues = []
     idlist = []
     for enumerator, kwargs in ENUMERATORS_WITH_KWARGS:
