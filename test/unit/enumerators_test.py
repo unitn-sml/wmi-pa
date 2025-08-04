@@ -31,8 +31,12 @@ k = smt.Real(1)
 w1 = smt.Ite(oblique2, k, k)
 w2 = smt.Ite(oblique2, smt.Ite(prop2, k, k), k)
 
-supports = [f1, f2, f3, f4]
-weights = [k, w1, w2]
+SUPPORTS = [f1, f2, f3, f4]
+WEIGHTS = [k, w1, w2]
+
+INSTANCES = product(SUPPORTS, WEIGHTS)
+ENUMERATORS = [Z3Enumerator, MathSATEnumerator]
+
 
 ##################################################
 
@@ -41,8 +45,8 @@ def pytest_generate_tests(metafunc):
     argnames = ["enumerator_class", "support", "weight"]
     argvalues = []
     idlist = []
-    for enumerator in [Z3Enumerator, MathSATEnumerator]:
-        for ncase, support_weight in enumerate(product(supports, weights)):
+    for enumerator in ENUMERATORS:
+        for ncase, support_weight in enumerate(INSTANCES):
             print(ncase, enumerator, support_weight)
             argvalues.append((enumerator, support_weight[0], support_weight[1]))
             idlist.append(f"{enumerator.__name__:>20} case {ncase}")
