@@ -42,6 +42,7 @@ ENUMERATORS_WITH_KWARGS = [
         (MathSATEnumerator, {"max_queue_size": 0}),
         (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
         (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
+        (AsyncEnumerator, {"enumerator": Z3Enumerator()}),
     ]
 
 
