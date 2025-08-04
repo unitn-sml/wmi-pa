@@ -6,7 +6,7 @@ from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
 from wmipa.datastructures import Polynomial, Polytope
-from wmipa.integration import LattEIntegrator
+from wmipa.integration import *
 
 
 def _polytope_from_inequalities(A, b):
@@ -96,6 +96,26 @@ def axis_aligned_cross_polytope(n):
     return _assignment_from_points(points)
 
 
+################################
+
+
+DIMENSIONS = (2, 3, 4)
+
+A = AxisAlignedWrapper
+C = CacheWrapper
+P = ParallelWrapper
+L = LattEIntegrator
+
+EXACT_INTEGRATORS = {
+    "latte": L(),
+    "aa+latte": A(L()),
+    "cache+latte": C(L()),
+    "parallel+latte": P(L()),
+    "cache+parallel+latte": C(P(L())),
+    "cache+parallel+aa+latte": C(P(A(L()))),
+}
+
+
 def pytest_generate_tests(metafunc):
     argnames = ["inequalities", "variables", "volume", "integrator"]
     argvalues = []
@@ -107,14 +127,15 @@ def pytest_generate_tests(metafunc):
         random_polytope,
         axis_aligned_cross_polytope,
     ):
-        for dim in (2, 3, 4):
+        for dim in DIMENSIONS:
             (inequalities, variables), volume = polytope_generator(dim)
-            # latte integrator
-            argvalues.append((inequalities, variables, volume, LattEIntegrator()))
-            idlist.append(
-                f"{'LattEIntegrator':>20} {polytope_generator.__name__:>25}"
-                f"(n={dim})"
-            )
+            for integrator_key in EXACT_INTEGRATORS:
+                integrator = EXACT_INTEGRATORS[integrator_key]
+                argvalues.append((inequalities, variables, volume, integrator))
+                idlist.append(
+                    f"{integrator_key:>20} {polytope_generator.__name__:>25}"
+                    f"(n={dim})"
+                )
 
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 

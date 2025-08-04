@@ -31,8 +31,18 @@ k = smt.Real(1)
 w1 = smt.Ite(oblique2, k, k)
 w2 = smt.Ite(oblique2, smt.Ite(prop2, k, k), k)
 
-supports = [f1, f2, f3, f4]
-weights = [k, w1, w2]
+SUPPORTS = [f1, f2, f3, f4]
+WEIGHTS = [k, w1, w2]
+
+INSTANCES = product(SUPPORTS, WEIGHTS)
+# Enumerators with constructor kwargs
+ENUMERATORS_WITH_KWARGS = [
+        (Z3Enumerator, {}),
+        (MathSATEnumerator, {"max_queue_size": 1}),
+        (MathSATEnumerator, {"max_queue_size": 0}),
+        (AsyncEnumerator, {"enumerator": MathSATEnumerator()}),
+    ]
+
 
 ##################################################
 
@@ -41,16 +51,9 @@ def pytest_generate_tests(metafunc):
     argnames = ["enumerator_class", "support", "weight", "enumerate_kwargs"]
     argvalues = []
     idlist = []
-    for enumerator_with_kwargs in [
-        (Z3Enumerator, {}),
-        (MathSATEnumerator, {"max_queue_size": 1}),
-        (MathSATEnumerator, {"max_queue_size": 0}),
-        (AsyncEnumerator, {"enumerator": MathSATEnumerator()}),
-    ]:
-        for ncase, support_weight in enumerate(product(supports, weights)):
-            print(ncase, enumerator_with_kwargs, support_weight)
-            enumerator = enumerator_with_kwargs[0]
-            kwargs = enumerator_with_kwargs[1]
+    for enumerator, kwargs in ENUMERATORS_WITH_KWARGS:
+        for ncase, support_weight in enumerate(INSTANCES):
+            print(ncase, enumerator, kwargs, support_weight)
             kwargs_printed = ", ".join(
                 f"{k}={v}" for k, v in kwargs.items()
             )
@@ -59,7 +62,7 @@ def pytest_generate_tests(metafunc):
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_enumeration(enumerator_class, support, weight, enumerate_kwargs):
+def test_enumeration(enumerator_class, support, weight, enumerator_kwargs):
     """
     - Every truth assignment (TA) is satisfiable in conjunction with the support
     - Every TA corresponds to a leaf in the weight function
@@ -74,7 +77,7 @@ def test_enumeration(enumerator_class, support, weight, enumerate_kwargs):
 
         return smt.And(*literals)
 
-    enumerator = enumerator_class(**enumerate_kwargs)
+    enumerator = enumerator_class(**enumerator_kwargs)
     wmisolver = WMISolver(support, weight, enumerator=enumerator)
     truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
     nta = len(truth_assignments)
