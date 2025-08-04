@@ -20,6 +20,13 @@ if TYPE_CHECKING:  # avoid circular import
 
 class MathSATEnumerator:
     def __init__(self, max_queue_size: int = 1) -> None:
+        """
+        Constructs a MathSATEnumerator instance.
+        Args:
+            max_queue_size: Maximum number of assignments to compute in parallel.
+                             1 means we will compute the assignments one by one.
+                             0 means no limit.
+        """
         # 0 for no limit, the default is 1
         # the queue blocks until it has an available slot
         # so 1 means we will compute the assignments one by one
@@ -30,7 +37,6 @@ class MathSATEnumerator:
         Initializes the MathSAT enumerator with the given solver.
         Args:
             solver: The WMISolver instance to use.
-            max_queue_size: The maximum size of the queue for the enumeration.
         """
         self.solver = solver
         self.weights_skeleton = self.weights.compute_skeleton()
@@ -148,7 +154,6 @@ class MathSATEnumerator:
             atoms: List of atoms on which to find the assignments.
             force_total: Forces total truth assignments.
                 Defaults to False.
-            blocking: If True, blocks until all assignments are found.
 
         Yields:
             list: assignments on the atoms
@@ -204,7 +209,7 @@ class MathSATEnumerator:
 
     def _all_sat_stream(
         self,
-        msat_env: MSatConverter,
+        msat_env: mathsat.msat_env,
         atoms: Collection[FNode],
         converter: MSatConverter,
         f: Callable[[list[FNode]], dict[FNode, bool]],

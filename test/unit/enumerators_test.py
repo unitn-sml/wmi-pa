@@ -34,13 +34,14 @@ w2 = smt.Ite(oblique2, smt.Ite(prop2, k, k), k)
 SUPPORTS = [f1, f2, f3, f4]
 WEIGHTS = [k, w1, w2]
 
-INSTANCES = product(SUPPORTS, WEIGHTS)
+INSTANCES = list(product(SUPPORTS, WEIGHTS))
 # Enumerators with constructor kwargs
 ENUMERATORS_WITH_KWARGS = [
         (Z3Enumerator, {}),
         (MathSATEnumerator, {"max_queue_size": 1}),
         (MathSATEnumerator, {"max_queue_size": 0}),
-        (AsyncEnumerator, {"enumerator": MathSATEnumerator()}),
+        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
+        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 10}),
     ]
 
 
