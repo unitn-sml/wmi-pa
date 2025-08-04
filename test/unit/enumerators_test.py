@@ -38,18 +38,27 @@ weights = [k, w1, w2]
 
 
 def pytest_generate_tests(metafunc):
-    argnames = ["enumerator_class", "support", "weight"]
+    argnames = ["enumerator_class", "support", "weight", "enumerate_kwargs"]
     argvalues = []
     idlist = []
-    for enumerator in [Z3Enumerator, MathSATEnumerator]:
+    for enumerator_with_kwargs in [
+        (Z3Enumerator, {}),
+        (MathSATEnumerator, {"blocking": False}),
+        (MathSATEnumerator, {"blocking": True})
+    ]:
         for ncase, support_weight in enumerate(product(supports, weights)):
-            print(ncase, enumerator, support_weight)
-            argvalues.append((enumerator, support_weight[0], support_weight[1]))
-            idlist.append(f"{enumerator.__name__:>20} case {ncase}")
+            print(ncase, enumerator_with_kwargs, support_weight)
+            enumerator = enumerator_with_kwargs[0]
+            kwargs = enumerator_with_kwargs[1]
+            kwargs_printed = ", ".join(
+                f"{k}={v}" for k, v in kwargs.items()
+            )
+            argvalues.append((enumerator, support_weight[0], support_weight[1], kwargs))
+            idlist.append(f"{enumerator.__name__:>20} case {ncase} ({kwargs_printed})")
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_enumeration(enumerator_class, support, weight):
+def test_enumeration(enumerator_class, support, weight, enumerate_kwargs):
     """
     - Every truth assignment (TA) is satisfiable in conjunction with the support
     - Every TA corresponds to a leaf in the weight function
@@ -66,7 +75,7 @@ def test_enumeration(enumerator_class, support, weight):
 
     enumerator = enumerator_class()
     wmisolver = WMISolver(support, weight, enumerator=enumerator)
-    truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
+    truth_assignments = list(enumerator.enumerate(smt.Bool(True), **enumerate_kwargs))
     nta = len(truth_assignments)
 
     for ta, _ in truth_assignments:
