@@ -4,7 +4,7 @@ import numpy as np
 import pysmt.shortcuts as smt
 
 from wmipa import WMISolver
-from wmipa.enumeration import Z3Enumerator, MathSATEnumerator
+from wmipa.enumeration import Z3Enumerator, MathSATEnumerator, AsyncWrapper
 
 
 x = smt.Symbol("X", smt.REAL)
@@ -34,26 +34,37 @@ w2 = smt.Ite(oblique2, smt.Ite(prop2, k, k), k)
 SUPPORTS = [f1, f2, f3, f4]
 WEIGHTS = [k, w1, w2]
 
-INSTANCES = product(SUPPORTS, WEIGHTS)
-ENUMERATORS = [Z3Enumerator, MathSATEnumerator]
+INSTANCES = list(product(SUPPORTS, WEIGHTS))
+# Enumerators with constructor kwargs
+ENUMERATORS_WITH_KWARGS = [
+        (Z3Enumerator, {}),
+        (MathSATEnumerator, {"max_queue_size": 1}),
+        (MathSATEnumerator, {"max_queue_size": 0}),
+        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
+        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
+        (AsyncWrapper, {"enumerator": Z3Enumerator()}),
+    ]
 
 
 ##################################################
 
 
 def pytest_generate_tests(metafunc):
-    argnames = ["enumerator_class", "support", "weight"]
+    argnames = ["enumerator_class", "support", "weight", "enumerator_kwargs"]
     argvalues = []
     idlist = []
-    for enumerator in ENUMERATORS:
+    for enumerator, kwargs in ENUMERATORS_WITH_KWARGS:
         for ncase, support_weight in enumerate(INSTANCES):
-            print(ncase, enumerator, support_weight)
-            argvalues.append((enumerator, support_weight[0], support_weight[1]))
-            idlist.append(f"{enumerator.__name__:>20} case {ncase}")
+            print(ncase, enumerator, kwargs, support_weight)
+            kwargs_printed = ", ".join(
+                f"{k}={v}" for k, v in kwargs.items()
+            )
+            argvalues.append((enumerator, support_weight[0], support_weight[1], kwargs))
+            idlist.append(f"{enumerator.__name__:>20} case {ncase} ({kwargs_printed})")
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_enumeration(enumerator_class, support, weight):
+def test_enumeration(enumerator_class, support, weight, enumerator_kwargs):
     """
     - Every truth assignment (TA) is satisfiable in conjunction with the support
     - Every TA corresponds to a leaf in the weight function
@@ -68,7 +79,7 @@ def test_enumeration(enumerator_class, support, weight):
 
         return smt.And(*literals)
 
-    enumerator = enumerator_class()
+    enumerator = enumerator_class(**enumerator_kwargs)
     wmisolver = WMISolver(support, weight, enumerator=enumerator)
     truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
     nta = len(truth_assignments)
