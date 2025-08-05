@@ -4,7 +4,7 @@ import numpy as np
 import pysmt.shortcuts as smt
 
 from wmipa import WMISolver
-from wmipa.enumeration import Z3Enumerator, MathSATEnumerator, AsyncEnumerator
+from wmipa.enumeration import Z3Enumerator, MathSATEnumerator, AsyncWrapper
 
 
 x = smt.Symbol("X", smt.REAL)
@@ -40,9 +40,9 @@ ENUMERATORS_WITH_KWARGS = [
         (Z3Enumerator, {}),
         (MathSATEnumerator, {"max_queue_size": 1}),
         (MathSATEnumerator, {"max_queue_size": 0}),
-        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
-        (AsyncEnumerator, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
-        (AsyncEnumerator, {"enumerator": Z3Enumerator()}),
+        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
+        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
+        (AsyncWrapper, {"enumerator": Z3Enumerator()}),
     ]
 
 

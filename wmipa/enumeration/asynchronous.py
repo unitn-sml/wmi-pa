@@ -8,7 +8,7 @@ if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
 
 
-class AsyncEnumerator:
+class AsyncWrapper:
     def __init__(self, enumerator: "Enumerator", max_queue_size: int = 0) -> None:
         """
         Initializes the AsyncEnumerator with the given enumerator and queue size.
