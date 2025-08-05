@@ -36,20 +36,6 @@ def is_cnf(formula: FNode) -> bool:
     )
 
 
-def get_literals(clause: FNode) -> Iterable[FNode]:
-    if is_literal(clause):
-        yield clause
-    else:
-        yield from clause.args()
-
-
-def get_clauses(formula: FNode) -> Iterable[Iterable[FNode]]:
-    if is_clause(formula):
-        yield get_literals(formula)
-    else:
-        yield from (get_literals(clause) for clause in formula.args())
-
-
 class TermNormalizer:
     """A class for normalizing terms."""
 
