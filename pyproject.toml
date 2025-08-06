@@ -9,7 +9,7 @@ description = "Weighted Model Integration PA (Predicate Abstraction) solver."
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "Gabriele Masina, Paolo Morettin, Giuseppe Spallitta", email = "paolo.morettin@unitn.it" }
+    { name = "wmipa team" }
 ]
 requires-python = ">=3.9.0"
 classifiers = [
