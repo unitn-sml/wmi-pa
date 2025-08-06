@@ -58,6 +58,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unreachable = true
 warn_unused_configs = true
+disable_error_code = ["import-untyped"]
 
 files = ["wmipa/"]  # files to check
 exclude = ["wmipa/cli/"]
