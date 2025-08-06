@@ -31,6 +31,11 @@ Repository = "https://github.com/unitn-sml/wmi-pa"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-runner", "pytest-cov"]
+typing = [
+    "mypy",
+    "types-networkx; python_version>='3.10'",
+    "scipy-stubs; python_version>='3.11'",
+]
 nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 
 [project.scripts]

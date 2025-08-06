@@ -32,10 +32,7 @@ jobs:
         run: pip install setuptools
 
       - name: Install package
-        run: pip install -e ".[test]"
-
-      - name: Install mypy
-        run: pip install mypy types-networkx scipy-stubs
+        run: pip install -e ".[test,typing]"
 
       - name: Install system dependencies
         run: |
@@ -61,7 +58,13 @@ jobs:
         shell: bash
 
       - name: Run mypy
-        run: mypy
+        # NOTE: some type stubs are not available for Python < 3.11
+        run: |
+          if [[ "${{ matrix.python-version }}" < "3.11" ]]; then
+            mypy --disable-error-code=import-untyped
+          else
+            mypy
+          fi
 
       - name: Run tests and collect coverage
         run: |
