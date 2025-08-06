@@ -1,8 +1,10 @@
 import queue
 import threading
-from typing import Iterable, TYPE_CHECKING
-from wmipa.enumeration.enumerator import Enumerator
+from typing import TYPE_CHECKING, Iterable
+
 from pysmt.fnode import FNode
+
+from wmipa.enumeration.enumerator import Enumerator
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
@@ -47,7 +49,7 @@ class AsyncWrapper:
         # Thread control
         thread_stop_event = threading.Event()
 
-        def run():
+        def run() -> None:
             try:
                 for result in self.enumerator.enumerate(phi):
                     q.put(result)
@@ -69,7 +71,7 @@ class AsyncWrapper:
                     raise item[1]  # Re-raise the exception from the thread
                 else:
                     # Only yield valid assignments
-                    yield item  # type: ignore
+                    yield item
         finally:
             if t is not None and t.is_alive():
                 thread_stop_event.set()

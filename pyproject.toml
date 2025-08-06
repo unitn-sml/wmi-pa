@@ -45,7 +45,22 @@ exclude = ["test*", "examples*"]
 profile = "black"
 
 [tool.mypy]
-disable_error_code = ["import-untyped"]
+python_version = "3.9"
+follow_imports = "silent"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+warn_unused_configs = true
+
+files = ["wmipa/"]  # files to check
+exclude = ["wmipa/cli/"]
+
+[[tool.mypy.overrides]]
+module = ["mathsat", "pysmt.*", "scipy.*"]
+ignore_missing_imports = true
+
 
 [tool.pytest.ini_options]
 testpaths = ["test"]

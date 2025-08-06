@@ -3,7 +3,7 @@ from typing import Collection, Optional
 import numpy as np
 from scipy.optimize import linprog
 
-from wmipa.datastructures import Polytope, Polynomial
+from wmipa.datastructures import Polynomial, Polytope
 
 
 class RejectionIntegrator:
@@ -41,11 +41,11 @@ class RejectionIntegrator:
         if len(valid_sample) > 0:
             # return the Monte Carlo estimate of the integral
             volume = (len(valid_sample) / len(sample)) * np.prod(upper - lower)
-            result = np.mean(integrand.to_numpy()(valid_sample)) * volume
+            result = float(np.mean(integrand.to_numpy()(valid_sample)) * volume)
         else:
             result = 0.0
 
-        return float(result)
+        return result
 
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
@@ -61,6 +61,7 @@ if __name__ == "__main__":
     # avoid polluting the global namespace
     import pysmt.shortcuts as smt
     import pysmt.typing as smt_typing
+
     import wmipa.datastructures as wmipa_ds
 
     x = smt.Symbol("x", smt_typing.REAL)

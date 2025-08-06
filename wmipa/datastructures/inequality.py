@@ -1,4 +1,4 @@
-from typing import Collection
+from typing import Any, Collection
 
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
@@ -29,19 +29,19 @@ class Inequality:
         self.polynomial = Polynomial(poly_sub, variables, env)
         assert self.polynomial.degree == 1
 
-    def to_pysmt(self):
+    def to_pysmt(self) -> FNode:
         op = self.mgr.LT if self.strict else self.mgr.LE
         return op(self.polynomial.to_pysmt(), self.mgr.Real(0))
 
-    def __str__(self):
+    def __str__(self) -> str:
         opstr = "<" if self.strict else "<="
         return f"({str(self.polynomial)}) {opstr} 0"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         # TODO: this shouldn't be needed
         raise NotImplementedError()
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         # TODO: this should be needed
         # return hash(self.constant)
         raise NotImplementedError()

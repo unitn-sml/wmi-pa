@@ -61,7 +61,7 @@ jobs:
         shell: bash
 
       - name: Run mypy
-        run: mypy --disable-error-code=import-untyped wmipa/
+        run: mypy
 
       - name: Run tests and collect coverage
         run: |

@@ -6,7 +6,7 @@ Credits: least common multiple code by J.F. Sebastian
 """
 
 from collections import defaultdict
-from typing import Iterable
+from typing import Any
 
 from pysmt import operators as op
 from pysmt.environment import Environment
@@ -46,7 +46,7 @@ class TermNormalizer:
             set
         )  # term -> terms normalized into it in the form (atom, negated)
 
-    def __del__(self):
+    def __del__(self) -> None:
         self._solver.exit()
 
     def _normalize(self, term: FNode) -> FNode:
@@ -103,7 +103,7 @@ class BooleanSimplifier(Simplifier):
 
     @handles(op.IRA_OPERATORS)
     @handles(op.IRA_RELATIONS)
-    def walk_identity(self, formula: FNode, args: list[FNode], **kwargs) -> FNode:
+    def walk_identity(self, formula: FNode, args: list[FNode], **kwargs: Any) -> FNode:
         return self.manager.create_node(
             formula.node_type(), args=tuple(map(self.walk, args))
         )

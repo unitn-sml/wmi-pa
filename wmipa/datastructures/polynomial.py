@@ -1,7 +1,6 @@
 from fractions import Fraction
 from functools import reduce
-from numbers import Real
-from typing import Collection, Callable
+from typing import Any, Callable, Collection, SupportsInt
 
 import numpy as np
 from pysmt.environment import Environment
@@ -52,10 +51,10 @@ class Polynomial:
 
         return self.mgr.Plus(*pysmt_monos)
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.monomials)
 
-    def __str__(self):
+    def __str__(self) -> str:
         str_monos = []
         for key in self.ordered_keys:
             coeff = f"{self.monomials[key]}"
@@ -85,30 +84,38 @@ class PolynomialParser(DagWalker):
     def parse(self, expr: FNode) -> Monomials:
         return self.walk(expr)
 
-    def walk_real_constant(self, formula: FNode, **kwargs) -> Monomials:
+    def walk_real_constant(self, formula: FNode, **kwargs: Any) -> Monomials:
         exp_key = tuple(0 for _ in range(len(self.variables)))
         coeff = formula.constant_value()
         return {exp_key: coeff}
 
-    def walk_symbol(self, formula: FNode, **kwargs) -> Monomials:
+    def walk_symbol(self, formula: FNode, **kwargs: Any) -> Monomials:
         assert formula.is_symbol(REAL)
         exp_key = tuple(0 if v != formula else 1 for v in self.variables)
         assert any(e != 0 for e in exp_key)
         coeff = 1
         return {exp_key: coeff}
 
-    def walk_plus(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+    def walk_plus(
+        self, formula: FNode, args: list[Monomials], **kwargs: Any
+    ) -> Monomials:
         return reduce(self._sum_polys, args)
 
-    def walk_minus(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+    def walk_minus(
+        self, formula: FNode, args: list[Monomials], **kwargs: Any
+    ) -> Monomials:
         mono_first, mono_second = args
         mono_second = {exp_key: -coeff for exp_key, coeff in mono_second.items()}
         return self.walk_plus(formula, [mono_first, mono_second])
 
-    def walk_times(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+    def walk_times(
+        self, formula: FNode, args: list[Monomials], **kwargs: Any
+    ) -> Monomials:
         return reduce(self._multiply_polys, args)
 
-    def walk_pow(self, formula: FNode, args: list[Monomials], **kwargs) -> Monomials:
+    def walk_pow(
+        self, formula: FNode, args: list[Monomials], **kwargs: Any
+    ) -> Monomials:
         base, exp = formula.args()
         if (
             not exp.is_constant(REAL)
@@ -173,7 +180,7 @@ class PolynomialParser(DagWalker):
         return result
 
 
-def _is_integral(v: Real) -> bool:
+def _is_integral(v: SupportsInt) -> bool:
     if isinstance(v, int):
         return True
     elif isinstance(v, float):

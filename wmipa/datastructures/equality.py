@@ -22,5 +22,5 @@ class Equality:
             raise ValueError("Malformed alias {equality}")
         self.mgr = env.formula_manager
 
-    def to_pysmt(self):
+    def to_pysmt(self) -> FNode:
         return self.mgr.Equals(self.alias, self.expr.to_pysmt())

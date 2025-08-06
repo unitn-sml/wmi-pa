@@ -1,8 +1,8 @@
-from typing import TYPE_CHECKING, Collection, Optional
+from typing import Collection, Optional, TYPE_CHECKING
 
 import numpy as np
 
-from wmipa.datastructures import Polytope, Polynomial
+from wmipa.datastructures import Inequality, Polynomial, Polytope
 
 if TYPE_CHECKING:
     from wmipa.integration import Integrator
@@ -49,10 +49,10 @@ class AxisAlignedWrapper:
     @staticmethod
     def _axis_aligned_volume(polytope: Polytope) -> Optional[float]:
 
-        def parse_bound(inequality):
+        def parse_bound(inequality: Inequality) -> Optional[tuple[int, list[float]]]:
             monos = inequality.polynomial.monomials
             if len(monos) == 1:
-                exp, coeff = monos.items()[0]
+                exp, coeff = next(iter(monos.items()))
                 bound = [0, np.inf] if coeff > 0 else [-np.inf, 0]
                 return exp.index(1), bound
             elif len(monos) == 2:
@@ -81,7 +81,7 @@ class AxisAlignedWrapper:
 
         barray = np.array(bounds)
         if barray < np.inf:
-            volume = np.sum(np.abs(np.subtract(barray[:, 0], barray[:, 1])))
+            volume = float(np.sum(np.abs(np.subtract(barray[:, 0], barray[:, 1]))))
             return volume
         else:
             return None

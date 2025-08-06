@@ -1,7 +1,10 @@
-from typing import Iterable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
+from pysmt.environment import Environment
 from pysmt.fnode import FNode
+from pysmt.formula import FormulaManager
+
+from wmipa.weights import Weights
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
@@ -9,23 +12,23 @@ if TYPE_CHECKING:  # avoid circular import
 
 class Z3Enumerator:
 
-    def initialize(self, solver: "WMISolver"):
+    def initialize(self, solver: "WMISolver") -> None:
         self.solver = solver
 
     @property
-    def env(self):
+    def env(self) -> Environment:
         return self.solver.env
 
     @property
-    def mgr(self):
+    def mgr(self) -> FormulaManager:
         return self.env.formula_manager
 
     @property
-    def support(self):
+    def support(self) -> FNode:
         return self.solver.support
 
     @property
-    def weights(self):
+    def weights(self) -> Weights:
         return self.solver.weights
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:

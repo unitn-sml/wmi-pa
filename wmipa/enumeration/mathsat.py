@@ -1,18 +1,18 @@
-from typing import Callable, Generator, Collection, Iterable
-from typing import TYPE_CHECKING
+import queue
+import threading
+from typing import TYPE_CHECKING, Callable, Collection, Generator, Iterable
 
 import mathsat
 import pysmt.operators as op
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
+from pysmt.formula import FormulaManager
+from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
-from pysmt.solvers.msat import MSatConverter
-
-import queue
-import threading
 
 from wmipa.utils import BooleanSimplifier, TermNormalizer
+from wmipa.weights import Weights
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
@@ -32,12 +32,7 @@ class MathSATEnumerator:
         # so 1 means we will compute the assignments one by one
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "WMISolver"):
-        """
-        Initializes the MathSAT enumerator with the given solver.
-        Args:
-            solver: The WMISolver instance to use.
-        """
+    def initialize(self, solver: "WMISolver") -> None:
         self.solver = solver
         self.weights_skeleton = self.weights.compute_skeleton()
         self.simplifier = BooleanSimplifier(solver.env)
@@ -45,24 +40,22 @@ class MathSATEnumerator:
         self.assignment_extractor = AssignmentExtractor(solver.env)
 
     @property
-    def env(self):
+    def env(self) -> Environment:
         return self.solver.env
 
     @property
-    def mgr(self):
+    def mgr(self) -> FormulaManager:
         return self.env.formula_manager
 
     @property
-    def support(self):
+    def support(self) -> FNode:
         return self.solver.support
 
     @property
-    def weights(self):
+    def weights(self) -> Weights:
         return self.solver.weights
 
-    def enumerate(
-        self, phi: FNode
-    ) -> Iterable[tuple[dict[FNode, bool], int]]:
+    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using
         MathSAT's partial enumeration and structurally aware WMI
         enumeration. Since the truth assignments (TA) are partial,
@@ -185,7 +178,7 @@ class MathSATEnumerator:
 
         msat_env = solver.msat_env()
 
-        def callback(model):
+        def callback(model: list[mathsat.msat_term]) -> dict[FNode, bool]:
             converted_model = [converter.back(v) for v in model]
             assignments: dict[FNode, bool] = {}
             for lit in converted_model:
@@ -212,7 +205,7 @@ class MathSATEnumerator:
         msat_env: mathsat.msat_env,
         atoms: Collection[FNode],
         converter: MSatConverter,
-        f: Callable[[list[FNode]], dict[FNode, bool]],
+        f: Callable[[list[mathsat.msat_term]], dict[FNode, bool]],
     ) -> Generator[dict[FNode, bool], None, None]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT
@@ -231,14 +224,14 @@ class MathSATEnumerator:
         # Thread control
         thread_stop_event = threading.Event()
 
-        def _callback(model):
+        def _callback(model: list[mathsat.msat_term]) -> int:
             q.put(f(model))
             if thread_stop_event.is_set():
                 return 0
             else:
                 return 1
 
-        def run():
+        def run() -> None:
             try:
                 mathsat.msat_all_sat(
                     msat_env, [converter.convert(v) for v in atoms], _callback
@@ -259,7 +252,7 @@ class MathSATEnumerator:
                     raise item[1]  # Re-raise the exception from the thread
                 else:
                     # Only yield valid assignments
-                    yield item  # type: ignore
+                    yield item
         finally:
             if t is not None and t.is_alive():
                 thread_stop_event.set()

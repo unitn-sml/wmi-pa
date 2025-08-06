@@ -21,13 +21,13 @@ class Polytope:
         self.H = len(expressions)
         self.mgr = env.formula_manager
 
-    def to_pysmt(self):
+    def to_pysmt(self) -> FNode:
         """Returns a pysmt formula (FNode) encoding the polytope."""
         if not self.inequalities:
             return self.mgr.Bool(True)
         return self.mgr.And(*map(lambda x: x.to_pysmt(), self.inequalities))
 
-    def to_numpy(self):
+    def to_numpy(self) -> tuple[np.ndarray, np.ndarray]:
         """Returns two numpy arrays A, b encoding the polytope.
         (Non-)Strictness information is discarded."""
         A, b = [], []
@@ -39,7 +39,7 @@ class Polytope:
 
         return np.array(A), np.array(b)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "\n".join(["[" + str(b) + "]" for b in self.inequalities])
 
 

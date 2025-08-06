@@ -1,4 +1,4 @@
-from typing import Generator, Collection
+from typing import Any, Collection, Generator, Iterable
 
 import pysmt.operators as op
 from pysmt.environment import Environment
@@ -7,9 +7,9 @@ from pysmt.formula import FormulaManager
 from pysmt.oracles import AtomsOracle
 from pysmt.rewritings import NNFizer
 from pysmt.typing import BOOL
-from pysmt.walkers import DagWalker, IdentityDagWalker, handles, TreeWalker
+from pysmt.walkers import DagWalker, IdentityDagWalker, TreeWalker, handles
 
-from wmipa.utils import is_atom, is_cnf
+from wmipa.utils import is_atom, is_clause, is_cnf, is_literal
 
 
 class Weights:
@@ -52,7 +52,7 @@ class Weights:
         """
         return self.evaluator.evaluate(assignment)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             "Weight {{"
             "\t{weight}\n"
@@ -126,13 +126,13 @@ class WeightsEvaluator(TreeWalker):
 class WeightAtomsFinder(AtomsOracle):
 
     def walk_ite(
-        self, formula: FNode, args: list[frozenset[FNode]], **kwargs
+        self, formula: FNode, args: list[frozenset[FNode]], **kwargs: Any
     ) -> frozenset[FNode]:
         return frozenset(x for a in args if a is not None for x in a)
 
     @handles(op.IRA_OPERATORS)
     def walk_theory_op(  # pyright: ignore
-        self, formula: FNode, args: list[frozenset[FNode]], **kwargs
+        self, formula: FNode, args: list[frozenset[FNode]], **kwargs: Any
     ) -> frozenset[FNode]:
         return frozenset(x for a in args if a is not None for x in a)
 
@@ -153,7 +153,7 @@ class WeightConverterSkeleton(TreeWalker):
             []
         )  # list of clauses, each clause is an Or of FNodes
 
-    def new_cond_label(self):
+    def new_cond_label(self) -> FNode:
         b = self.mgr.FreshSymbol(typename=BOOL, template="CNDB%s")
         self.cond_labels.add(b)
         return b
@@ -165,15 +165,15 @@ class WeightConverterSkeleton(TreeWalker):
 
     @handles(op.SYMBOL)
     @handles(op.CONSTANTS)
-    def walk_no_conditions(self, formula: FNode):
+    def walk_no_conditions(self, formula: FNode) -> None:
         return
 
     @handles(op.IRA_OPERATORS)
-    def walk_operator(self, formula: FNode):
+    def walk_operator(self, formula: FNode) -> Generator[FNode, None, None]:
         for arg in formula.args():
             yield arg
 
-    def walk_ite(self, formula: FNode):
+    def walk_ite(self, formula: FNode) -> Generator[FNode, None, None]:
         phi: FNode
         left: FNode
         right: FNode
@@ -233,11 +233,11 @@ class CNFPreprocessor(IdentityDagWalker):
         super().__init__(env)
         self.nnfizer = NNFizer(env)
 
-    def walk(self, formula: FNode, **kwargs) -> FNode:
+    def walk(self, formula: FNode, **kwargs: Any) -> FNode:
         formula = self.nnfizer.convert(formula)
         return super().walk(formula, **kwargs)
 
-    def walk_or(self, formula: FNode, args: list[FNode], **kwargs) -> FNode:
+    def walk_or(self, formula: FNode, args: list[FNode], **kwargs: Any) -> FNode:
         children = []
         for arg in args:
             if arg.is_true():
@@ -252,7 +252,7 @@ class CNFPreprocessor(IdentityDagWalker):
                 children.append(arg)
         return self.mgr.Or(children)
 
-    def walk_and(self, formula: FNode, args: list[FNode], **kwargs) -> FNode:
+    def walk_and(self, formula: FNode, args: list[FNode], **kwargs: Any) -> FNode:
         children = []
         for arg in args:
             if arg.is_false():
@@ -279,7 +279,7 @@ class PolarityCNFizer(DagWalker):
         self.preprocessor = CNFPreprocessor(env=self.env)
         self._introduced_variables: dict[FNode, FNode] = {}
 
-    def _get_key(self, formula: FNode, cnf=None, **kwargs) -> FNode:
+    def _get_key(self, formula: FNode, **kwargs: Any) -> FNode:
         return formula
 
     def _key_var(self, formula: FNode) -> FNode:
@@ -339,7 +339,9 @@ class PolarityCNFizer(DagWalker):
 
         return frozenset(res)
 
-    def walk_not(self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs) -> FNode:
+    def walk_not(
+        self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs: Any
+    ) -> FNode:
         a = args[0]
         if a.is_true():
             return self.mgr.Bool(False)
@@ -348,7 +350,9 @@ class PolarityCNFizer(DagWalker):
         else:
             return self._neg(a)
 
-    def walk_and(self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs) -> FNode:
+    def walk_and(
+        self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs: Any
+    ) -> FNode:
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
@@ -358,7 +362,9 @@ class PolarityCNFizer(DagWalker):
 
         return k
 
-    def walk_or(self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs) -> FNode:
+    def walk_or(
+        self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs: Any
+    ) -> FNode:
         if len(args) == 1:
             return args[0]
         k = self._key_var(formula)
@@ -367,7 +373,9 @@ class PolarityCNFizer(DagWalker):
 
         return k
 
-    def walk_iff(self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs) -> FNode:
+    def walk_iff(
+        self, formula: FNode, args: list[FNode], cnf: CNF, **kwargs: Any
+    ) -> FNode:
         left, right = args
         if left == right:
             return self.mgr.Bool(True)
@@ -383,5 +391,5 @@ class PolarityCNFizer(DagWalker):
     @handles(op.CONSTANTS)
     @handles(op.RELATIONS)
     @handles(op.THEORY_OPERATORS)
-    def walk_identity(self, formula: FNode, **kwargs) -> FNode:
+    def walk_identity(self, formula: FNode, **kwargs: Any) -> FNode:
         return formula
