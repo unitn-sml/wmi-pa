@@ -58,7 +58,7 @@ files = ["wmipa/"]  # files to check
 exclude = ["wmipa/cli/"]
 
 [[tool.mypy.overrides]]
-module = ["mathsat", "pysmt.*", "scipy.*"]
+module = ["mathsat", "pysmt.*"]
 ignore_missing_imports = true
 
 
