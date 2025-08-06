@@ -25,49 +25,51 @@ rn3 = smt.Real(-3)
 r4 = smt.Real(4)
 
 ENUMERATORS = [Z3Enumerator, MathSATEnumerator]
+EXACT_INTEGRATORS = [LattEIntegrator]
 
 def pytest_generate_tests(metafunc):
-    argnames = ["enumerator"]
+    argnames = ["enumerator", "integrator"]
     argvalues = []
     idlist = []
     # axis_aligned_cube
     for enumerator in ENUMERATORS:
-        argvalues.append((enumerator(),))
-        idlist.append(f"{enumerator.__name__:>25}")
+        for integrator in EXACT_INTEGRATORS:
+            argvalues.append((enumerator(), integrator()))
+            idlist.append(f"{enumerator.__name__:>25} {integrator.__name__:>25}")
 
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_no_booleans_constant_weight(enumerator):
+def test_no_booleans_constant_weight(enumerator, integrator):
     chi = smt.And(smt.GE(x, r0), smt.LE(x, r1))
 
-    wmi = WMISolver(chi, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, 1)
 
 
-def test_no_booleans_condition_weight(enumerator):
+def test_no_booleans_condition_weight(enumerator, integrator):
     chi = smt.And(smt.GE(x, r0), smt.LE(x, r1))
 
     w = smt.Ite(smt.LE(x, smt.Real(0.5)), x, smt.Times(rn1, x))
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, -0.25)
 
 
-def test_booleans_constant_weight(enumerator):
+def test_booleans_constant_weight(enumerator, integrator):
     chi = smt.And(smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn2), smt.LE(x, r1))
 
-    wmi = WMISolver(chi, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, 3)
 
 
-def test_boolean_condition_weight(enumerator):
+def test_boolean_condition_weight(enumerator, integrator):
     chi = smt.And(smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn1), smt.LE(x, r1))
 
     w = smt.Ite(
@@ -76,13 +78,13 @@ def test_boolean_condition_weight(enumerator):
         smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)),
     )
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, -1.125)
 
 
-def test_boolean_and_not_simplify(enumerator):
+def test_boolean_and_not_simplify(enumerator, integrator):
     chi = smt.And(
         smt.Iff(a, smt.GE(x, r0)),
         smt.Or(
@@ -98,13 +100,13 @@ def test_boolean_and_not_simplify(enumerator):
         smt.Ite(a, smt.Times(rn1, x), smt.Times(r2, x)),
     )
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, -6.125)
 
 
-def test_not_boolean_satisfiable(enumerator):
+def test_not_boolean_satisfiable(enumerator, integrator):
     chi = smt.And(
         smt.Iff(a, smt.GE(x, r0)), smt.GE(x, rn1), smt.LE(x, r1), b, smt.Not(b)
     )
@@ -117,7 +119,7 @@ def test_not_boolean_satisfiable(enumerator):
     assert np.isclose(result, 0)
 
 
-def test_not_lra_satisfiable(enumerator):
+def test_not_lra_satisfiable(enumerator, integrator):
     chi = smt.And(
         smt.Iff(a, smt.GE(x, r0)),
         smt.GE(x, rn1),
@@ -133,7 +135,7 @@ def test_not_lra_satisfiable(enumerator):
     assert np.isclose(result, 0)
 
 
-def test_multiplication_in_weight(enumerator):
+def test_multiplication_in_weight(enumerator, integrator):
     chi = smt.And(
         smt.Iff(a, smt.GE(x, r0)),
         smt.Or(
@@ -145,34 +147,34 @@ def test_multiplication_in_weight(enumerator):
 
     w = smt.Times(smt.Ite(a, x, smt.Times(x, rn1)), x)
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
     assert np.isclose(result, 0)
 
 
-def test_aliases(enumerator):
+def test_aliases(enumerator, integrator):
     chi = smt.And(smt.GE(x, r0), smt.Equals(y, smt.Plus(x, rn2)), smt.LE(y, r4))
     w = y
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
 
     assert np.isclose(result, 6)
 
 
-def test_aliases_leads_to_not_sat(enumerator):
+def test_aliases_leads_to_not_sat(enumerator, integrator):
     chi = smt.And(smt.GE(x, r0), smt.LE(x, r2), smt.Equals(y, x), smt.LE(x - y, rn2))
 
-    wmi = WMISolver(chi, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x})
     result = ans["wmi"]
 
     assert np.isclose(result, 0)
 
 
-def test_double_assignment_same_variable_no_theory_consistent(enumerator):
+def test_double_assignment_same_variable_no_theory_consistent(enumerator, integrator):
     chi = smt.And(
         smt.GE(x, r0),
         smt.Equals(y, smt.Plus(x, rn2)),
@@ -180,14 +182,14 @@ def test_double_assignment_same_variable_no_theory_consistent(enumerator):
         smt.LE(y, r4),
     )
 
-    wmi = WMISolver(chi, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x, y})
     result = ans["wmi"]
 
     assert np.isclose(result, 0)
 
 
-def test_reserved_variables_name(enumerator):
+def test_reserved_variables_name(enumerator, integrator):
     a = smt.Symbol("wmi_1_a", BOOL)
     b = smt.Symbol("cond_a", BOOL)
     x = smt.Symbol("query_45", REAL)
@@ -204,7 +206,7 @@ def test_reserved_variables_name(enumerator):
 
     w = smt.Ite(a, x, y)
 
-    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=LattEIntegrator())
+    wmi = WMISolver(chi, w, enumerator=enumerator, integrator=integrator)
     ans = wmi.computeWMI(phi, {x, y})
     result = ans["wmi"]
 
