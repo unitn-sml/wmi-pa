@@ -36,28 +36,32 @@ def is_cnf(formula: FNode) -> bool:
     )
 
 
-class TermNormalizer:
-    """A class for normalizing terms."""
+class LiteralNormalizer:
+    """A helper class for normalizing literals. This class is useful
+    whenever literals involving algebraic atoms are manipulated by an
+    external procedure, such as an SMT-based enumerator.
+
+    """
 
     def __init__(self, env: Environment):
         self._solver = env.factory.Solver(name="msat")
-        self._cache: dict[FNode, FNode] = {}  # term -> normalized term
+        self._cache: dict[FNode, FNode] = {}  # literal -> normalized literal
         self._known_aliases: dict[FNode, set[tuple[FNode, bool]]] = defaultdict(
             set
-        )  # term -> terms normalized into it in the form (atom, negated)
+        )  # literal -> literals normalized into it in the form (atom, negated)
 
     def __del__(self) -> None:
         self._solver.exit()
 
-    def _normalize(self, term: FNode) -> FNode:
-        if term not in self._cache:
+    def _normalize(self, literal: FNode) -> FNode:
+        if literal not in self._cache:
             converter = self._solver.converter
-            normalized_term = converter.back(converter.convert(term))
-            self._cache[term] = normalized_term
-        return self._cache[term]
+            normalized_literal = converter.back(converter.convert(literal))
+            self._cache[literal] = normalized_literal
+        return self._cache[literal]
 
     def normalize(self, phi: FNode, remember_alias: bool = False) -> tuple[FNode, bool]:
-        """Return a normalized representation of the term.
+        """Return a normalized representation of a literal.
 
         Args:
             phi (FNode): The formula to normalize.
@@ -76,23 +80,23 @@ class TermNormalizer:
             self._known_aliases[normalized_phi].add((phi, negated))
         return normalized_phi, negated
 
-    def known_aliases(self, term: FNode) -> set[tuple[FNode, bool]]:
-        """Return the set of known aliases of the term.
+    def known_aliases(self, literal: FNode) -> set[tuple[FNode, bool]]:
+        """Return the set of known aliases of the literal.
 
         Args:
-            term (FNode): The term to check.
+            literal (FNode): The literal to check.
 
         Returns:
-            set(tuple(FNode, bool)): The set of known aliases of the term. Each alias is a tuple containing the
-                normalized term and a boolean indicating whether the alias is negated.
+            set(tuple(FNode, bool)): The set of known aliases of the literal. Each alias is a tuple containing the
+                normalized literal and a boolean indicating whether the alias is negated.
         """
-        if term not in self._known_aliases:
+        if literal not in self._known_aliases:
             known_aliases_str = "\n".join(str(x) for x in self._known_aliases.keys())
-            error_str = "Term {}\nnot found in\n{}".format(
-                term.serialize(), known_aliases_str
+            error_str = "Literal {}\nnot found in\n{}".format(
+                literal.serialize(), known_aliases_str
             )
             raise ValueError(error_str)
-        return self._known_aliases[term]
+        return self._known_aliases[literal]
 
 
 class BooleanSimplifier(Simplifier):
