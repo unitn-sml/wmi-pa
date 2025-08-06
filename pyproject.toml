@@ -8,6 +8,7 @@ version = "0.1.8"
 description = "Weighted Model Integration PA (Predicate Abstraction) solver."
 readme = "README.md"
 license = { text = "MIT" }
+license-files = ["LICENSE"]
 authors = [
     { name = "wmipa team" }
 ]
