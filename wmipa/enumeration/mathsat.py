@@ -10,13 +10,8 @@ from pysmt.formula import FormulaManager
 from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
-
-<<<<<<< HEAD
-from wmipa.utils import BooleanSimplifier, TermNormalizer
 from wmipa.weights import Weights
-=======
 from wmipa.utils import BooleanSimplifier, LiteralNormalizer
->>>>>>> f5af3a7 (Term -> Literal (normalizer)
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
