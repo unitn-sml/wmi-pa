@@ -2,63 +2,21 @@ import argparse
 import os
 import sys
 
-from wmipa_cli.installers.installer import Installer
-from wmipa_cli.installers.latte import LatteInstaller
-from wmipa_cli.installers.volesti import VolestiInstaller
-from wmipa_cli.log import logger
-from wmipa_cli.utils import safe_cmd, get_default_include_lib_paths
+from wmipa.cli.installers.installer import Installer
+from wmipa.cli.installers.latte import LatteInstaller
+from wmipa.cli.log import logger
+from wmipa.cli.utils import get_default_include_lib_paths, safe_cmd
 
 
-def run() -> None:
-    args = parse_args(sys.argv[1:])
-    if not any((args.all, args.latte, args.volesti, args.msat, args.nra)):
-        print("Nothing to do. Use --help for more information.")
-        return
-
-    if args.all or args.nra:
-        install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
-    elif args.msat:
-        install_msat(args.force_reinstall, args.include_path, args.lib_path)
-
-    installers: list[Installer] = []
-
-    if args.all or args.latte:
-        installers.append(
-            LatteInstaller(
-                args.install_path, args.include_path, args.lib_path, args.cxx
-            )
-        )
-    if args.all or args.volesti:
-        installers.append(
-            VolestiInstaller(args.install_path, args.include_path, args.lib_path)
-        )
-    for installer in installers:
-        installer.install(args.assume_yes, args.force_reinstall)
-    paths_to_export = []
-    for installer in installers:
-        paths_to_export.extend(installer.paths_to_export)
-    if paths_to_export:
-        print()
-        print("Add the following lines to your ~/.bashrc file:")
-        for path in paths_to_export:
-            print(f"export PATH={path}:$PATH")
-        print()
-        print("Then run: source ~/.bashrc")
-
-
-def parse_args(args: list[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        prog="wmipa-install",
-        description="Install dependencies for WMI-PA command line interface.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-
+def add_arguments(parser: argparse.ArgumentParser) -> None:
+    """
+    Add arguments to the parser for the 'install' command.
+    """
     parser.add_argument("--msat", help="Install MathSAT", action="store_true")
     parser.add_argument(
         "--nra", help="Install PySMT version with NRA support", action="store_true"
     )
     parser.add_argument("--latte", help="Install LattE Integrale", action="store_true")
-    parser.add_argument("--volesti", help="Install Volesti", action="store_true")
     parser.add_argument("--all", help="Install all dependencies", action="store_true")
     parser.add_argument(
         "--install-path",
@@ -92,11 +50,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         dest="lib_path",
         default=default_lib,
     )
-    parser.add_argument(
-        "--cxx", help="C++ compiler to use", default="g++", type=str
-    )
-
-    return parser.parse_args(args)
+    parser.add_argument("--cxx", help="C++ compiler to use", default="g++", type=str)
 
 
 def _msat_set_paths(env, include_paths: list[str], lib_paths: list[str]) -> None:
@@ -109,12 +63,17 @@ def _msat_set_paths(env, include_paths: list[str], lib_paths: list[str]) -> None
 
 
 def install_msat(
-    force_reinstall: bool, include_paths: list[str], lib_paths: list[str]
+    force_reinstall: bool,
+    include_paths: list[str],
+    lib_paths: list[str],
+    assume_yes: bool = False,
 ) -> None:
     logger.info("Installing MathSAT via pysmt-install...")
     env = os.environ.copy()
     _msat_set_paths(env, include_paths, lib_paths)
-    cmd = ["pysmt-install", "--msat", "--confirm-agreement"]
+    cmd = ["pysmt-install", "--msat"]
+    if assume_yes:
+        cmd.append("--confirm-agreement")
     if force_reinstall:
         cmd.append("--force")
     safe_cmd(cmd, env=env)
@@ -131,3 +90,41 @@ def install_pysmt_nra(
     if force_reinstall:
         cmd.append("--force-reinstall")
     safe_cmd(cmd, env=env)
+
+
+def run(args: argparse.Namespace) -> None:
+    if not any((args.all, args.latte, args.msat, args.nra)):
+        print("Nothing to do. Use --help for more information.")
+        return
+
+    if args.all or args.nra:
+        install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
+    elif args.msat:
+        install_msat(args.force_reinstall, args.include_path, args.lib_path)
+        print("MathSAT installed successfully. You can now use it with PySMT.")
+
+    installers: list[Installer] = []
+
+    if args.all or args.latte:
+        installers.append(
+            LatteInstaller(
+                args.install_path, args.include_path, args.lib_path, args.cxx
+            )
+        )
+    for installer in installers:
+        print(f"Installing {installer.get_name()}...")
+        installer.install(args.assume_yes, args.force_reinstall)
+        print(f"{installer.get_name()} installed successfully.")
+    paths_to_export = []
+    for installer in installers:
+        paths_to_export.extend(installer.paths_to_export)
+    if paths_to_export:
+        logger.info("")
+        logger.info("Add the following lines to your ~/.bashrc file:")
+        for path in paths_to_export:
+            logger.info(f"export PATH={path}:$PATH")
+        logger.info("")
+        logger.info("Then run: source ~/.bashrc")
+    print(
+        "Installation complete. You can now use wmipa with the installed dependencies."
+    )

@@ -1,7 +1,7 @@
 import os
 from abc import ABCMeta, abstractmethod
 
-from wmipa_cli.log import logger
+from wmipa.cli.log import logger
 
 
 class Installer(metaclass=ABCMeta):

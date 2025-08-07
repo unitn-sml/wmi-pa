@@ -5,9 +5,9 @@ import tarfile
 import urllib.request
 from pathlib import Path
 
-from wmipa_cli.installers.installer import Installer
-from wmipa_cli.log import logger
-from wmipa_cli.utils import remove_suffix, safe_cmd
+from wmipa.cli.installers.installer import Installer
+from wmipa.cli.log import logger
+from wmipa.cli.utils import safe_cmd
 
 
 class LatteInstaller(Installer):
@@ -178,7 +178,7 @@ class LatteInstaller(Installer):
         safe_cmd(["make", "install"], env=env)
 
     def _dirname(self) -> str:
-        return remove_suffix(Path(self.filename).name, ".tar.gz")
+        return Path(self.filename).name.removesuffix(".tar.gz")
 
     def add_to_path(self) -> None:
         bin_dir = Path(self.install_path) / self.get_dir() / "bin"

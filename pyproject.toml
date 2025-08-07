@@ -39,7 +39,7 @@ typing = [
 nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 
 [project.scripts]
-wmipa-install = "wmipa_cli.install:run"
+wmipa = "wmipa.cli.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

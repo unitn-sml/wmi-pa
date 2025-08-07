@@ -1,14 +1,16 @@
 import os
 
-from wmipa_cli.installers.installer import Installer
-from wmipa_cli.log import logger
-from wmipa_cli.utils import check_os_version, safe_cmd
+from wmipa.cli.installers.installer import Installer
+from wmipa.cli.log import logger
+from wmipa.cli.utils import check_os_version, safe_cmd
 
 
 class VolestiInstaller(Installer):
     dependencies = ["cmake", "g++", "make"]
 
-    def __init__(self, install_path: str, include_paths: list[str], lib_paths: list[str]) -> None:
+    def __init__(
+        self, install_path: str, include_paths: list[str], lib_paths: list[str]
+    ) -> None:
         super().__init__(install_path, include_paths, lib_paths)
         self.git_repo = "https://github.com/masinag/approximate-integration"
 

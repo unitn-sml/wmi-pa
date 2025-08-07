@@ -3,7 +3,7 @@ import json
 
 import pysmt.shortcuts as smt
 from pysmt.fnode import FNode
-from pysmt.operators import POW, IMPLIES
+from pysmt.operators import IMPLIES, POW
 
 try:
     from pysmt.operators import EXP

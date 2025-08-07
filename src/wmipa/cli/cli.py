@@ -1,101 +1,40 @@
 import argparse
-from time import time
 
-from pysmt.shortcuts import Bool
-from pysmt.typing import REAL
-
-from wmipa import WMISolver
-from wmipa.cli.io import Density
-from wmipa.enumeration import *
-from wmipa.integration import *
+from wmipa.cli import install, run
+from wmipa.cli.log import logger
 
 
-def parse_enumerator(args):
-    curr, _, rest = args.enumerator.partition("-")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="WMI-PA CLI: A command-line interface for WMI-PA.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Run '%(prog)s command --help' for more information on a specific command.",
+    )
 
-    if len(curr) == 0:
-        # defaults to z3
-        return Z3Enumerator()
-    elif len(rest) == 0:
-        # base enumerators
-        if curr == "msat":
-            return MathSATEnumerator()
-        elif curr == "z3":
-            return Z3Enumerator()
-        else:
-            raise NotImplementedError()
+    subparsers = parser.add_subparsers(
+        dest="command", help="WMI-PA command", required=True
+    )
+
+    install_parser = subparsers.add_parser(
+        "install", help="Install dependencies for WMI-PA CLI"
+    )
+    install.add_arguments(install_parser)
+    run_parser = subparsers.add_parser("run", help="Run WMI-PA on a given Density file")
+    run.add_arguments(run_parser)
+
+    return parser.parse_args()
+
+
+def cli():
+    args = parse_args()
+
+    if args.command == "install":
+        install.run(args)
+    elif args.command == "run":
+        run.run(args)
     else:
-        # wrapper around enumerators
-        raise NotImplementedError()
+        logger.error(f"Unknown command: {args.command}")
+        return 1
+    print("Command executed successfully.")
 
-
-def parse_integrator(args):
-    curr, _, rest = args.integrator.partition("-")
-
-    if len(curr) == 0:
-        # defaults to rejection
-        return RejectionIntegrator()
-    elif len(rest) == 0:
-        # base integrators
-        if curr == "latte":
-            return LattEIntegrator()
-        elif curr == "rejection":
-            return RejectionIntegrator(n_samples=args.n_samples, seed=args.seed)
-        else:
-            raise NotImplementedError()
-    else:
-        # wrapper around integrator
-        args.integrator = rest
-        if curr == "axisaligned":
-            return AxisAlignedWrapper(parse_integrator(args))
-        elif curr == "cache":
-            return CacheWrapper(parse_integrator(args))
-        elif curr == "parallel":
-            return ParallelWrapper(parse_integrator(args), args.n_processes)
-        else:
-            raise NotImplementedError()
-
-
-parser = argparse.ArgumentParser(
-    prog="WMI-PA command line", description="Run WMI-PA on a given Density file"
-)
-
-parser.add_argument("filename", type=str, help="Path to the input density file")
-parser.add_argument("--enumerator", type=str, default="", help="Enumerator")
-parser.add_argument("--integrator", type=str, default="", help="Integrator")
-parser.add_argument(
-    "--n_processes", type=int, help="# processes (for parallel integrators)"
-)
-parser.add_argument(
-    "--n_samples", type=int, help="# samples (for MC-based integrators)"
-)
-parser.add_argument("--seed", type=int, help="seed (for randomized integrators)")
-
-args = parser.parse_args()
-enumerator = parse_enumerator(args)
-integrator = parse_integrator(args)
-
-density = Density.from_file(args.filename)
-variables = [v for v in density.domain if v.symbol_type() == REAL]
-
-t0 = time()
-solver = WMISolver(
-    density.support, density.weight, enumerator=enumerator, integrator=integrator
-)
-
-result = solver.computeWMI(Bool(True), variables)
-tZ = time() - t0
-print(f"Z: {result['wmi']}")
-print(f"npolys: {result['npolys']}")
-print(f"timeZ: {tZ}")
-
-for i, query in enumerate(density.queries):
-    ti0 = time()
-    result = solver.computeWMI(query, variables)
-    tif = time() - ti0
-    print(f"query{i}: {result['wmi']}")
-    print(f"npolys{i}: {result['npolys']}")
-    print(f"time{i}: {tif}")
-
-tfinal = time() - t0
-print(f"time: {tfinal}")
+    return 0
