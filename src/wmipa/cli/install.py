@@ -53,7 +53,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--cxx", help="C++ compiler to use", default="g++", type=str)
 
 
-def _msat_set_paths(env, include_paths: list[str], lib_paths: list[str]) -> None:
+def _msat_set_paths(env: dict[str, str], include_paths: list[str], lib_paths: list[str]) -> None:
     if include_paths:
         c_include_paths = env.get("C_INCLUDE_PATH", "").split(":") + include_paths
         env["C_INCLUDE_PATH"] = ":".join(c_include_paths)

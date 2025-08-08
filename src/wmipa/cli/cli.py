@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def cli():
+def cli() -> int:
     args = parse_args()
 
     if args.command == "install":
@@ -35,6 +35,5 @@ def cli():
     else:
         logger.error(f"Unknown command: {args.command}")
         return 1
-    print("Command executed successfully.")
 
     return 0

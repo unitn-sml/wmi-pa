@@ -15,13 +15,14 @@ class VolestiInstaller(Installer):
         self.git_repo = "https://github.com/masinag/approximate-integration"
 
     @staticmethod
-    def get_name():
+    def get_name() -> str:
         return "Volesti Integrator"
 
-    def get_dir(self):
+    @staticmethod
+    def get_dir() -> str:
         return "approximate-integration"
 
-    def check_environment(self, yes):
+    def check_environment(self, yes: bool) -> bool:
         logger.info(f"Checking environment for {self.get_name()}...")
         if not check_os_version("Linux"):
             logger.warning(
@@ -33,13 +34,13 @@ class VolestiInstaller(Installer):
             return False
         return True
 
-    def ask_dependencies_proceed(self, yes):
+    def ask_dependencies_proceed(self, yes: bool) -> bool:
         logger.info("Make sure you have the following dependencies installed:")
         logger.info(" ".join(self.dependencies))
         logger.info("Do you want to proceed? [y/n] ")
         return yes or input().strip().lower() == "y"
 
-    def download(self):
+    def download(self) -> None:
         if os.path.exists(self.get_dir()):
             logger.info(
                 f"Skipping download of {self.get_name()}, directory approximate-integration already exists."
@@ -48,14 +49,14 @@ class VolestiInstaller(Installer):
         logger.info(f"Downloading {self.get_name()}...")
         safe_cmd(["git", "clone", self.git_repo])
 
-    def unpack(self):
+    def unpack(self) -> None:
         pass
 
-    def build(self, force):
+    def build(self, force: bool) -> None:
         os.chdir(self.get_dir())
         if force:
             safe_cmd(["make", "clean"])
         safe_cmd(["make"])
 
-    def add_to_path(self):
+    def add_to_path(self) -> None:
         self.paths_to_export.append(f"{self.install_path}/approximate-integration/bin")

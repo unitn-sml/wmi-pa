@@ -7,7 +7,7 @@ from typing import Optional
 from wmipa.cli.log import logger
 
 
-def check_os_version(sysname=None, machine=None):
+def check_os_version(sysname: Optional[str]=None, machine: Optional[str]=None) -> bool:
     sysinfo = os.uname()
     if sysname is not None and sysinfo.sysname != sysname:
         return False
@@ -75,7 +75,7 @@ def get_default_include_lib_paths() -> tuple[list[str], list[str]]:
     lib_paths: list[str]
     include_paths, lib_paths = [], []
 
-    if sys.platform != "darwin":
+    if sys.platform.startswith("darwin"):
         return include_paths, lib_paths
 
     for prefix in ["/opt/homebrew", "/usr/local"]:
