@@ -33,7 +33,7 @@ class LattEIntegrator:
     def __init__(self, algorithm: str = DEF_ALGORITHM):
         if not LATTE_INSTALLED:
             raise RuntimeError(
-                "Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it."
+                "Can't execute LattE's 'integrate' command. Use 'wmipa install --latte' to install it."
             )
         if algorithm not in LattEIntegrator.ALGORITHMS:
             raise ValueError(f"Algorithm should be one of {self.ALGORITHMS}.")

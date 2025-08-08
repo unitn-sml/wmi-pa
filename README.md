@@ -35,32 +35,28 @@ WMI-PA comes installed with a default enumerator (based on the `z3` SMT-solver) 
 on rejection-sampling).
 
 To use the most up-to-date algorithms, however, you need to install additional requirements.
-The script `wmipa-install` can be used to install all the requirements automatically on Unix-like systems (Linux,
+The script `wmipa install` can be used to install all the requirements automatically on Unix-like systems (Linux,
 macOS).
 For Windows users, see the section below for specific instructions.
 
 ```
-usage: wmipa-install [-h] [--msat] [--nra] [--latte] [--volesti] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH]
-                     [--cxx CXX]
-
-Install dependencies for WMI-PA command line interface.
+usage: wmipa install [-h] [--msat] [--nra] [--latte] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH] [--cxx CXX]
 
 options:
   -h, --help            show this help message and exit
-  --msat                Install MathSAT (default: False)
-  --nra                 Install PySMT version with NRA support (default: False)
-  --latte               Install LattE Integrale (default: False)
-  --volesti             Install Volesti (default: False)
-  --all                 Install all dependencies (default: False)
+  --msat                Install MathSAT
+  --nra                 Install PySMT version with NRA support
+  --latte               Install LattE Integrale
+  --all                 Install all dependencies
   --install-path INSTALL_PATH
-                        Install path for external tools (default: $HOME/.wmipa)
-  --assume-yes, -y      Automatic yes to prompts (default: False)
+                        Install path for external tools
+  --assume-yes, -y      Automatic yes to prompts
   --force-reinstall, -f
-                        Force reinstallation of dependencies (default: False)
+                        Force reinstallation of dependencies
   --include-path INCLUDE_PATH
-                        Additional include paths for compilation (can be specified multiple times) (default: [])
-  --lib-path LIB_PATH   Additional library paths for compilation (can be specified multiple times) (default: [])
-  --cxx CXX             C++ compiler to use (default: g++)
+                        Additional include paths for compilation (can be specified multiple times)
+  --lib-path LIB_PATH   Additional library paths for compilation (can be specified multiple times)
+  --cxx CXX             C++ compiler to use
 ```
 
 E.g., for using the latest `SAE4WMI` enumeration algorithm, you should install the `MathSAT5` SMT solver.
@@ -69,7 +65,7 @@ For an exact integration backend, you should install the `LattE integrale` libra
 To install these requirements, you can run the following command:
 
 ```bash
-wmipa-install --msat --latte --assume-yes
+wmipa install --msat --latte --assume-yes
 ````
 
 Then, a message will be shown to add the following lines to the `~/.bashrc` file:
@@ -80,7 +76,7 @@ PATH=$HOME/.wmipa/latte/bin:$PATH
 
 #### Windows users
 
-The `wmipa-install` script is not directly supported on Windows.
+The `wmipa install` script is not directly supported on Windows.
 We recommend using the Windows Subsystem for Linux (WSL) to run the script.
 
 ## Examples
@@ -89,6 +85,30 @@ We provide some examples that show how to write a model and evaluate weighted mo
 To run the code in *examples/*, type:
 
     python exampleX.py
+
+## Command line interface
+
+WMI-PA provides a command line interface to run WMI queries on models.
+See `wmipa run --help` for more information:
+
+```bash
+usage: wmipa run [-h] [--enumerator ENUMERATOR] [--integrator INTEGRATOR] [--n_processes N_PROCESSES] [--n_samples N_SAMPLES] [--seed SEED] filename
+
+positional arguments:
+  filename              Path to the input density file
+
+options:
+  -h, --help            show this help message and exit
+  --enumerator ENUMERATOR
+                        Enumerator
+  --integrator INTEGRATOR
+                        Integrator
+  --n_processes N_PROCESSES
+                        # processes (for parallel integrators)
+  --n_samples N_SAMPLES
+                        # samples (for MC-based integrators)
+  --seed SEED           seed (for randomized integrators)
+```
 
 ## Experiments
 
