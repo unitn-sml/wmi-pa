@@ -6,7 +6,7 @@ import pysmt.shortcuts as smt
 from wmipa import WMISolver
 from wmipa.cli.density import Density
 from wmipa.cli.log import logger
-from wmipa.enumeration import Enumerator, MathSATEnumerator, Z3Enumerator
+from wmipa.enumeration import AsyncWrapper, Enumerator, MathSATEnumerator, Z3Enumerator
 from wmipa.integration import (
     AxisAlignedWrapper,
     CacheWrapper,
@@ -16,6 +16,25 @@ from wmipa.integration import (
     RejectionIntegrator,
 )
 
+BASE_ENUMERATORS = {
+    "msat": lambda args: MathSATEnumerator(),
+    "z3": lambda args: Z3Enumerator(),
+}
+WRAPPER_ENUMERATORS = {
+    "async": lambda enumerator, args: AsyncWrapper(enumerator, args.async_queue_size),
+}
+
+
+BASE_INTEGRATORS = {
+    "latte": lambda args: LattEIntegrator(),
+    "rejection": lambda args: RejectionIntegrator(args.n_samples, args.seed),
+}
+WRAPPER_INTEGRATORS = {
+    "axisaligned": lambda integrator, args: AxisAlignedWrapper(integrator),
+    "cache": lambda integrator, args: CacheWrapper(integrator),
+    "parallel": lambda integrator, args: ParallelWrapper(integrator, args.n_processes),
+}
+
 
 def parse_enumerator(args: argparse.Namespace) -> Enumerator:
     curr, _, rest = args.enumerator.partition("-")
@@ -24,16 +43,19 @@ def parse_enumerator(args: argparse.Namespace) -> Enumerator:
         # defaults to z3
         return Z3Enumerator()
     elif len(rest) == 0:
-        # base enumerators
-        if curr == "msat":
-            return MathSATEnumerator()
-        elif curr == "z3":
-            return Z3Enumerator()
-        else:
-            raise NotImplementedError()
+        if curr not in BASE_ENUMERATORS:
+            raise argparse.ArgumentTypeError(
+                f"Unknown enumerator: {curr}. See help for available options."
+            )
+        return BASE_ENUMERATORS[curr](args)
     else:
         # wrapper around enumerators
-        raise NotImplementedError()
+        if curr not in WRAPPER_ENUMERATORS:
+            raise argparse.ArgumentTypeError(
+                f"Unknown enumerator wrapper: {curr}. See help for available options."
+            )
+        args.enumerator = rest
+        return WRAPPER_ENUMERATORS[curr](parse_enumerator(args), args)
 
 
 def parse_integrator(args: argparse.Namespace) -> Integrator:
@@ -43,35 +65,47 @@ def parse_integrator(args: argparse.Namespace) -> Integrator:
         # defaults to rejection
         return RejectionIntegrator()
     elif len(rest) == 0:
-        # base integrators
-        if curr == "latte":
-            return LattEIntegrator()
-        elif curr == "rejection":
-            return RejectionIntegrator(n_samples=args.n_samples, seed=args.seed)
-        else:
-            raise NotImplementedError()
+        if curr not in BASE_INTEGRATORS:
+            raise argparse.ArgumentTypeError(
+                f"Unknown integrator: {curr}. See help for available options."
+            )
+        return BASE_INTEGRATORS[curr](args)
     else:
         # wrapper around integrator
         args.integrator = rest
-        if curr == "axisaligned":
-            return AxisAlignedWrapper(parse_integrator(args))
-        elif curr == "cache":
-            return CacheWrapper(parse_integrator(args))
-        elif curr == "parallel":
-            return ParallelWrapper(parse_integrator(args), args.n_processes)
-        else:
-            raise NotImplementedError()
+        if curr not in WRAPPER_INTEGRATORS:
+            raise argparse.ArgumentTypeError(
+                f"Unknown integrator wrapper: {curr}. See help for available options."
+            )
+        return WRAPPER_INTEGRATORS[curr](parse_integrator(args), args)
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("filename", type=str, help="Path to the input density file")
-    parser.add_argument("--enumerator", type=str, default="", help="Enumerator")
-    parser.add_argument("--integrator", type=str, default="", help="Integrator")
+    parser.add_argument("--enumerator", type=str, default="z3",
+                        help="Enumerator ({}, or wrapper form: {}, possibly composed)".format(
+                            ", ".join(BASE_ENUMERATORS.keys()),
+                            ", ".join(f"{w}-..." for w in WRAPPER_ENUMERATORS.keys()),
+                        ))
     parser.add_argument(
-        "--n_processes", type=int, help="# processes (for parallel integrators)"
+        "--async_queue_size",
+        type=int,
+        help="Size of the async queue (for async enumerators)",
     )
     parser.add_argument(
-        "--n_samples", type=int, help="# samples (for MC-based integrators)"
+        "--integrator",
+        type=str,
+        default="rejection",
+        help="Integrator ({}, or wrapper form: {}, possibly composed)".format(
+            ", ".join(BASE_INTEGRATORS.keys()),
+            ", ".join(f"{w}-..." for w in WRAPPER_INTEGRATORS.keys()),
+        ),
+    )
+    parser.add_argument(
+        "--n_processes", type=int, help="Number of processes (for parallel integrators)"
+    )
+    parser.add_argument(
+        "--n_samples", type=int, help="Number of samples (for MC-based integrators)"
     )
     parser.add_argument("--seed", type=int, help="seed (for randomized integrators)")
 

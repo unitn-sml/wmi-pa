@@ -16,10 +16,16 @@ def parse_args() -> argparse.Namespace:
     )
 
     install_parser = subparsers.add_parser(
-        "install", help="Install dependencies for WMI-PA CLI"
+        "install",
+        help="Install dependencies for WMI-PA CLI",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     install.add_arguments(install_parser)
-    run_parser = subparsers.add_parser("run", help="Run WMI-PA on a given Density file")
+    run_parser = subparsers.add_parser(
+        "run",
+        help="Run WMI-PA on a given Density file",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     run.add_arguments(run_parser)
 
     return parser.parse_args()
