@@ -40,7 +40,7 @@ WMI-PA comes installed with:
 
 The script `wmipa install` can be used to install the requirements on Unix-like systems (Linux,
 macOS).
-For Windows users, see the section below.
+For Windows users, we recommend using the Windows Subsystem for Linux (WSL).
 
 ```
 usage: wmipa install [-h] [--msat] [--nra] [--latte] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH] [--cxx CXX]
@@ -62,9 +62,9 @@ options:
   --cxx CXX             C++ compiler to use (default: g++)
 ```
 
-E.g., for using the latest `SAE4WMI` enumeration algorithm [4], you should install
+E.g., for using the latest `SAE4WMI` enumeration algorithm [4], install
 the [MathSAT5 SMT-solver](https://mathsat.fbk.eu/) API.
-For an exact integration backend, you should install the [LattE integrale](https://github.com/latte-int/latte/) library.
+For an exact integration backend, install the [LattE integrale](https://github.com/latte-int/latte/) library.
 
 To install these requirements, you can run:
 
@@ -79,11 +79,6 @@ follows:
 ```
 PATH=$HOME/.wmipa/latte/bin:$PATH
 ```
-
-#### Windows users
-
-The `wmipa install` script is not directly supported on Windows.
-We recommend using the Windows Subsystem for Linux (WSL) to run the script.
 
 ## Usage
 
@@ -101,11 +96,11 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --enumerator ENUMERATOR
-                        Enumerator (default: z3)
+                        Enumerator (msat, z3, or wrapper: async-..., possibly composed) (default: z3)
   --async_queue_size ASYNC_QUEUE_SIZE
                         Size of the async queue (for async enumerators) (default: None)
   --integrator INTEGRATOR
-                        Integrator (latte, rejection, or wrapper form: axisaligned-..., cache-..., parallel-..., possibly composed) (default: rejection)
+                        Integrator (latte, rejection, or wrapper: axisaligned-..., cache-..., parallel-..., possibly composed) (default: rejection)
   --n_processes N_PROCESSES
                         Number of processes (for parallel integrators) (default: None)
   --n_samples N_SAMPLES

@@ -83,7 +83,7 @@ def parse_integrator(args: argparse.Namespace) -> Integrator:
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("filename", type=str, help="Path to the input density file")
     parser.add_argument("--enumerator", type=str, default="z3",
-                        help="Enumerator ({}, or wrapper form: {}, possibly composed)".format(
+                        help="Enumerator ({}, or wrapper: {}, possibly composed)".format(
                             ", ".join(BASE_ENUMERATORS.keys()),
                             ", ".join(f"{w}-..." for w in WRAPPER_ENUMERATORS.keys()),
                         ))
@@ -96,7 +96,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         "--integrator",
         type=str,
         default="rejection",
-        help="Integrator ({}, or wrapper form: {}, possibly composed)".format(
+        help="Integrator ({}, or wrapper: {}, possibly composed)".format(
             ", ".join(BASE_INTEGRATORS.keys()),
             ", ".join(f"{w}-..." for w in WRAPPER_INTEGRATORS.keys()),
         ),
