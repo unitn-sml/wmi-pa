@@ -13,9 +13,9 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     Add arguments to the parser for the 'install' command.
     """
     parser.add_argument("--msat", help="Install MathSAT", action="store_true")
-    parser.add_argument(
-        "--nra", help="Install PySMT version with NRA support", action="store_true"
-    )
+    # parser.add_argument(
+    #     "--nra", help="Install PySMT version with NRA support", action="store_true"
+    # )
     parser.add_argument("--latte", help="Install LattE Integrale", action="store_true")
     parser.add_argument("--all", help="Install all dependencies", action="store_true")
     parser.add_argument(
@@ -93,7 +93,7 @@ def install_pysmt_nra(
 
 
 def run(args: argparse.Namespace) -> None:
-    if not any((args.all, args.latte, args.msat, args.nra)):
+    if not any((args.all, args.latte, args.msat)):
         print("Nothing to do. Use --help for more information.")
         return
 
@@ -101,6 +101,9 @@ def run(args: argparse.Namespace) -> None:
         install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
     elif args.msat:
         install_msat(args.force_reinstall, args.include_path, args.lib_path)
+    # if args.all or args.nra:
+    #     install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
+    if args.msat:
         print("MathSAT installed successfully. You can now use it with PySMT.")
 
     installers: list[Installer] = []

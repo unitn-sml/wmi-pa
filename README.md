@@ -43,12 +43,11 @@ macOS).
 For Windows users, we recommend using the Windows Subsystem for Linux (WSL).
 
 ```
-usage: wmipa install [-h] [--msat] [--nra] [--latte] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH] [--cxx CXX]
+usage: wmipa install [-h] [--msat] [--latte] [--all] [--install-path INSTALL_PATH] [--assume-yes] [--force-reinstall] [--include-path INCLUDE_PATH] [--lib-path LIB_PATH] [--cxx CXX]
 
 options:
   -h, --help            show this help message and exit
   --msat                Install MathSAT (default: False)
-  --nra                 Install PySMT version with NRA support (default: False)
   --latte               Install LattE Integrale (default: False)
   --all                 Install all dependencies (default: False)
   --install-path INSTALL_PATH
