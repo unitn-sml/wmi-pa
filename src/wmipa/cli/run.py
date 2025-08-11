@@ -1,5 +1,6 @@
 import argparse
 from time import time
+from typing import Callable
 
 import pysmt.shortcuts as smt
 
@@ -16,20 +17,24 @@ from wmipa.integration import (
     RejectionIntegrator,
 )
 
-BASE_ENUMERATORS = {
+BASE_ENUMERATORS: dict[str, Callable[[argparse.Namespace], Enumerator]] = {
     "msat": lambda args: MathSATEnumerator(),
     "z3": lambda args: Z3Enumerator(),
 }
-WRAPPER_ENUMERATORS = {
+WRAPPER_ENUMERATORS: dict[
+    str, Callable[[Enumerator, argparse.Namespace], Enumerator]
+] = {
     "async": lambda enumerator, args: AsyncWrapper(enumerator, args.async_queue_size),
 }
 
 
-BASE_INTEGRATORS = {
+BASE_INTEGRATORS: dict[str, Callable[[argparse.Namespace], Integrator]] = {
     "latte": lambda args: LattEIntegrator(),
     "rejection": lambda args: RejectionIntegrator(args.n_samples, args.seed),
 }
-WRAPPER_INTEGRATORS = {
+WRAPPER_INTEGRATORS: dict[
+    str, Callable[[Integrator, argparse.Namespace], Integrator]
+] = {
     "axisaligned": lambda integrator, args: AxisAlignedWrapper(integrator),
     "cache": lambda integrator, args: CacheWrapper(integrator),
     "parallel": lambda integrator, args: ParallelWrapper(integrator, args.n_processes),
@@ -82,11 +87,15 @@ def parse_integrator(args: argparse.Namespace) -> Integrator:
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("filename", type=str, help="Path to the input density file")
-    parser.add_argument("--enumerator", type=str, default="z3",
-                        help="Enumerator ({}, or wrapper: {}, possibly composed)".format(
-                            ", ".join(BASE_ENUMERATORS.keys()),
-                            ", ".join(f"{w}-..." for w in WRAPPER_ENUMERATORS.keys()),
-                        ))
+    parser.add_argument(
+        "--enumerator",
+        type=str,
+        default="z3",
+        help="Enumerator ({}, or wrapper: {}, possibly composed)".format(
+            ", ".join(BASE_ENUMERATORS.keys()),
+            ", ".join(f"{w}-..." for w in WRAPPER_ENUMERATORS.keys()),
+        ),
+    )
     parser.add_argument(
         "--async_queue_size",
         type=int,
