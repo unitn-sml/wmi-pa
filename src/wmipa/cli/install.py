@@ -68,7 +68,7 @@ def install_msat(
     force_reinstall: bool,
     include_paths: list[str],
     lib_paths: list[str],
-    assume_yes: bool = False,
+    assume_yes: bool,
 ) -> None:
     logger.info("Installing MathSAT via pysmt-install...")
     env = os.environ.copy()
@@ -99,13 +99,12 @@ def run(args: argparse.Namespace) -> None:
         print("Nothing to do. Use --help for more information.")
         return
 
-    if args.all or args.nra:
-        install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
-    elif args.msat:
-        install_msat(args.force_reinstall, args.include_path, args.lib_path)
     # if args.all or args.nra:
     #     install_pysmt_nra(args.force_reinstall, args.include_path, args.lib_path)
     if args.msat:
+        install_msat(
+            args.force_reinstall, args.include_path, args.lib_path, args.assume_yes
+        )
         print("MathSAT installed successfully. You can now use it with PySMT.")
 
     installers: list[Installer] = []
