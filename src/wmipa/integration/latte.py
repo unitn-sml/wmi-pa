@@ -42,7 +42,7 @@ class LattEIntegrator:
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
 
         with TemporaryDirectory(dir=".") as tmpdir:
-            tmpdir_path = Path(tmpdir)
+            tmpdir_path = Path(tmpdir).resolve()
             polytope_path = tmpdir_path / self._POLYTOPE_FILENAME
             polynomial_path = tmpdir_path / self._POLYNOMIAL_FILENAME
             output_path = tmpdir_path / self._OUTPUT_FILENAME
@@ -63,8 +63,11 @@ class LattEIntegrator:
                     cmd, stdout=f, stderr=f, cwd=tmpdir_path
                 )
                 if process_output.returncode != 0:
+                    with output_path.open("r") as f_err:
+                        error_output = f_err.read()
                     raise RuntimeError(
-                        f"LattE returned non-zero value: {process_output.returncode}"
+                        f"LattE returned non-zero value: {process_output.returncode}\n"
+                        f"Error output:\n{error_output}"
                     )
                     # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
