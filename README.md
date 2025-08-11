@@ -51,7 +51,7 @@ options:
   --latte               Install LattE Integrale (default: False)
   --all                 Install all dependencies (default: False)
   --install-path INSTALL_PATH
-                        Install path for external tools (default: /home/gabriele/.wmipa)
+                        Install path for external tools (default: $HOME/.wmipa)
   --assume-yes, -y      Automatic yes to prompts (default: False)
   --force-reinstall, -f
                         Force reinstallation of dependencies (default: False)
