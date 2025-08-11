@@ -7,7 +7,9 @@ from typing import Optional
 from wmipa.cli.log import logger
 
 
-def check_os_version(sysname: Optional[str]=None, machine: Optional[str]=None) -> bool:
+def check_os_version(
+    sysname: Optional[str] = None, machine: Optional[str] = None
+) -> bool:
     sysinfo = os.uname()
     if sysname is not None and sysinfo.sysname != sysname:
         return False
@@ -79,9 +81,10 @@ def get_default_include_lib_paths() -> tuple[list[str], list[str]]:
         return include_paths, lib_paths
 
     for prefix in ["/opt/homebrew", "/usr/local"]:
-        if Path(prefix).exists():
-            include_path = os.path.join(prefix, "include")
-            lib_path = os.path.join(prefix, "lib")
-            include_paths.append(include_path)
-            lib_paths.append(lib_path)
+        path = Path(prefix)
+        if path.exists():
+            include_path = path / "include"
+            lib_path = path / "lib"
+            include_paths.append(str(include_path))
+            lib_paths.append(str(lib_path))
     return include_paths, lib_paths
