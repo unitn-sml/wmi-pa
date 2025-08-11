@@ -7,7 +7,7 @@ name = "wmipa"
 version = "0.1.8"
 description = "Weighted Model Integration PA (Predicate Abstraction) solver."
 readme = "README.md"
-license-files = ["LICENSE"]
+license = {file = "LICENSE"}
 authors = [
     { name = "wmipa team" }
 ]
