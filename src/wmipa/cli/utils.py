@@ -78,13 +78,11 @@ def get_default_include_lib_paths() -> tuple[list[str], list[str]]:
     include_paths, lib_paths = [], []
 
     if sys.platform.startswith("darwin"):
-        return include_paths, lib_paths
-
-    for prefix in ["/opt/homebrew", "/usr/local"]:
-        path = Path(prefix)
-        if path.exists():
-            include_path = path / "include"
-            lib_path = path / "lib"
-            include_paths.append(str(include_path))
-            lib_paths.append(str(lib_path))
+        for prefix in ["/opt/homebrew", "/usr/local"]:
+            path = Path(prefix)
+            if path.exists():
+                include_path = path / "include"
+                lib_path = path / "lib"
+                include_paths.append(str(include_path))
+                lib_paths.append(str(lib_path))
     return include_paths, lib_paths
