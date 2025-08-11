@@ -22,14 +22,11 @@ class Installer(metaclass=ABCMeta):
         if not self.check_environment(yes):
             logger.error("Installation aborted.")
             return
+
         logger.info(f"Installing {self.get_name()} in {self.install_path}...")
-        here = Path(__file__).parent.resolve()
-        install_dir = here / self.install_path
-        install_dir.mkdir(parents=True, exist_ok=True)
+        self.install_path.mkdir(parents=True, exist_ok=True)
 
-        # Store current directory and change to install path
         original_cwd = Path.cwd()
-
         os.chdir(self.install_path)
 
         try:
@@ -38,7 +35,6 @@ class Installer(metaclass=ABCMeta):
             self.build(force)
             self.add_to_path()
         finally:
-            # Restore original directory
             os.chdir(original_cwd)
 
     @staticmethod
