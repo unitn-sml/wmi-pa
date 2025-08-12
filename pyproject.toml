@@ -7,7 +7,7 @@ name = "wmipa"
 version = "0.1.8"
 description = "Weighted Model Integration PA (Predicate Abstraction) solver."
 readme = "README.md"
-license = { text = "MIT" }
+license = {file = "LICENSE"}
 authors = [
     { name = "wmipa team" }
 ]
@@ -36,13 +36,13 @@ typing = [
     "types-networkx; python_version>='3.10'",
     "scipy-stubs; python_version>='3.11'",
 ]
-nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
+#nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 
 [project.scripts]
-wmipa-install = "wmipa_cli.install:run"
+wmipa = "wmipa.cli.cli:cli"
 
 [tool.setuptools.packages.find]
-exclude = ["test*", "examples*"]
+where = ["src"]
 
 [tool.black]
 
@@ -60,8 +60,7 @@ warn_unreachable = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
 
-files = ["wmipa/"]  # files to check
-exclude = ["wmipa/cli/"]
+files = ["src/wmipa/"]  # files to check
 
 [[tool.mypy.overrides]]
 module = ["mathsat", "pysmt.*"]

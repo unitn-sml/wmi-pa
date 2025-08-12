@@ -24,7 +24,7 @@ mkdir $LATTE_DIR
 for FILENAME in $(ls $INPUT_DIR)
 do
     echo "Computing "$FILENAME" with latte"
-    timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME latte > $LATTE_DIR$FILENAME
+    timeout $TIMEOUT wmipa run $INPUT_DIR$FILENAME latte > $LATTE_DIR$FILENAME
 done
 
 REJ_DIR=$OUTPUT_DIR"rej/"
@@ -32,7 +32,7 @@ mkdir $REJ_DIR
 for FILENAME in $(ls $INPUT_DIR)
 do
     echo "Computing "$FILENAME" with rejection"
-    timeout $TIMEOUT python3 ../../wmipa/cli/cli.py $INPUT_DIR$FILENAME rejection > $REJ_DIR$FILENAME
+    timeout $TIMEOUT wmipa run $INPUT_DIR$FILENAME rejection > $REJ_DIR$FILENAME
 done
 
 # manually removing tmp directories left by processed that timed out

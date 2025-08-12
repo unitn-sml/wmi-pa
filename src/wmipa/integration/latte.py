@@ -1,17 +1,17 @@
 __version__ = "0.999"
 __author__ = "Paolo Morettin"
 
-import os
 import subprocess
 from fractions import Fraction
 from functools import reduce
+from pathlib import Path
 from shutil import which
 from tempfile import TemporaryDirectory
 from typing import Collection
 
 import numpy as np
 
-from wmipa.datastructures import Polytope, Polynomial
+from wmipa.datastructures import Polynomial, Polytope
 
 LATTE_INSTALLED = which("integrate") is not None
 
@@ -33,7 +33,7 @@ class LattEIntegrator:
     def __init__(self, algorithm: str = DEF_ALGORITHM):
         if not LATTE_INSTALLED:
             raise RuntimeError(
-                "Can't execute LattE's 'integrate' command. Use 'wmipa-install --latte' to install it."
+                "Can't execute LattE's 'integrate' command. Use 'wmipa install --latte' to install it."
             )
         if algorithm not in LattEIntegrator.ALGORITHMS:
             raise ValueError(f"Algorithm should be one of {self.ALGORITHMS}.")
@@ -42,13 +42,11 @@ class LattEIntegrator:
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
 
         with TemporaryDirectory(dir=".") as tmpdir:
-            polytope_path = os.path.abspath(
-                os.path.join(tmpdir, self._POLYTOPE_FILENAME)
-            )
-            polynomial_path = os.path.abspath(
-                os.path.join(tmpdir, self._POLYNOMIAL_FILENAME)
-            )
-            output_path = os.path.abspath(os.path.join(tmpdir, self._OUTPUT_FILENAME))
+            tmpdir_path = Path(tmpdir).resolve()
+            polytope_path = tmpdir_path / self._POLYTOPE_FILENAME
+            polynomial_path = tmpdir_path / self._POLYNOMIAL_FILENAME
+            output_path = tmpdir_path / self._OUTPUT_FILENAME
+
             LattEIntegrator._write_polytope_file(polytope, polytope_path)
             LattEIntegrator._write_polynomial_file(polynomial, polynomial_path)
 
@@ -56,15 +54,20 @@ class LattEIntegrator:
                 "integrate",
                 "--valuation=integrate",
                 self.algorithm,
-                f"--monomials=" + polynomial_path,
-                polytope_path,
+                f"--monomials={polynomial_path}",
+                str(polytope_path),
             ]
 
-            with open(output_path, "w") as f:
-                process_output = subprocess.run(cmd, stdout=f, stderr=f, cwd=tmpdir)
+            with output_path.open("w") as f:
+                process_output = subprocess.run(
+                    cmd, stdout=f, stderr=f, cwd=tmpdir_path
+                )
                 if process_output.returncode != 0:
+                    with output_path.open("r") as f_err:
+                        error_output = f_err.read()
                     raise RuntimeError(
-                        f"LattE returned non-zero value: {process_output.returncode}"
+                        f"LattE returned non-zero value: {process_output.returncode}\n"
+                        f"Error output:\n{error_output}"
                     )
                     # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
@@ -87,17 +90,17 @@ class LattEIntegrator:
         return np.array(volumes)
 
     @staticmethod
-    def _write_polynomial_file(polynomial: Polynomial, path: str) -> None:
+    def _write_polynomial_file(polynomial: Polynomial, path: Path) -> None:
         mono_str = []
         for exponents, coefficient in polynomial.monomials.items():
             exp_str = "[" + ",".join(str(e) for e in exponents) + "]"
             mono_str.append(f"[{coefficient}, {exp_str}]")
 
-        with open(path, "w") as f:
+        with path.open("w") as f:
             f.write("[" + ",".join(mono_str) + "]")
 
     @staticmethod
-    def _write_polytope_file(polytope: Polytope, path: str) -> None:
+    def _write_polytope_file(polytope: Polytope, path: Path) -> None:
         A, b = polytope.to_numpy()
         bA = np.concatenate((b.reshape(-1, 1), A), axis=1)
 
@@ -108,14 +111,13 @@ class LattEIntegrator:
         bA_int = (bA * mult[:, None]).astype(int)
         bAm_int = np.concatenate((bA_int[:, 0].reshape(-1, 1), -bA_int[:, 1:]), axis=1)
 
-        with open(path, "w") as f:
+        with path.open("w") as f:
             f.write(f"{bA.shape[0]} {bA.shape[1]}\n")
             f.write("\n".join([" ".join(map(str, row)) for row in bAm_int]))
 
     @staticmethod
-    def _read_output_file(path: str) -> float:
-        res = None
-        with open(path, "r") as f:
+    def _read_output_file(path: Path) -> float:
+        with path.open("r") as f:
             lines = f.readlines()
             for line in lines:
                 # Result in the "Answer" line may be written in fraction form

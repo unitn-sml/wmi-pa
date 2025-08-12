@@ -2,7 +2,6 @@ import queue
 import threading
 from typing import TYPE_CHECKING, Callable, Collection, Generator, Iterable
 
-import mathsat
 import pysmt.operators as op
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
@@ -10,8 +9,15 @@ from pysmt.formula import FormulaManager
 from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
-from wmipa.weights import Weights
+
 from wmipa.utils import BooleanSimplifier, LiteralNormalizer
+from wmipa.weights import Weights
+
+try:
+    import mathsat
+except ImportError as e:
+    mathsat = None
+    _IMPORT_ERR = e
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import WMISolver
@@ -26,6 +32,12 @@ class MathSATEnumerator:
                              1 means we will compute the assignments one by one.
                              0 means no limit.
         """
+
+        # check whether MathSAT is installed or not
+        if mathsat is None:
+            raise ImportError(
+                "MathSAT is not installed. Please install it using the `wmipa install` command."
+            ) from _IMPORT_ERR
         # 0 for no limit, the default is 1
         # the queue blocks until it has an available slot
         # so 1 means we will compute the assignments one by one
@@ -177,7 +189,7 @@ class MathSATEnumerator:
 
         msat_env = solver.msat_env()
 
-        def callback(model: list[mathsat.msat_term]) -> dict[FNode, bool]:
+        def callback(model: list["mathsat.msat_term"]) -> dict[FNode, bool]:
             converted_model = [converter.back(v) for v in model]
             assignments: dict[FNode, bool] = {}
             for lit in converted_model:
@@ -201,10 +213,10 @@ class MathSATEnumerator:
 
     def _all_sat_stream(
         self,
-        msat_env: mathsat.msat_env,
+        msat_env: "mathsat.msat_env",
         atoms: Collection[FNode],
         converter: MSatConverter,
-        f: Callable[[list[mathsat.msat_term]], dict[FNode, bool]],
+        f: Callable[[list["mathsat.msat_term"]], dict[FNode, bool]],
     ) -> Generator[dict[FNode, bool], None, None]:
         """
         Enumerates all satisfying assignments for the given atoms in the MathSAT

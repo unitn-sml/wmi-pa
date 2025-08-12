@@ -1,14 +1,25 @@
 import fractions
 import json
+from typing import Optional, TypedDict, cast
 
 import pysmt.shortcuts as smt
 from pysmt.fnode import FNode
-from pysmt.operators import POW, IMPLIES
+from pysmt.operators import IMPLIES, POW
+from pysmt.typing import PySMTType
 
 try:
     from pysmt.operators import EXP
 except ImportError:
     EXP = None
+
+
+class DensityDict(TypedDict):
+    """Dictionary representation of a density."""
+
+    domain: list[tuple[str, str, Optional[tuple[Optional[float], Optional[float]]]]]
+    formula: str
+    weights: str
+    queries: list[str]
 
 
 class Density:
@@ -17,14 +28,20 @@ class Density:
     Copyright: Samuel Kolb
     """
 
-    def __init__(self, support, weight, domain, queries=None):
+    def __init__(
+        self,
+        support: FNode,
+        weight: FNode,
+        domain: dict[FNode, Optional[tuple[Optional[float], Optional[float]]]],
+        queries: Optional[list[FNode]] = None,
+    ) -> None:
         """A density is a tuple (support, weight, domain, queries).
 
         Args:
-            support (FNode): The support formula.
-            weight (FNode): The weight function.
-            domain (dict[FNode, tuple[float, float]]): The variables. Numerical ones are optionally mapped to their bounds.
-            queries (Optional[List[FNode]]): A list of smt formulas representing WMI queries.
+            support: The support formula.
+            weight: The weight function.
+            domain: The variables. Numerical ones are optionally mapped to their bounds.
+            queries: A list of smt formulas representing WMI queries.
 
         """
 
@@ -38,7 +55,7 @@ class Density:
         self.domain = domain
         self.queries = queries
 
-    def add_bounds(self):
+    def add_bounds(self) -> None:
         """Conjoin the bounds in self.domain to the support."""
         bounds = []
         for v, bv in self.domain.items():
@@ -51,19 +68,18 @@ class Density:
 
         self.support = smt.And(self.support, *bounds)
 
-    def to_file(self, filename):
+    def to_file(self, filename: str) -> None:
         with open(filename, "w") as ref:
             json.dump(self._get_state(), ref)
 
     @classmethod
-    def from_file(cls, filename):
+    def from_file(cls, filename: str) -> "Density":
         with open(filename) as ref:
             return cls._from_state(json.load(ref))
 
-    def _get_state(self):
-
+    def _get_state(self) -> DensityDict:
         dstr = [
-            (v.symbol_name(), type_to_str(v.symbol_type()), bounds)
+            (cast(str, v.symbol_name()), type_to_str(v.symbol_type()), bounds)
             for v, bounds in self.domain.items()
         ]
 
@@ -75,8 +91,7 @@ class Density:
         }
 
     @classmethod
-    def _from_state(cls, state: dict):
-
+    def _from_state(cls, state: DensityDict) -> "Density":
         fmgr = smt.get_env().formula_manager
         domain = dict()
         for vname, vtype, bounds in state["domain"]:
@@ -91,7 +106,7 @@ class Density:
         )
 
 
-def type_to_str(smt_type):
+def type_to_str(smt_type: PySMTType) -> str:
     if smt_type == smt.REAL:
         return "real"
     if smt_type == smt.INT:
@@ -101,7 +116,7 @@ def type_to_str(smt_type):
     raise RuntimeError("No type corresponding to {}".format(smt_type))
 
 
-def type_to_smt(type_str):
+def type_to_smt(type_str: str) -> PySMTType:
     if type_str == "real":
         return smt.REAL
     if type_str == "int":
@@ -111,12 +126,11 @@ def type_to_smt(type_str):
     raise RuntimeError("No type corresponding to {}".format(type_str))
 
 
-def nested_to_smt(string):
+def nested_to_smt(string: str) -> FNode:
     return SmtParser().parse_smt(string)
 
 
-def smt_to_nested(expression):
-    # type: (FNode) -> str
+def smt_to_nested(expression: FNode) -> str:
     """
     Converts an smt expression to a nested formula
     :param expression: An SMT expression (FNode)
@@ -127,7 +141,7 @@ def smt_to_nested(expression):
         Types can be: real, int, bool
     """
 
-    def convert_children(op):
+    def convert_children(op: str) -> str:
         return "({} {})".format(
             op, " ".join(smt_to_nested(arg) for arg in expression.args())
         )
@@ -187,30 +201,32 @@ def smt_to_nested(expression):
 
 
 class Node(object):
-    def __init__(self, name=None):
+    def __init__(self, name: Optional[str] = None) -> None:
         self.name = name
-        self.children = []
+        self.children: list["Node"] = []
 
-    def has_name(self):
+    def has_name(self) -> bool:
         return self.name is not None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "Node({}, {})".format(self.name, self.children)
 
 
-def string_to_ast(string, operators=None):
+def string_to_ast(string: str, operators: Optional[list[str]] = None) -> Node:
     return tokenized_string_to_ast(tokenize(string), operators)
 
 
-def tokenize(chars):
+def tokenize(chars: str) -> list[str]:
     """Convert a string of characters into a list of tokens."""
     return chars.replace("(", " ( ").replace(")", " ) ").split()
 
 
-def tokenized_string_to_ast(tokenized_string, operators=None):
-    stack = []
+def tokenized_string_to_ast(
+    tokenized_string: list[str], operators: Optional[list[str]] = None
+) -> Node:
+    stack: list["Node"] = []
     root = None
-    operators = set(operators) if operators is not None else None
+    operators_set = set(operators) if operators is not None else None
     for token in tokenized_string:
         current = stack[-1] if len(stack) > 0 else None
         if token == "(":
@@ -222,13 +238,15 @@ def tokenized_string_to_ast(tokenized_string, operators=None):
                 root = node
         elif token == ")":
             stack.pop()
-        else:
+        elif current is not None:
             if current.has_name():
                 current.children.append(Node(token))
             else:
-                if operators is not None and token not in operators:
+                if operators_set is not None and token not in operators_set:
                     raise RuntimeError("Disallowed token '{}'".format(token))
                 current.name = token
+    assert root is not None
+
     return root
 
 
@@ -253,24 +271,20 @@ class SmtParser(object):
         "var",
     ]
 
-    def __init__(self):
-        self.vars = dict()
+    def __init__(self) -> None:
+        pass
 
-    def parse_smt(self, nested_string):
+    def parse_smt(self, nested_string: str) -> FNode:
         return self.ast_to_smt(string_to_ast(nested_string, self.operators))
 
-    def parse_wmi_combined(self, nested_string):
+    def parse_wmi_combined(self, nested_string: str) -> tuple[FNode, FNode]:
         ast = string_to_ast(nested_string, self.operators)
         weights_node = Node(ast.name)
         weights_node.children = ast.children[1:]
         return self.ast_to_smt(ast.children[0]), self.ast_to_smt(weights_node)
 
-    def ast_to_smt(self, node):
-        """
-        :type node: Node
-        """
-
-        def convert_children(number=None):
+    def ast_to_smt(self, node: Node) -> FNode:
+        def convert_children(number: Optional[int] = None) -> list[FNode]:
             if number is not None and len(node.children) != number:
                 raise Exception(
                     "The number of children ({}) differed from {}".format(
@@ -309,6 +323,7 @@ class SmtParser(object):
             return smt.Equals(*convert_children(2))
         elif node.name == "const":
             c_type, c_value = [child.name for child in node.children]
+            assert c_value is not None
             if c_type == "bool":
                 return smt.Bool(bool(c_value))
             elif c_type == "real":
@@ -328,7 +343,7 @@ class SmtParser(object):
             raise RuntimeError("Unrecognized node type '{}'".format(node.name))
 
 
-def main():
+def main() -> None:
     A = smt.Symbol("A", smt.BOOL)
     x = smt.Symbol("x", smt.REAL)
     y = smt.Symbol("y", smt.REAL)
@@ -337,7 +352,8 @@ def main():
 
     w = smt.Real(666)
 
-    domain = {x: (0, 1), y: (0, None), A: None}
+    domain: dict[FNode, Optional[tuple[Optional[float], Optional[float]]]]
+    domain = {x: (0., 1.), y: (0., None), A: None}
 
     path = "test.json"
 
