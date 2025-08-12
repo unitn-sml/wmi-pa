@@ -21,6 +21,9 @@ class Polynomial:
 
     def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
         self.monomials = PolynomialParser(variables).parse(expr)
+        const_key = tuple(0 for _ in range(self.N))
+        if const_key in self.monomials and self.monomials[const_key] == 0:
+            self.monomials.pop(const_key)
         self.variables = variables
         self.ordered_keys = sorted(self.monomials.keys())
         self.mgr = env.formula_manager
