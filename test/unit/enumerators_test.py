@@ -4,7 +4,7 @@ import numpy as np
 import pysmt.shortcuts as smt
 
 from wmipa import WMISolver
-from wmipa.enumeration import Z3Enumerator, MathSATEnumerator, AsyncWrapper
+
 
 
 x = smt.Symbol("X", smt.REAL)
@@ -35,36 +35,22 @@ SUPPORTS = [f1, f2, f3, f4]
 WEIGHTS = [k, w1, w2]
 
 INSTANCES = list(product(SUPPORTS, WEIGHTS))
-# Enumerators with constructor kwargs
-ENUMERATORS_WITH_KWARGS = [
-        (Z3Enumerator, {}),
-        (MathSATEnumerator, {"max_queue_size": 1}),
-        (MathSATEnumerator, {"max_queue_size": 0}),
-        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
-        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
-        (AsyncWrapper, {"enumerator": Z3Enumerator()}),
-    ]
-
 
 ##################################################
 
 
 def pytest_generate_tests(metafunc):
-    argnames = ["enumerator_class", "support", "weight", "enumerator_kwargs"]
+    argnames = ["support", "weight"]
     argvalues = []
     idlist = []
-    for enumerator, kwargs in ENUMERATORS_WITH_KWARGS:
-        for ncase, support_weight in enumerate(INSTANCES):
-            print(ncase, enumerator, kwargs, support_weight)
-            kwargs_printed = ", ".join(
-                f"{k}={v}" for k, v in kwargs.items()
-            )
-            argvalues.append((enumerator, support_weight[0], support_weight[1], kwargs))
-            idlist.append(f"{enumerator.__name__:>20} case {ncase} ({kwargs_printed})")
+    for ncase, support_weight in enumerate(INSTANCES):
+        print(ncase, support_weight)
+        argvalues.append((support_weight[0], support_weight[1]))
+        idlist.append(f"case {ncase}")
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_enumeration(enumerator_class, support, weight, enumerator_kwargs):
+def test_enumerators(enumerators, support, weight):
     """
     - Every truth assignment (TA) is satisfiable in conjunction with the support
     - Every TA corresponds to a leaf in the weight function
@@ -79,31 +65,32 @@ def test_enumeration(enumerator_class, support, weight, enumerator_kwargs):
 
         return smt.And(*literals)
 
-    enumerator = enumerator_class(**enumerator_kwargs)
-    wmisolver = WMISolver(support, weight, enumerator=enumerator)
-    truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
-    nta = len(truth_assignments)
+    for enumerator_class, kwargs in enumerators:
+        enumerator = enumerator_class(**kwargs)
+        wmisolver = WMISolver(support, weight, enumerator=enumerator)
+        truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
+        nta = len(truth_assignments)
 
-    for ta, _ in truth_assignments:
-        assert smt.is_sat(
-            smt.And(support, ta_to_formula(ta))
-        ), f"Enumerator returned an UNSAT TA"
+        for ta, _ in truth_assignments:
+            assert smt.is_sat(
+                smt.And(support, ta_to_formula(ta))
+            ), f"Enumerator returned an UNSAT TA"
 
-        assert wmisolver.weights.weight_from_assignment(
-            ta
-        ).is_constant(), (
-            "Enumerator returned a TA that doesn't correspond to a unconditional weight"
-        )
+            assert wmisolver.weights.weight_from_assignment(
+                ta
+            ).is_constant(), (
+                "Enumerator returned a TA that doesn't correspond to a unconditional weight"
+            )
 
-    for i in range(nta - 1):
-        for j in range(i + 1, nta):
-            fi = ta_to_formula(truth_assignments[i][0])
-            fj = ta_to_formula(truth_assignments[j][0])
+            for i in range(nta - 1):
+                for j in range(i + 1, nta):
+                    fi = ta_to_formula(truth_assignments[i][0])
+                    fj = ta_to_formula(truth_assignments[j][0])
+                    assert not smt.is_sat(
+                        smt.And(fi, fj)
+                    ), f"Enumerator returned two non-disjoint TAs"
+
+            union_tas = smt.Or(*[ta_to_formula(ta) for ta, _ in truth_assignments])
             assert not smt.is_sat(
-                smt.And(fi, fj)
-            ), f"Enumerator returned two non-disjoint TAs"
-
-    union_tas = smt.Or(*[ta_to_formula(ta) for ta, _ in truth_assignments])
-    assert not smt.is_sat(
-        smt.Not(smt.Iff(support, union_tas))
-    ), "Enumerator returned a non-exhaustive list of TAs"
+                smt.Not(smt.Iff(support, union_tas))
+            ), "Enumerator returned a non-exhaustive list of TAs"

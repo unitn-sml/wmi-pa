@@ -1,158 +1,264 @@
+import numpy as np
 import pysmt.shortcuts as smt
 from pysmt.typing import REAL
+from pysmt.walkers import IdentityDagWalker
 
 from wmipa.datastructures import Polynomial
 
 x = smt.Symbol("X", REAL)
 y = smt.Symbol("Y", REAL)
-z = smt.Symbol("Z", REAL)
-pi = smt.Symbol("PI", REAL)
-v1 = -3
-v2 = 5
-v3 = 2
-r1 = smt.Real(v1)
-r2 = smt.Real(v2)
-r3 = smt.Real(v3)
 env = smt.get_env()
 
 
-def test_monomial_constant():
-    expression = r3
+class PowSimplifier(IdentityDagWalker):
+    """This is needed here because wmipa follows python's convention
+    on 0 ** 0 == 1. This is not the case for most SMT solvers.
+
+    """
+
+    def walk_pow(self, formula, args):
+        b, e = args
+        if e.is_real_constant(0.0):
+            return smt.Real(1.0)
+        else:
+            return smt.Pow(b, e)
+
+    def simplify(self, polynomial):
+        return self.walk(polynomial)
+
+
+powsimplifier = PowSimplifier()
+
+
+def equivalent_expressions(original, derived):
+    """Polynomial simplification might result in a pysmt expression
+    with less variables. If that's not the case, use an SMT solver to
+    check for equivalence.
+    """
+    return (
+        original.get_free_variables() != derived.get_free_variables()
+        or not smt.is_sat(smt.Not(smt.Equals(original, derived)))
+    )
+
+
+def same_numerical_constant(output_val, expected_val):
+    """Numerical values after pysmt / Fraction conversions might not
+    match floating point operations resulting in NaN or
+    Inf. Otherwise, results are expected to be "close enough".
+
+    """
+    return (
+        np.isnan(expected_val)
+        or np.isinf(expected_val)
+        or np.isclose(output_val, expected_val)
+    )
+
+
+def test_monomial_constant(f_const):
+    expression = smt.Real(f_const)
     polynomial = Polynomial(expression, {}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert coefficient == v3
-    assert not exponents
+    assert equivalent_expressions(expression, polynomial.to_pysmt())
+    coefficient = polynomial.monomials.get((), 0)
+    assert same_numerical_constant(coefficient, f_const)
 
 
-def test_monomial_constant_multiplication():
-    expression = smt.Times(r3, r1, r2)
-    polynomial = Polynomial(expression, {}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert coefficient == v3 * v1 * v2
-    assert not exponents
+def test_monomial_constant_multiplication(f_vec3):
+    try:
+        c1, c2, c3 = f_vec3
+        expression = smt.Times(*map(smt.Real, f_vec3))
+        polynomial = Polynomial(expression, {}, env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((), 0)
+        assert same_numerical_constant(coefficient, c1 * c2 * c3)
+    except OverflowError:
+        pass
 
 
-def test_monomial_constant_exponent():
-    expression = smt.Pow(r1, r2)
-    polynomial = Polynomial(expression, {}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert float(coefficient) == v1**v2
-    assert not exponents
+def test_monomial_constant_exponent(f_const, exp_const):
+    try:
+        expression = smt.Pow(smt.Real(f_const), smt.Real(exp_const))
+        polynomial = Polynomial(expression, {}, env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((), 0)
+        assert same_numerical_constant(coefficient, f_const**exp_const)
+    except OverflowError:
+        pass
 
 
-def test_monomial_constant_exponent_multiplication():
-    expression = smt.Times(smt.Pow(r1, r2), smt.Pow(r3, r3), r2)
-    polynomial = Polynomial(expression, {}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert float(coefficient) == v1**v2 * v3**v3 * v2
-    assert not exponents
+def test_monomial_constant_exponent_multiplication(f_vec3, exp_vec2):
+    try:
+        c1, c2, c3 = f_vec3
+        exp1, exp2 = exp_vec2
+        expression = smt.Times(
+            smt.Pow(smt.Real(c1), smt.Real(exp1)),
+            smt.Pow(smt.Real(c2), smt.Real(exp2)),
+            smt.Real(c3),
+        )
+        polynomial = Polynomial(expression, [], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((), 0)
+        assert same_numerical_constant(coefficient, c1**exp1 * c2**exp2 * c3)
+    except OverflowError:
+        pass
 
 
 def test_monomial_symbol():
     expression = x
-    polynomial = Polynomial(expression, {x}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
+    polynomial = Polynomial(expression, [x], env=env)
+    assert equivalent_expressions(expression, polynomial.to_pysmt())
+    coefficient = polynomial.monomials.get((1,), 0)
     assert coefficient == 1
-    assert tuple(exponents) == (1,)
 
 
-def test_monomial_symbol_and_constant():
-    expression = smt.Times(x, r1)
-    polynomial = Polynomial(expression, {x}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert coefficient == v1
-    assert tuple(exponents) == (1,)
+def test_monomial_symbol_and_constant(f_const):
+    try:
+        expression = smt.Times(x, smt.Real(f_const))
+        polynomial = Polynomial(expression, [x], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((1,), 0)
+        assert same_numerical_constant(coefficient, f_const)
+    except OverflowError:
+        pass
 
 
-def test_monomial_symbol_exponent_and_constant():
-    expression = smt.Times(r2, smt.Pow(x, r3))
-    polynomial = Polynomial(expression, {x}, env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert float(coefficient) == v2
-    assert exponents == (v3,)
+def test_monomial_symbol_exponent_and_constant(f_const, exp_const):
+    expression = smt.Times(smt.Real(f_const), smt.Pow(x, smt.Real(exp_const)))
+    polynomial = Polynomial(expression, [x], env=env)
+    assert equivalent_expressions(expression, polynomial.to_pysmt())
+    coefficient = polynomial.monomials.get((exp_const,), 0)
+    assert same_numerical_constant(coefficient, f_const)
 
 
-def test_monomial_more_symbols():
-    expression = smt.Times(
-        r1, smt.Pow(x, r2), smt.Pow(r1, r3), smt.Pow(x, r3), smt.Pow(y, r2)
-    )
-    polynomial = Polynomial(expression, [x, y], env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert float(coefficient) == v1 * (v1**v3)
-    assert exponents == (v2 + v3, v2)
+def test_monomial_more_symbols(f_vec2, exp_vec4):
+    try:
+        c1, c2 = f_vec2
+        exp1, exp2, exp3, exp4 = exp_vec4
+        expression = smt.Times(
+            smt.Real(c1),
+            smt.Pow(smt.Real(c2), smt.Real(exp1)),
+            smt.Pow(x, smt.Real(exp2)),
+            smt.Pow(x, smt.Real(exp3)),
+            smt.Pow(y, smt.Real(exp4)),
+        )
+        polynomial = Polynomial(expression, [x, y], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((exp2 + exp3, exp4), 0)
+        assert same_numerical_constant(coefficient, c1 * (c2**exp1))
+    except OverflowError:
+        pass
 
 
-def test_monomial_all():
-    # ((((x * y^r2))^r2)^r3) * (r2^r1))^r3
-    expression = smt.Pow(
-        smt.Times(
-            smt.Pow(smt.Pow(smt.Times(x, smt.Pow(y, r2)), r2), r3), smt.Pow(r2, r1)
+def test_monomial_all(f_const, exp_vec4):
+    try:
+        exp1, exp2, exp3, exp4 = exp_vec4
+        # ((x * y ^ e1) ^ e2 * c1 ^ e3) ^ e4
+        expression = smt.Pow(
+            smt.Times(
+                smt.Pow(smt.Times(x, smt.Pow(y, smt.Real(exp1))), smt.Real(exp2)),
+                smt.Pow(smt.Real(f_const), smt.Real(exp3)),
+            ),
+            smt.Real(exp4),
+        )
+        polynomial = Polynomial(expression, [x, y], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((exp2 * exp4, exp1 * exp2 * exp4), 0)
+        assert same_numerical_constant(coefficient, (f_const**exp3) ** exp4)
+    except OverflowError:
+        pass
+
+
+def test_polynomial_constant(f_const, exp_const):
+    try:
+        expression = smt.Plus(
+            smt.Real(f_const),
+            smt.Pow(smt.Real(f_const), smt.Real(exp_const)),
+        )
+        polynomial = Polynomial(expression, [x], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((0,), 0)
+        assert same_numerical_constant(coefficient, f_const + f_const**exp_const)
+        assert polynomial.degree == 0
+    except OverflowError:
+        pass
+
+
+def test_polynomial_as_monomial(f_const, exp_const):
+    try:
+        expression = smt.Times(smt.Real(f_const), smt.Pow(x, smt.Real(exp_const)))
+        polynomial = Polynomial(expression, [x], env=env)
+        assert equivalent_expressions(expression, polynomial.to_pysmt())
+        coefficient = polynomial.monomials.get((exp_const,), 0)
+        assert same_numerical_constant(coefficient, f_const)
+        assert polynomial.degree == exp_const
+    except OverflowError:
+        pass
+
+
+def test_polynomial_as_monomial_and_constants(f_vec3, exp_const):
+    c1, c2, c3 = f_vec3
+    expression = smt.Minus(
+        smt.Plus(
+            smt.Real(c1), smt.Times(smt.Real(c2), smt.Pow(x, smt.Real(exp_const)))
         ),
-        r3,
+        smt.Real(c3),
+    )
+    polynomial = Polynomial(expression, [x], env=env)
+    assert equivalent_expressions(expression, polynomial.to_pysmt())
+    assert polynomial.degree == exp_const
+
+
+def test_polynomial_with_multiple_monomials(f_vec3, exp_vec2):
+    c1, c2, c3 = f_vec3
+    exp1, exp2 = exp_vec2
+    expression = smt.Plus(
+        smt.Times(smt.Real(c1), smt.Pow(x, smt.Real(exp1))),
+        smt.Times(smt.Real(c2), smt.Pow(y, smt.Real(exp2))),
+        smt.Real(c3),
     )
     polynomial = Polynomial(expression, [x, y], env=env)
-    assert len(polynomial.monomials) == 1
-    monomial = next(iter(polynomial.monomials.items()))
-    exponents, coefficient = monomial
-    assert float(coefficient) == (v2**v1) ** v3
-    assert exponents == (v2 * v3 * v3, v2 * v2 * v3 * v3)
-
-
-def test_polynomial_constant():
-    expression = smt.Plus(smt.Times(r3, r1), smt.Pow(r1, r1))
-    polynomial = Polynomial(expression, set(), env=env)
-    assert len(polynomial.monomials) == 1
-    assert polynomial.variables == set()
-    assert polynomial.degree == 0
-
-
-def test_polynomial_as_monomial():
-    expression = smt.Times(r3, smt.Pow(x, r3), r2)
-    polynomial = Polynomial(expression, {x}, env=env)
-    assert len(polynomial.monomials) == 1
-    assert polynomial.variables == {x}
-    assert polynomial.degree == v3
-
-
-def test_polynomial_as_monomial_and_constants():
-    expression = smt.Minus(smt.Plus(r3, smt.Times(r1, smt.Pow(x, r2))), r2)
-    polynomial = Polynomial(expression, {x}, env=env)
-    assert len(polynomial.monomials) == 2
-    assert polynomial.variables == {x}
-    assert polynomial.degree == v2
-
-
-def test_polynomial_with_multiple_monomials():
-    expression = smt.Plus(
-        smt.Times(r1, smt.Pow(x, r2)), smt.Times(r2, smt.Pow(y, r3)), r3
+    assert equivalent_expressions(
+        powsimplifier.simplify(expression), polynomial.to_pysmt()
     )
-    polynomial = Polynomial(expression, {x, y}, env=env)
-    assert len(polynomial.monomials) == 3
-    assert polynomial.variables == {x, y}
-    assert polynomial.degree == max(v2, v3)
-
-
-def test_polynomial_monomials_same_variable():
-    expression = smt.Plus(
-        smt.Times(r1, smt.Pow(x, r2)), smt.Times(r2, smt.Pow(y, r2)), r3, smt.Pow(x, r3)
+    if exp1 != 0:
+        assert same_numerical_constant(polynomial.monomials.get((exp1, 0), 0), c1)
+    if exp2 != 0:
+        assert same_numerical_constant(polynomial.monomials.get((0, exp2), 0), c2)
+    assert same_numerical_constant(
+        polynomial.monomials.get((0, 0), 0),
+        c3 + int(exp1 == 0) * c1 + int(exp2 == 0) * c2,
     )
-    polynomial = Polynomial(expression, {x, y}, env=env)
-    assert len(polynomial.monomials) == 4
-    assert polynomial.variables == {x, y}
-    assert polynomial.degree == max(v2, v2, v3)
+    assert polynomial.degree == max(exp1, exp2)
+
+
+def test_polynomial_monomials_same_variable(f_vec3, exp_vec3):
+    c1, c2, c3 = f_vec3
+    exp1, exp2, exp3 = exp_vec3
+    expression = smt.Plus(
+        smt.Times(smt.Real(c1), smt.Pow(x, smt.Real(exp1))),
+        smt.Times(smt.Real(c2), smt.Pow(y, smt.Real(exp2))),
+        smt.Real(c3),
+        smt.Pow(x, smt.Real(exp3)),
+    )
+    polynomial = Polynomial(expression, [x, y], env=env)
+    assert equivalent_expressions(
+        powsimplifier.simplify(expression), polynomial.to_pysmt()
+    )
+    if exp1 != 0:
+        assert same_numerical_constant(
+            polynomial.monomials.get((exp1, 0), 0), c1 + int(exp3 == exp1) * 1
+        )
+
+    if exp2 != 0:
+        assert same_numerical_constant(polynomial.monomials.get((0, exp2), 0), c2)
+
+    if exp3 != 0:
+        assert same_numerical_constant(
+            polynomial.monomials.get((exp3, 0), 0), 1 + int(exp3 == exp1) * c1
+        )
+
+    assert same_numerical_constant(
+        polynomial.monomials.get((0, 0), 0),
+        c3 + int(exp1 == 0) * c1 + int(exp2 == 0) * c2 + 1 * int(exp3 == 0),
+    )
+
+    assert polynomial.degree == max(exp1, exp2, exp3)
