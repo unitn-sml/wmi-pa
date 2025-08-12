@@ -21,7 +21,7 @@ class Polynomial:
 
     def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
         self.monomials = PolynomialParser(variables).parse(expr)
-        const_key = tuple(0 for _ in range(self.N))
+        const_key = tuple(0 for _ in range(len(variables)))
         if const_key in self.monomials and self.monomials[const_key] == 0:
             self.monomials.pop(const_key)
         self.variables = variables
@@ -30,7 +30,10 @@ class Polynomial:
 
     @property
     def degree(self) -> int:
-        return max(sum(exponents) for exponents in self.monomials)
+        if len(self.monomials) == 0:
+            return 0
+        else:
+            return max(sum(exponents) for exponents in self.monomials)
 
     def to_numpy(self) -> Callable[[np.ndarray], np.ndarray]:
         return lambda x: np.sum(
@@ -41,6 +44,10 @@ class Polynomial:
         )
 
     def to_pysmt(self) -> FNode:
+
+        if len(self.monomials) == 0:
+            return self.mgr.Real(0)
+
         pysmt_monos = []
         for key in self.ordered_keys:
             factors = [self.mgr.Real(self.monomials[key])]

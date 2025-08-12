@@ -23,6 +23,9 @@ class Inequality:
 
         self.mgr = env.formula_manager
 
+        if len(variables) == 0:
+            raise ValueError("Empty variables list")
+
         p1, p2 = expr.args()
         # (p1 OP p2) => (p1 - p2 OP 0)
         poly_sub = self.mgr.Plus(p1, self.mgr.Times(self.mgr.Real(-1), p2))
