@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Ite, Real, Symbol
 from pysmt.typing import REAL
 
-from wmipa import WMISolver
+from wmipa.solvers import AllSMTSolver
 
 # variables definition
 x = Symbol("x", REAL)
@@ -35,7 +35,7 @@ print("Weight function:", w.serialize())
 print("Support:", chi.serialize())
 
 print()
-wmi = WMISolver(chi, w)
+wmi = AllSMTSolver(chi, w)
 result, n_integrations = wmi.computeWMI(phi, {x, y})
 print(
     "WMI \t result = {}, \t # integrations = {}".format(

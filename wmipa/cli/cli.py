@@ -4,7 +4,7 @@ from time import time
 from pysmt.shortcuts import Bool
 from pysmt.typing import REAL
 
-from wmipa import WMISolver
+from wmipa.solvers import AllSMTSolver
 from wmipa.cli.io import Density
 from wmipa.enumeration import *
 from wmipa.integration import *
@@ -19,7 +19,7 @@ def parse_enumerator(args):
     elif len(rest) == 0:
         # base enumerators
         if curr == "msat":
-            return MathSATEnumerator()
+            return SAEnumerator()
         elif curr == "z3":
             return Z3Enumerator()
         else:
@@ -79,7 +79,7 @@ density = Density.from_file(args.filename)
 variables = [v for v in density.domain if v.symbol_type() == REAL]
 
 t0 = time()
-solver = WMISolver(
+solver = AllSMTSolver(
     density.support, density.weight, enumerator=enumerator, integrator=integrator
 )
 

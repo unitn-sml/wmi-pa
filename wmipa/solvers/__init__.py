@@ -6,3 +6,5 @@ except ImportError:
 MathSAT needs to be manually installed via:
     pysmt-install --msat"""
     raise ImportError(IMPORT_ERR_MSG)
+
+from .allsmt import AllSMTSolver

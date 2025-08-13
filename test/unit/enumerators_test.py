@@ -3,7 +3,7 @@ from itertools import product
 import numpy as np
 import pysmt.shortcuts as smt
 
-from wmipa import WMISolver
+from wmipa.solvers import AllSMTSolver
 
 
 
@@ -67,7 +67,7 @@ def test_enumerators(enumerators, support, weight):
 
     for enumerator_class, kwargs in enumerators:
         enumerator = enumerator_class(**kwargs)
-        wmisolver = WMISolver(support, weight, enumerator=enumerator)
+        wmisolver = AllSMTSolver(support, weight, enumerator=enumerator)
         truth_assignments = list(enumerator.enumerate(smt.Bool(True)))
         nta = len(truth_assignments)
 

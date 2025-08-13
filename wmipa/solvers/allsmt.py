@@ -19,12 +19,12 @@ from pysmt.fnode import FNode
 from pysmt.typing import REAL, BOOL
 
 from wmipa.datastructures import Polynomial, Polytope
-from wmipa.enumeration import Enumerator, Z3Enumerator, MathSATEnumerator
+from wmipa.enumeration import Enumerator, Z3Enumerator, SAEnumerator
 from wmipa.integration import Integrator, RejectionIntegrator
 from wmipa.weights import Weights
 
 
-class WMISolver:
+class AllSMTSolver:
     """The class that has the purpose to calculate the Weighted Module Integration of
         a given support, weight function, and query.
 
@@ -201,10 +201,10 @@ if __name__ == "__main__":
 
     w = smt.Real(1)  # Plus(x, y)
 
-    solver1 = WMISolver(s, w)
+    solver1 = AllSMTSolver(s, w)
     result1 = solver1.computeWMI(smt.Bool(True), variables)
     print("result1", result1)
 
-    solver2 = WMISolver(s, w, enumerator=MathSATEnumerator())
+    solver2 = AllSMTSolver(s, w, enumerator=SAEnumerator())
     result2 = solver2.computeWMI(smt.Bool(True), variables)
     print("result2", result2)

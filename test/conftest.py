@@ -32,9 +32,9 @@ def integration_wrappers():
 def enumerators():
     return [
         (Z3Enumerator, {}),
-        (MathSATEnumerator, {"max_queue_size": 1}),
-        (MathSATEnumerator, {"max_queue_size": 0}),
-        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 0}),
-        (AsyncWrapper, {"enumerator": MathSATEnumerator(), "max_queue_size": 1}),
+        (SAEnumerator, {"max_queue_size": 1}),
+        (SAEnumerator, {"max_queue_size": 0}),
+        (AsyncWrapper, {"enumerator": SAEnumerator(), "max_queue_size": 0}),
+        (AsyncWrapper, {"enumerator": SAEnumerator(), "max_queue_size": 1}),
         (AsyncWrapper, {"enumerator": Z3Enumerator()}),
     ]

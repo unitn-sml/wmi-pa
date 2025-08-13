@@ -7,7 +7,7 @@ from pysmt.fnode import FNode
 from wmipa.enumeration.enumerator import Enumerator
 
 if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import WMISolver
+    from wmipa.solver import AllSMTSolver
 
 
 class AsyncWrapper:
@@ -23,12 +23,12 @@ class AsyncWrapper:
         self.enumerator = enumerator
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "WMISolver") -> None:
+    def initialize(self, solver: "AllSMTSolver") -> None:
         """
         Initializes the enumerator with the given solver.
 
         Args:
-            solver: An instance of WMISolver to be used for enumeration.
+            solver: An instance of AllSMTSolver to be used for enumeration.
         """
         self.enumerator.initialize(solver)
 

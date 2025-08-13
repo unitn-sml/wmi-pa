@@ -7,12 +7,12 @@ from pysmt.formula import FormulaManager
 from wmipa.weights import Weights
 
 if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import WMISolver
+    from wmipa.solver import AllSMTSolver
 
 
 class Z3Enumerator:
 
-    def initialize(self, solver: "WMISolver") -> None:
+    def initialize(self, solver: "AllSMTSolver") -> None:
         self.solver = solver
 
     @property
