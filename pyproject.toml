@@ -7,10 +7,8 @@ name = "wmipa"
 version = "0.1.8"
 description = "Weighted Model Integration PA (Predicate Abstraction) solver."
 readme = "README.md"
-license = {file = "LICENSE"}
-authors = [
-    { name = "wmipa team" }
-]
+license = { file = "LICENSE" }
+authors = [{ name = "wmipa team" }]
 requires-python = ">=3.9.0"
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -60,7 +58,7 @@ warn_unreachable = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
 
-files = ["src/wmipa/"]  # files to check
+files = ["src/wmipa/"] # files to check
 
 [[tool.mypy.overrides]]
 module = ["mathsat", "pysmt.*"]
@@ -69,3 +67,14 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["test"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/"]
+omit = ["src/wmipa/cli/*"]
+
+[tool.coverage.report]
+exclude_also = [
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]
