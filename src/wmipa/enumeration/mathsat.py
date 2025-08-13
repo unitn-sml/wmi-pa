@@ -20,13 +20,13 @@ except ImportError as e:
     _IMPORT_ERR = e
 
 if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import WMISolver
+    from wmipa.solver import AllSMTSolver
 
 
-class MathSATEnumerator:
+class SAEnumerator:
     def __init__(self, max_queue_size: int = 1) -> None:
         """
-        Constructs a MathSATEnumerator instance.
+        Constructs a SAEnumerator instance.
         Args:
             max_queue_size: Maximum number of assignments to compute in parallel.
                              1 means we will compute the assignments one by one.
@@ -43,7 +43,7 @@ class MathSATEnumerator:
         # so 1 means we will compute the assignments one by one
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "WMISolver") -> None:
+    def initialize(self, solver: "AllSMTSolver") -> None:
         self.solver = solver
         self.weights_skeleton = self.weights.compute_skeleton()
         self.simplifier = BooleanSimplifier(solver.env)

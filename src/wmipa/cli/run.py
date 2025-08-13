@@ -4,7 +4,7 @@ from typing import Callable
 
 import pysmt.shortcuts as smt
 
-from wmipa import WMISolver
+from wmipa.solvers import AllSMTSolver
 from wmipa.cli.density import Density
 from wmipa.cli.log import logger
 from wmipa.enumeration import AsyncWrapper, Enumerator, MathSATEnumerator, Z3Enumerator
@@ -126,7 +126,7 @@ def run(args: argparse.Namespace) -> None:
     variables = [v for v in density.domain if v.symbol_type() == smt.REAL]
 
     t0 = time()
-    solver = WMISolver(
+    solver = AllSMTSolver(
         density.support, density.weight, enumerator=enumerator, integrator=integrator
     )
 

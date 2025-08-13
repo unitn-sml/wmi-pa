@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Protocol, Iterable
 from pysmt.fnode import FNode
 
 if TYPE_CHECKING:  # avoid circular imports
-    from wmipa.solver import WMISolver
+    from wmipa.solver import AllSMTSolver
 
 
 class Enumerator(Protocol):
@@ -11,7 +11,7 @@ class Enumerator(Protocol):
     Protocol for classes that can enumerate partial truth assignments for logical formulas.
     """
 
-    def initialize(self, solver: "WMISolver") -> None: ...
+    def initialize(self, solver: "AllSMTSolver") -> None: ...
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """
