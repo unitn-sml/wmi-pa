@@ -7,7 +7,7 @@ import pysmt.shortcuts as smt
 from wmipa.solvers import AllSMTSolver
 from wmipa.cli.density import Density
 from wmipa.cli.log import logger
-from wmipa.enumeration import AsyncWrapper, Enumerator, MathSATEnumerator, Z3Enumerator
+from wmipa.enumeration import AsyncWrapper, Enumerator, SAEnumerator, Z3Enumerator
 from wmipa.integration import (
     AxisAlignedWrapper,
     CacheWrapper,
@@ -18,7 +18,7 @@ from wmipa.integration import (
 )
 
 BASE_ENUMERATORS: dict[str, Callable[[argparse.Namespace], Enumerator]] = {
-    "msat": lambda args: MathSATEnumerator(),
+    "msat": lambda args: SAEnumerator(),
     "z3": lambda args: Z3Enumerator(),
 }
 WRAPPER_ENUMERATORS: dict[
