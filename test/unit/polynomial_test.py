@@ -3,11 +3,11 @@ import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 from pysmt.walkers import IdentityDagWalker
 
-from wmipa.datastructures import Polynomial
+from wmipa.core import Polynomial
 
+env = smt.get_env()
 x = smt.Symbol("X", REAL)
 y = smt.Symbol("Y", REAL)
-env = smt.get_env()
 
 
 class PowSimplifier(IdentityDagWalker):
