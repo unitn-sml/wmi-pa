@@ -31,7 +31,7 @@ class AllSMTSolver:
 
     def __init__(
         self,
-        enumerator: Optional[Enumerator] = None,
+        enumerator: Enumerator,
         integrator: Optional[Integrator] = None,
     ):
 

@@ -29,10 +29,8 @@ class TotalEnumerator:
         else:
             self.env = cast(Environment, get_env())
 
-        self.mgr = self.env.formula_manager
-
         if weight is None:
-            weight = self.mgr.Real(1)  # Default weight is 1
+            weight = self.env.formula_manager.Real(1)  # Default weight is 1
 
         self.weights = Weights(weight, self.env)
 
@@ -48,8 +46,10 @@ class TotalEnumerator:
         - TA is dict {pysmt_atom : bool}
         - n is int
         """
+        mgr = self.env.formula_manager
+
         # conjoin query and support
-        formula = self.mgr.And(phi, self.support)
+        formula = mgr.And(phi, self.support)
 
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
@@ -61,11 +61,9 @@ class TotalEnumerator:
             model = {}
             blocking_clause = []
             for a in atoms:
-                literal = (
-                    a if smt_solver.get_value(a).constant_value() else self.mgr.Not(a)
-                )
+                literal = a if smt_solver.get_value(a).constant_value() else mgr.Not(a)
                 model[a] = not literal.is_not()
                 blocking_clause.append(literal)
 
-            smt_solver.add_assertion(self.mgr.Not(self.mgr.And(*blocking_clause)))
+            smt_solver.add_assertion(mgr.Not(mgr.And(*blocking_clause)))
             yield model, 0

@@ -81,7 +81,7 @@ class AxisAlignedWrapper:
             ]
 
         barray = np.array(bounds)
-        if barray < np.inf:
+        if (barray[:, 0] > -np.inf).all() and (barray[:, 1] < np.inf).all():
             volume = float(np.sum(np.abs(np.subtract(barray[:, 0], barray[:, 1]))))
             return volume
         else:

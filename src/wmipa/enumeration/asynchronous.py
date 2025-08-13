@@ -23,14 +23,17 @@ class AsyncWrapper:
         self.enumerator = enumerator
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "AllSMTSolver") -> None:
-        """
-        Initializes the enumerator with the given solver.
+    @property
+    def support(self):
+        return self.enumerator.support
 
-        Args:
-            solver: An instance of AllSMTSolver to be used for enumeration.
-        """
-        self.enumerator.initialize(solver)
+    @property
+    def weights(self):
+        return self.enumerator.weights
+
+    @property
+    def env(self):
+        return self.enumerator.env
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """

@@ -63,10 +63,8 @@ class SAEnumerator:
         else:
             self.env = cast(Environment, get_env())
 
-        self.mgr = self.env.formula_manager
-
         if weight is None:
-            weight = self.mgr.Real(1)  # Default weight is 1
+            weight = self.env.formula_manager.Real(1)  # Default weight is 1
 
         self.weights = Weights(weight, self.env)
 
@@ -93,8 +91,10 @@ class SAEnumerator:
         - TA is dict {pysmt_atom : bool}
         - n is int
         """
+        mgr = self.env.formula_manager
+
         # conjoin query and support
-        formula = self.mgr.And(phi, self.support)
+        formula = mgr.And(phi, self.support)
 
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
@@ -108,7 +108,7 @@ class SAEnumerator:
                 raise ValueError(f"Unhandled atom type: {a}")
 
         # conjoin the skeleton of the weight function
-        formula = self.mgr.And(formula, self.weights_skeleton)
+        formula = mgr.And(formula, self.weights_skeleton)
 
         if len(bool_atoms) == 0:
             # no Boolean atoms -> enumerate *partial* TAs over LRA atoms only
@@ -303,14 +303,15 @@ class SAEnumerator:
             bool: True if the formula is completely simplified.
             FNode: The simplified formula.
         """
-        subs_node = {k: self.mgr.Bool(v) for k, v in subs.items()}
+        mgr = self.env.formula_manager
+        subs_node = {k: mgr.Bool(v) for k, v in subs.items()}
         f_next = formula
         # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
         while True:
             f_before = f_next
             f_next = self.simplifier.simplify(f_before.substitute(subs_node))
             lra_assignments, is_convex = self.assignment_extractor.extract(f_next)
-            subs_node = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
+            subs_node = {k: mgr.Bool(v) for k, v in lra_assignments.items()}
             truth_assignment.update(
                 {k: v for k, v in lra_assignments.items() if k in scope}
             )
@@ -325,8 +326,8 @@ class SAEnumerator:
                     if v:
                         expressions.append(k)
                     else:
-                        expressions.append(self.mgr.Not(k))
-            f_next = self.mgr.And([f_next] + expressions)
+                        expressions.append(mgr.Not(k))
+            f_next = mgr.And([f_next] + expressions)
         return is_convex, f_next
 
 

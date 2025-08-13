@@ -18,6 +18,8 @@ class Converter:
         self, truth_assignment: dict[FNode, bool], domain: Collection[FNode]
     ) -> tuple[Polytope, Polynomial]:
 
+        mgr = self.enumerator.env.formula_manager
+
         uncond_weight = self.enumerator.weights.weight_from_assignment(truth_assignment)
 
         # build a dependency graph of the alias substitutions
@@ -30,7 +32,7 @@ class Converter:
 
             if atom.is_le() or atom.is_lt():
                 inequalities.append(
-                    atom if truth_value else self.enumerator.mgr.Not(atom)
+                    atom if truth_value else mgr.Not(atom)
                 )
             elif atom.is_equals() and truth_value:
                 left, right = atom.args()
@@ -63,7 +65,7 @@ class Converter:
         except nx.NetworkXUnfeasible:
             raise ValueError("Cyclic aliases definition")
 
-        convex_formula = self.enumerator.mgr.And(inequalities)
+        convex_formula = mgr.And(inequalities)
         for alias in order:
             convex_formula = convex_formula.substitute({alias: aliases[alias]})
             uncond_weight = uncond_weight.substitute({alias: aliases[alias]})
@@ -79,9 +81,9 @@ class Converter:
                 negated_atom = literal.args()[0]
                 left, right = negated_atom.args()
                 if negated_atom.is_le():
-                    atom = self.enumerator.mgr.LT(right, left)
+                    atom = mgr.LT(right, left)
                 elif negated_atom.is_lt():
-                    atom = self.enumerator.mgr.LE(right, left)
+                    atom = mgr.LE(right, left)
                 else:
                     raise NotImplementedError("Unhandled case")
             else:

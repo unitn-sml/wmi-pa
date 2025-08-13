@@ -133,7 +133,7 @@ def run(args: argparse.Namespace) -> None:
     integrator = parse_integrator(args)
 
     t0 = time()
-    solver = AllSMTSolver(enumerator=enumerator, integrator=integrator)
+    solver = AllSMTSolver(enumerator, integrator=integrator)
 
     result = solver.computeWMI(smt.Bool(True), variables)
     tZ = time() - t0
