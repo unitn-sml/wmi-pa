@@ -3,7 +3,7 @@ from typing import Any, Collection
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
 
-from wmipa.datastructures.polynomial import Polynomial
+from wmipa.core.polynomial import Polynomial
 
 
 class Inequality:

@@ -2,22 +2,17 @@ from typing import TYPE_CHECKING, Protocol, Iterable
 
 from pysmt.fnode import FNode
 
-if TYPE_CHECKING:  # avoid circular imports
-    from wmipa.solver import AllSMTSolver
-
 
 class Enumerator(Protocol):
     """
-    Protocol for classes that can enumerate partial truth assignments for logical formulas.
+    Protocol for classes that can enumerate partial truth assignments for weighted SMT formulas.
     """
-
-    def initialize(self, solver: "AllSMTSolver") -> None: ...
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """
         Enumerate partial truth assignments for the given formula.
 
-        Since the truth assignments (TA) are partial,
+        Since the truth assignments (TA) might be partial,
         the number of unassigned Boolean variables is also returned.
 
         Args:
@@ -25,7 +20,7 @@ class Enumerator(Protocol):
 
         Returns:
             An iterable of tuples <TA, n> where:
-            - TA is dict {pysmt_atom : bool} representing partial truth assignment
+            - TA is dict {pysmt_atom : bool} representing (partial) truth assignment
             - n is int representing the number of unassigned Boolean variables
 
         Note:

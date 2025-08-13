@@ -1,35 +1,40 @@
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional, cast
 
-from pysmt.environment import Environment
+from pysmt.environment import Environment, get_env
 from pysmt.fnode import FNode
 from pysmt.formula import FormulaManager
 
-from wmipa.weights import Weights
-
-if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import AllSMTSolver
+from wmipa.core.weights import Weights
 
 
-class Z3Enumerator:
+class TotalEnumerator:
 
-    def initialize(self, solver: "AllSMTSolver") -> None:
-        self.solver = solver
+    def __init__(
+        self,
+        support: FNode,
+        weight: Optional[FNode] = None,
+        env: Optional[Environment] = None,
+    ) -> None:
+        """
+        Constructs a TotalEnumerator instance.
+        Args:
+            weights (Weights): The representation of the weight function.
+            support (FNode): The pysmt formula that contains the support of the formula
+            env (Environment) : The pysmt environment
+        """
+        self.support = support
 
-    @property
-    def env(self) -> Environment:
-        return self.solver.env
+        if env is not None:
+            self.env = env
+        else:
+            self.env = cast(Environment, get_env())
 
-    @property
-    def mgr(self) -> FormulaManager:
-        return self.env.formula_manager
+        self.mgr = self.env.formula_manager
 
-    @property
-    def support(self) -> FNode:
-        return self.solver.support
+        if weight is None:
+            weight = self.mgr.Real(1)  # Default weight is 1
 
-    @property
-    def weights(self) -> Weights:
-        return self.solver.weights
+        self.weights = Weights(weight, self.env)
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using

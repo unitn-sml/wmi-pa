@@ -2,12 +2,14 @@ import argparse
 from time import time
 from typing import Callable
 
+from pysmt.fnode import FNode
 import pysmt.shortcuts as smt
 
 from wmipa.solvers import AllSMTSolver
 from wmipa.cli.density import Density
 from wmipa.cli.log import logger
-from wmipa.enumeration import AsyncWrapper, Enumerator, SAEnumerator, Z3Enumerator
+from wmipa.core.weights import Weights
+from wmipa.enumeration import AsyncWrapper, Enumerator, SAEnumerator, TotalEnumerator
 from wmipa.integration import (
     AxisAlignedWrapper,
     CacheWrapper,
@@ -18,8 +20,8 @@ from wmipa.integration import (
 )
 
 BASE_ENUMERATORS: dict[str, Callable[[argparse.Namespace], Enumerator]] = {
-    "msat": lambda args: SAEnumerator(),
-    "z3": lambda args: Z3Enumerator(),
+    "sae": lambda support, weights, args: SAEnumerator(support, weights),
+    "total": lambda support, weights, args: TotalEnumerator(support, weights),
 }
 WRAPPER_ENUMERATORS: dict[
     str, Callable[[Enumerator, argparse.Namespace], Enumerator]
@@ -41,18 +43,22 @@ WRAPPER_INTEGRATORS: dict[
 }
 
 
-def parse_enumerator(args: argparse.Namespace) -> Enumerator:
+def parse_enumerator(
+    support: FNode,
+    weights: Weights,
+    args: argparse.Namespace,
+) -> Enumerator:
     curr, _, rest = args.enumerator.partition("-")
 
     if len(curr) == 0:
-        # defaults to z3
-        return Z3Enumerator()
+        # defaults to exhaustive TTA enumeration
+        return TotalEnumerator(support, weights)
     elif len(rest) == 0:
         if curr not in BASE_ENUMERATORS:
             raise argparse.ArgumentTypeError(
                 f"Unknown enumerator: {curr}. See help for available options."
             )
-        return BASE_ENUMERATORS[curr](args)
+        return BASE_ENUMERATORS[curr](support, weights, args)
     else:
         # wrapper around enumerators
         if curr not in WRAPPER_ENUMERATORS:
@@ -60,7 +66,7 @@ def parse_enumerator(args: argparse.Namespace) -> Enumerator:
                 f"Unknown enumerator wrapper: {curr}. See help for available options."
             )
         args.enumerator = rest
-        return WRAPPER_ENUMERATORS[curr](parse_enumerator(args), args)
+        return WRAPPER_ENUMERATORS[curr](parse_enumerator(support, weights, args), args)
 
 
 def parse_integrator(args: argparse.Namespace) -> Integrator:
@@ -90,7 +96,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--enumerator",
         type=str,
-        default="z3",
+        default="total",
         help="Enumerator ({}, or wrapper: {}, possibly composed)".format(
             ", ".join(BASE_ENUMERATORS.keys()),
             ", ".join(f"{w}-..." for w in WRAPPER_ENUMERATORS.keys()),
@@ -120,15 +126,14 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
 
 def run(args: argparse.Namespace) -> None:
-    enumerator = parse_enumerator(args)
-    integrator = parse_integrator(args)
     density = Density.from_file(args.filename)
     variables = [v for v in density.domain if v.symbol_type() == smt.REAL]
 
+    enumerator = parse_enumerator(density.support, density.weights, args)
+    integrator = parse_integrator(args)
+
     t0 = time()
-    solver = AllSMTSolver(
-        density.support, density.weight, enumerator=enumerator, integrator=integrator
-    )
+    solver = AllSMTSolver(enumerator=enumerator, integrator=integrator)
 
     result = solver.computeWMI(smt.Bool(True), variables)
     tZ = time() - t0

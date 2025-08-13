@@ -1,17 +1,25 @@
 import queue
 import threading
-from typing import TYPE_CHECKING, Callable, Collection, Generator, Iterable
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    Optional,
+    cast,
+)
 
 import pysmt.operators as op
-from pysmt.environment import Environment
+from pysmt.environment import Environment, get_env
 from pysmt.fnode import FNode
 from pysmt.formula import FormulaManager
 from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
 
-from wmipa.utils import BooleanSimplifier, LiteralNormalizer
-from wmipa.weights import Weights
+from wmipa.core.utils import BooleanSimplifier, LiteralNormalizer
+from wmipa.core.weights import Weights
 
 try:
     import mathsat
@@ -24,10 +32,19 @@ if TYPE_CHECKING:  # avoid circular import
 
 
 class SAEnumerator:
-    def __init__(self, max_queue_size: int = 1) -> None:
+    def __init__(
+        self,
+        support: FNode,
+        weight: Optional[FNode] = None,
+        env: Optional[Environment] = None,
+        max_queue_size: int = 1,
+    ) -> None:
         """
         Constructs a SAEnumerator instance.
         Args:
+            weights (Weights): The representation of the weight function.
+            support (FNode): The pysmt formula that contains the support of the formula
+            env (Environment) : The pysmt environment
             max_queue_size: Maximum number of assignments to compute in parallel.
                              1 means we will compute the assignments one by one.
                              0 means no limit.
@@ -38,33 +55,30 @@ class SAEnumerator:
             raise ImportError(
                 "MathSAT is not installed. Please install it using the `wmipa install` command."
             ) from _IMPORT_ERR
+
+        self.support = support
+
+        if env is not None:
+            self.env = env
+        else:
+            self.env = cast(Environment, get_env())
+
+        self.mgr = self.env.formula_manager
+
+        if weight is None:
+            weight = self.mgr.Real(1)  # Default weight is 1
+
+        self.weights = Weights(weight, self.env)
+
         # 0 for no limit, the default is 1
         # the queue blocks until it has an available slot
         # so 1 means we will compute the assignments one by one
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "AllSMTSolver") -> None:
-        self.solver = solver
         self.weights_skeleton = self.weights.compute_skeleton()
-        self.simplifier = BooleanSimplifier(solver.env)
-        self.normalizer = LiteralNormalizer(solver.env)
-        self.assignment_extractor = AssignmentExtractor(solver.env)
-
-    @property
-    def env(self) -> Environment:
-        return self.solver.env
-
-    @property
-    def mgr(self) -> FormulaManager:
-        return self.env.formula_manager
-
-    @property
-    def support(self) -> FNode:
-        return self.solver.support
-
-    @property
-    def weights(self) -> Weights:
-        return self.solver.weights
+        self.simplifier = BooleanSimplifier(self.env)
+        self.normalizer = LiteralNormalizer(self.env)
+        self.assignment_extractor = AssignmentExtractor(self.env)
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using

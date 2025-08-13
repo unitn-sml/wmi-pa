@@ -3,7 +3,7 @@ from typing import Collection, Optional
 import numpy as np
 from scipy.optimize import linprog
 
-from wmipa.datastructures import Polynomial, Polytope
+from wmipa.core import Polynomial, Polytope
 
 
 class RejectionIntegrator:
@@ -62,7 +62,7 @@ if __name__ == "__main__":
     import pysmt.shortcuts as smt
     import pysmt.typing as smt_typing
 
-    import wmipa.datastructures as wmipa_ds
+    import wmipa.core as wmipa_ds
 
     x = smt.Symbol("x", smt_typing.REAL)
     y = smt.Symbol("y", smt_typing.REAL)

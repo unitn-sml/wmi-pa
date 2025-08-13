@@ -2,7 +2,8 @@ from typing import Collection, Optional, TYPE_CHECKING
 
 import numpy as np
 
-from wmipa.datastructures import Inequality, Polynomial, Polytope
+from wmipa.core import Polynomial, Polytope
+from wmipa.core.inequality import Inequality
 
 if TYPE_CHECKING:
     from wmipa.integration import Integrator

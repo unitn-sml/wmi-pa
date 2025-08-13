@@ -4,7 +4,7 @@ import numpy as np
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
 
-from wmipa.datastructures.inequality import Inequality
+from wmipa.core.inequality import Inequality
 
 
 class Polytope:

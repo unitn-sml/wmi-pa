@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Collection
 
 import numpy as np
 
-from wmipa.datastructures import Polytope, Polynomial
+from wmipa.core import Polytope, Polynomial
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.integration import Integrator
