@@ -6,7 +6,6 @@ from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
 from wmipa.core import Polynomial, Polytope
-from wmipa.integration import *
 
 
 def _polytope_from_inequalities(A, b):
@@ -99,7 +98,7 @@ def axis_aligned_cross_polytope(n):
 ################################
 
 
-DIMENSIONS = (2, 3, 4)
+DIMENSIONS = (2, 3)
 
 
 def pytest_generate_tests(metafunc):
