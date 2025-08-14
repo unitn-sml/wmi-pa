@@ -7,6 +7,7 @@ from wmipa.core import Polynomial, Polytope
 from wmipa.integration import AxisAlignedWrapper
 
 env = smt.get_env()
+np.random.seed(666)
 
 N = 4
 variables = [smt.Symbol(f"x{i}", smt.REAL) for i in range(N)]
@@ -23,8 +24,8 @@ def hypercube(variables, sides, offsets):
     for i, var in enumerate(variables):
         inequalities.extend(
             [
-                smt.LE(smt.Real(offsets[i]), var),
-                smt.LE(var, smt.Real(offsets[i] + sides[i])),
+                smt.LE(smt.Real(float(offsets[i])), var),
+                smt.LE(var, smt.Real(float(offsets[i] + sides[i]))),
             ]
         )
 
@@ -39,7 +40,7 @@ def hypercube(variables, sides, offsets):
         ([3, 7, 2, 5], [-10, 6, 3, -2]),
     ],
 )
-def test_axisaligned(sides, offsets):
+def test_integrate(sides, offsets):
 
     aa_integrator = AxisAlignedWrapper(DummyIntegrator())
 
@@ -63,3 +64,47 @@ def test_axisaligned(sides, offsets):
 
     with pytest.raises(Exception):
         result = aa_integrator.integrate(aa_polytope, nonconst_integrand)
+
+
+@pytest.mark.parametrize(
+    "sides, offsets",
+    [
+        ([10, 10, 10, 10], [0, 0, 0, 0]),
+        ([10, 10, 10, 10], [-10, 6, 3, -2]),
+        ([3, 7, 2, 5], [-10, 6, 3, -2]),
+    ],
+)
+def test_integrate_batch(sides, offsets):
+
+    aa_integrator = AxisAlignedWrapper(DummyIntegrator())
+
+    inequalities1 = hypercube(variables, sides, offsets)
+    polytope1 = Polytope(inequalities1, variables, env)
+
+    sides2 = sides + np.array([1, -1, 3, -2])
+    offsets2 = offsets + np.array(sides)
+    inequalities2 = hypercube(variables, sides2, offsets2)
+    polytope2 = Polytope(inequalities2, variables, env)
+
+    k1, k2 = 3.33, 15
+    polynomial1 = Polynomial(smt.Real(k1), variables, env)
+    polynomial2 = Polynomial(smt.Real(k2), variables, env)
+
+    batch = [
+        (polytope1, polynomial1),
+        (polytope1, polynomial2),
+        (polytope2, polynomial1),
+        (polytope2, polynomial2),
+    ]
+
+    expected_result = np.array(
+        [
+            np.prod(sides) * k1,
+            np.prod(sides) * k2,
+            np.prod(sides2) * k1,
+            np.prod(sides2) * k2,
+        ]
+    )
+
+    result = aa_integrator.integrate_batch(batch)
+    assert (result == expected_result).all()
