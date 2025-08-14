@@ -11,7 +11,7 @@ if __name__ == "__main__":
     support = domain.get_bounds()
 
     problems = [(q := make_small_square(0.5), w := make_polynomial(degree),
-                 AllSMTSolver(And(q, support), w).computeWMI(Bool(True))[0],
+                 AllSMTSolver(And(q, support), w).compute(Bool(True))[0],
                  domain)
                 for degree in range(2, MD + 1, 2)]
 

@@ -7,7 +7,7 @@ import numpy as np
 
 from pysmt.fnode import FNode
 
-from wmipa.core import Converter
+from wmipa.core import AssignmentConverter
 from wmipa.enumeration import Enumerator, TotalEnumerator
 from wmipa.integration import Integrator, RejectionIntegrator
 
@@ -45,9 +45,9 @@ class AllSMTSolver:
         else:
             self.integrator = self.DEF_INTEGRATOR()
 
-        self.converter = Converter(self.enumerator)
+        self.converter = AssignmentConverter(self.enumerator)
 
-    def computeWMI(
+    def compute(
         self, phi: FNode, domain: Collection[FNode], cache: int = -1
     ) -> dict[str, np.ndarray]:
 
@@ -55,7 +55,7 @@ class AllSMTSolver:
         n_unassigned_bools = []
         for truth_assignment, nub in self.enumerator.enumerate(phi):
             convex_integrals.append(
-                self.converter.assignment_to_integral(truth_assignment, domain)
+                self.converter.convert(truth_assignment, domain)
             )
             n_unassigned_bools.append(nub)
 

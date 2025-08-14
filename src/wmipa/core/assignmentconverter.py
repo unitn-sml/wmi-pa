@@ -9,12 +9,16 @@ from .polynomial import Polynomial
 from .polytope import Polytope
 
 
-class Converter:
+class AssignmentConverter:
+    """
+    This class is responsible of converting the pysmt assignments
+    returned by an enumerator into pairs <Polytope, Polynomial>.
+    """
 
     def __init__(self, enumerator) -> None:
         self.enumerator = enumerator
 
-    def assignment_to_integral(
+    def convert(
         self, truth_assignment: dict[FNode, bool], domain: Collection[FNode]
     ) -> tuple[Polytope, Polynomial]:
 
@@ -31,9 +35,7 @@ class Converter:
         for atom, truth_value in truth_assignment.items():
 
             if atom.is_le() or atom.is_lt():
-                inequalities.append(
-                    atom if truth_value else mgr.Not(atom)
-                )
+                inequalities.append(atom if truth_value else mgr.Not(atom))
             elif atom.is_equals() and truth_value:
                 left, right = atom.args()
 
@@ -96,11 +98,6 @@ class Converter:
                 raise NotImplementedError("Unhandled case")
 
         polytope = Polytope(inequalities, domain, env=self.enumerator.env)
+        polynomial = Polynomial(uncond_weight, domain, env=self.enumerator.env)
 
-        try:
-            integrand = Polynomial(uncond_weight, domain, env=self.enumerator.env)
-        except ValueError:
-            # fallback to generic integrand
-            raise NotImplementedError()
-
-        return polytope, integrand
+        return polytope, polynomial

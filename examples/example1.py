@@ -32,7 +32,7 @@ print("Support:", chi.serialize())
 print()
 for integrator in (LattEIntegrator(), VolestiIntegrator()):
     wmi = AllSMTSolver(chi, w, integrator=integrator)
-    result, n_integrations = wmi.computeWMI(phi, domain)
+    result, n_integrations = wmi.compute(phi, domain)
     print(
         "WMI (integrator: {:20})\t "
         "result = {}, \t # integrations = {}".format(

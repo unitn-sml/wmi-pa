@@ -10,7 +10,7 @@ if __name__ == "__main__":
     domain = make_domain()
     support = domain.get_bounds()
     problems = [(q := make_small_square(width), w,
-                 AllSMTSolver(And(q, support), w).computeWMI(Bool(True))[0],
+                 AllSMTSolver(And(q, support), w).compute(Bool(True))[0],
                  domain)
                 for width in np.arange(0.1, 1.1, 0.1)]
     results = get_results(problems)
