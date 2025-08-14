@@ -35,10 +35,7 @@ class AllSMTSolver:
         integrator: Optional[Integrator] = None,
     ):
 
-        if enumerator is not None:
-            self.enumerator = enumerator
-        else:
-            self.enumerator = self.DEF_ENUMERATOR()
+        self.enumerator = enumerator
 
         if integrator is not None:
             self.integrator = integrator
@@ -54,9 +51,7 @@ class AllSMTSolver:
         convex_integrals = []
         n_unassigned_bools = []
         for truth_assignment, nub in self.enumerator.enumerate(phi):
-            convex_integrals.append(
-                self.converter.convert(truth_assignment, domain)
-            )
+            convex_integrals.append(self.converter.convert(truth_assignment, domain))
             n_unassigned_bools.append(nub)
 
         factors = [2**nb for nb in n_unassigned_bools]

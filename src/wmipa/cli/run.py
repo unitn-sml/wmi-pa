@@ -19,7 +19,9 @@ from wmipa.integration import (
     RejectionIntegrator,
 )
 
-BASE_ENUMERATORS: dict[str, Callable[[argparse.Namespace], Enumerator]] = {
+BASE_ENUMERATORS: dict[
+    str, Callable[[FNode, Weights, argparse.Namespace], Enumerator]
+] = {
     "sae": lambda support, weights, args: SAEnumerator(support, weights),
     "total": lambda support, weights, args: TotalEnumerator(support, weights),
 }

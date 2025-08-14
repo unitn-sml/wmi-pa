@@ -3,14 +3,16 @@ import threading
 from typing import TYPE_CHECKING, Iterable
 
 from pysmt.fnode import FNode
+from pysmt.environment import Environment
 
 from wmipa.enumeration.enumerator import Enumerator
+from wmipa.core.weights import Weights
 
 if TYPE_CHECKING:  # avoid circular import
     from wmipa.solver import AllSMTSolver
 
 
-class AsyncWrapper:
+class AsyncWrapper(Enumerator):
     def __init__(self, enumerator: "Enumerator", max_queue_size: int = 0) -> None:
         """
         Initializes the AsyncEnumerator with the given enumerator and queue size.
@@ -24,15 +26,15 @@ class AsyncWrapper:
         self.max_queue_size = max_queue_size
 
     @property
-    def support(self):
+    def support(self) -> FNode:
         return self.enumerator.support
 
     @property
-    def weights(self):
+    def weights(self) -> Weights:
         return self.enumerator.weights
 
     @property
-    def env(self):
+    def env(self) -> Environment:
         return self.enumerator.env
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:

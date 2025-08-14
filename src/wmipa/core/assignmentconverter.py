@@ -7,6 +7,7 @@ from pysmt.typing import REAL, BOOL
 
 from .polynomial import Polynomial
 from .polytope import Polytope
+from wmipa.enumeration.enumerator import Enumerator
 
 
 class AssignmentConverter:
@@ -15,7 +16,7 @@ class AssignmentConverter:
     returned by an enumerator into pairs <Polytope, Polynomial>.
     """
 
-    def __init__(self, enumerator) -> None:
+    def __init__(self, enumerator: "Enumerator") -> None:
         self.enumerator = enumerator
 
     def convert(

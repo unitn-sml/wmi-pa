@@ -1,12 +1,24 @@
 from typing import TYPE_CHECKING, Protocol, Iterable
 
 from pysmt.fnode import FNode
+from pysmt.environment import Environment
+
+from wmipa.core.weights import Weights
 
 
 class Enumerator(Protocol):
     """
     Protocol for classes that can enumerate partial truth assignments for weighted SMT formulas.
     """
+
+    @property
+    def support(self) -> FNode: ...
+
+    @property
+    def weights(self) -> Weights: ...
+
+    @property
+    def env(self) -> Environment: ...
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """
