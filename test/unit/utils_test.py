@@ -2,7 +2,7 @@ import pysmt.shortcuts as smt
 import pytest
 
 
-from wmipa.utils import *
+from wmipa.core.utils import *
 
 test_env = smt.get_env()
 

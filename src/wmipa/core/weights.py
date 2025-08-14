@@ -9,7 +9,7 @@ from pysmt.rewritings import NNFizer
 from pysmt.typing import BOOL
 from pysmt.walkers import DagWalker, IdentityDagWalker, TreeWalker, handles
 
-from wmipa.utils import is_atom, is_clause, is_cnf, is_literal
+from wmipa.core.utils import is_atom, is_clause, is_cnf, is_literal
 
 
 class Weights:

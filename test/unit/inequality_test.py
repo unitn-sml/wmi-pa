@@ -2,7 +2,7 @@ import pysmt.shortcuts as smt
 import pytest
 from pysmt.typing import REAL
 
-from wmipa.datastructures import Inequality
+from wmipa.core.inequality import Inequality
 
 x = smt.Symbol("X", REAL)
 y = smt.Symbol("Y", REAL)

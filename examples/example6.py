@@ -34,7 +34,7 @@ print("Support:", chi.serialize())
 print()
 
 wmi = AllSMTSolver(chi, w)
-result, n_integrations = wmi.computeWMI(phi, {x})
+result, n_integrations = wmi.compute(phi, {x})
 print(
     "WMI \t result = {}, \t # integrations = {}".format(
         result, n_integrations

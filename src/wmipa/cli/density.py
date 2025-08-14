@@ -31,7 +31,7 @@ class Density:
     def __init__(
         self,
         support: FNode,
-        weight: FNode,
+        weights: FNode,
         domain: dict[FNode, Optional[tuple[Optional[float], Optional[float]]]],
         queries: Optional[list[FNode]] = None,
     ) -> None:
@@ -39,19 +39,19 @@ class Density:
 
         Args:
             support: The support formula.
-            weight: The weight function.
+            weights: The weight function.
             domain: The variables. Numerical ones are optionally mapped to their bounds.
             queries: A list of smt formulas representing WMI queries.
 
         """
 
         assert all(v in domain for v in support.get_free_variables())
-        assert all(v in domain for v in weight.get_free_variables())
+        assert all(v in domain for v in weights.get_free_variables())
 
         if queries is None:
             queries = []
         self.support = support
-        self.weight = weight
+        self.weights = weights
         self.domain = domain
         self.queries = queries
 
@@ -86,7 +86,7 @@ class Density:
         return {
             "domain": dstr,
             "formula": smt_to_nested(self.support),
-            "weights": smt_to_nested(self.weight),
+            "weights": smt_to_nested(self.weights),
             "queries": [smt_to_nested(query) for query in self.queries],
         }
 

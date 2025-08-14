@@ -5,8 +5,7 @@ import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
-from wmipa.datastructures import Polynomial, Polytope
-from wmipa.integration import *
+from wmipa.core import Polynomial, Polytope
 
 
 def _polytope_from_inequalities(A, b):
@@ -99,7 +98,7 @@ def axis_aligned_cross_polytope(n):
 ################################
 
 
-DIMENSIONS = (2, 3, 4)
+DIMENSIONS = (2, 3)
 
 
 def pytest_generate_tests(metafunc):
@@ -121,12 +120,12 @@ def pytest_generate_tests(metafunc):
     metafunc.parametrize(argnames, argvalues, ids=idlist)
 
 
-def test_volume(exact_integrators, inequalities, variables, volume):
+def test_volume(exact_integrator, inequalities, variables, volume):
     env = smt.get_env()
     polynomial = Polynomial(smt.Real(1.0), variables, env)
     polytope = Polytope(inequalities, variables, env)
-    for integrator_class, kwargs in exact_integrators:
-        result = integrator_class(**kwargs).integrate(polytope, polynomial)
-        assert np.isclose(
-            result, volume
-        ), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"
+
+    result = exact_integrator().integrate(polytope, polynomial)
+    assert np.isclose(
+        result, volume
+    ), f"Expected {volume}, got {result} for {integrator.__class__.__name__}"

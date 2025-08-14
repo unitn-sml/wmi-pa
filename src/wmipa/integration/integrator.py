@@ -2,7 +2,7 @@ from typing import Protocol, Collection
 
 import numpy as np
 
-from wmipa.datastructures import Polytope, Polynomial
+from wmipa.core import Polytope, Polynomial
 
 
 class Integrator(Protocol):

@@ -11,7 +11,7 @@ from typing import Collection
 
 import numpy as np
 
-from wmipa.datastructures import Polynomial, Polytope
+from wmipa.core import Polynomial, Polytope
 
 LATTE_INSTALLED = which("integrate") is not None
 

@@ -2,7 +2,8 @@ from typing import Collection, Optional, TYPE_CHECKING
 
 import numpy as np
 
-from wmipa.datastructures import Inequality, Polynomial, Polytope
+from wmipa.core import Polynomial, Polytope
+from wmipa.core.inequality import Inequality
 
 if TYPE_CHECKING:
     from wmipa.integration import Integrator
@@ -53,14 +54,14 @@ class AxisAlignedWrapper:
             monos = inequality.polynomial.monomials
             if len(monos) == 1:
                 exp, coeff = next(iter(monos.items()))
-                bound = [0, np.inf] if coeff > 0 else [-np.inf, 0]
+                bound = [-np.inf, 0] if coeff > 0 else [0, np.inf]
                 return exp.index(1), bound
             elif len(monos) == 2:
                 ckey, exp = inequality.polynomial.ordered_keys
                 const = monos[ckey]
                 coeff = monos[exp]
                 bound = (
-                    [-const / coeff, np.inf] if coeff > 0 else [-np.inf, const / coeff]
+                    [-np.inf, -const / coeff] if coeff > 0 else [-const / coeff, np.inf]
                 )
                 return exp.index(1), bound
             else:
@@ -80,8 +81,8 @@ class AxisAlignedWrapper:
             ]
 
         barray = np.array(bounds)
-        if barray < np.inf:
-            volume = float(np.sum(np.abs(np.subtract(barray[:, 0], barray[:, 1]))))
+        if (barray[:, 0] > -np.inf).all() and (barray[:, 1] < np.inf).all():
+            volume = float(np.prod(np.abs(np.subtract(barray[:, 0], barray[:, 1]))))
             return volume
         else:
             return None

@@ -14,7 +14,7 @@ if __name__ == "__main__":
         # in each dimension
         support = domain.get_bounds()
 
-        res = AllSMTSolver(And(q, support), w).computeWMI(Bool(True))[0]
+        res = AllSMTSolver(And(q, support), w).compute(Bool(True))[0]
         return res
 
 

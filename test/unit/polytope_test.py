@@ -2,7 +2,7 @@ import pysmt.shortcuts as smt
 import pytest
 from pysmt.typing import REAL
 
-from wmipa.datastructures.polytope import Polytope, Inequality
+from wmipa.core.polytope import Polytope, Inequality
 
 x = smt.Symbol("X", REAL)
 y = smt.Symbol("Y", REAL)

@@ -1,17 +1,25 @@
 import queue
 import threading
-from typing import TYPE_CHECKING, Callable, Collection, Generator, Iterable
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    Collection,
+    Generator,
+    Iterable,
+    Optional,
+    cast,
+)
 
 import pysmt.operators as op
-from pysmt.environment import Environment
+from pysmt.environment import Environment, get_env
 from pysmt.fnode import FNode
 from pysmt.formula import FormulaManager
 from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
 
-from wmipa.utils import BooleanSimplifier, LiteralNormalizer
-from wmipa.weights import Weights
+from wmipa.core.utils import BooleanSimplifier, LiteralNormalizer
+from wmipa.core.weights import Weights
 
 try:
     import mathsat
@@ -24,10 +32,19 @@ if TYPE_CHECKING:  # avoid circular import
 
 
 class SAEnumerator:
-    def __init__(self, max_queue_size: int = 1) -> None:
+    def __init__(
+        self,
+        support: FNode,
+        weight: Optional[FNode] = None,
+        env: Optional[Environment] = None,
+        max_queue_size: int = 1,
+    ) -> None:
         """
         Constructs a SAEnumerator instance.
         Args:
+            weights (Weights): The representation of the weight function.
+            support (FNode): The pysmt formula that contains the support of the formula
+            env (Environment) : The pysmt environment
             max_queue_size: Maximum number of assignments to compute in parallel.
                              1 means we will compute the assignments one by one.
                              0 means no limit.
@@ -38,33 +55,28 @@ class SAEnumerator:
             raise ImportError(
                 "MathSAT is not installed. Please install it using the `wmipa install` command."
             ) from _IMPORT_ERR
+
+        self.support = support
+
+        if env is not None:
+            self.env = env
+        else:
+            self.env = cast(Environment, get_env())
+
+        if weight is None:
+            weight = self.env.formula_manager.Real(1)  # Default weight is 1
+
+        self.weights = Weights(weight, self.env)
+
         # 0 for no limit, the default is 1
         # the queue blocks until it has an available slot
         # so 1 means we will compute the assignments one by one
         self.max_queue_size = max_queue_size
 
-    def initialize(self, solver: "AllSMTSolver") -> None:
-        self.solver = solver
         self.weights_skeleton = self.weights.compute_skeleton()
-        self.simplifier = BooleanSimplifier(solver.env)
-        self.normalizer = LiteralNormalizer(solver.env)
-        self.assignment_extractor = AssignmentExtractor(solver.env)
-
-    @property
-    def env(self) -> Environment:
-        return self.solver.env
-
-    @property
-    def mgr(self) -> FormulaManager:
-        return self.env.formula_manager
-
-    @property
-    def support(self) -> FNode:
-        return self.solver.support
-
-    @property
-    def weights(self) -> Weights:
-        return self.solver.weights
+        self.simplifier = BooleanSimplifier(self.env)
+        self.normalizer = LiteralNormalizer(self.env)
+        self.assignment_extractor = AssignmentExtractor(self.env)
 
     def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
         """Enumerates the convex fragments of (phi & support), using
@@ -79,8 +91,10 @@ class SAEnumerator:
         - TA is dict {pysmt_atom : bool}
         - n is int
         """
+        mgr = self.env.formula_manager
+
         # conjoin query and support
-        formula = self.mgr.And(phi, self.support)
+        formula = mgr.And(phi, self.support)
 
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
@@ -94,7 +108,7 @@ class SAEnumerator:
                 raise ValueError(f"Unhandled atom type: {a}")
 
         # conjoin the skeleton of the weight function
-        formula = self.mgr.And(formula, self.weights_skeleton)
+        formula = mgr.And(formula, self.weights_skeleton)
 
         if len(bool_atoms) == 0:
             # no Boolean atoms -> enumerate *partial* TAs over LRA atoms only
@@ -289,14 +303,15 @@ class SAEnumerator:
             bool: True if the formula is completely simplified.
             FNode: The simplified formula.
         """
-        subs_node = {k: self.mgr.Bool(v) for k, v in subs.items()}
+        mgr = self.env.formula_manager
+        subs_node = {k: mgr.Bool(v) for k, v in subs.items()}
         f_next = formula
         # iteratively simplify F[A<-mu^A], getting (possibly part.) mu^LRA
         while True:
             f_before = f_next
             f_next = self.simplifier.simplify(f_before.substitute(subs_node))
             lra_assignments, is_convex = self.assignment_extractor.extract(f_next)
-            subs_node = {k: self.mgr.Bool(v) for k, v in lra_assignments.items()}
+            subs_node = {k: mgr.Bool(v) for k, v in lra_assignments.items()}
             truth_assignment.update(
                 {k: v for k, v in lra_assignments.items() if k in scope}
             )
@@ -311,8 +326,8 @@ class SAEnumerator:
                     if v:
                         expressions.append(k)
                     else:
-                        expressions.append(self.mgr.Not(k))
-            f_next = self.mgr.And([f_next] + expressions)
+                        expressions.append(mgr.Not(k))
+            f_next = mgr.And([f_next] + expressions)
         return is_convex, f_next
 
 
