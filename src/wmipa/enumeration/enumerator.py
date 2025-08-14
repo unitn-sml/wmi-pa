@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Protocol, Iterable
 from pysmt.fnode import FNode
 from pysmt.environment import Environment
 
-from wmipa.core.weights import Weights
+if TYPE_CHECKING:
+    from wmipa.core.weights import Weights
 
 
 class Enumerator(Protocol):
@@ -15,7 +16,7 @@ class Enumerator(Protocol):
     def support(self) -> FNode: ...
 
     @property
-    def weights(self) -> Weights: ...
+    def weights(self) -> "Weights": ...
 
     @property
     def env(self) -> Environment: ...
