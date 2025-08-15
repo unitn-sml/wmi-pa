@@ -62,11 +62,17 @@ jobs:
         run: mypy
 
       - name: Run tests and collect coverage
+        # NOTE: coverage is only collected for Python 3.12 on Linux
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
           fi
-          pytest --cov --cov-report=xml
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python-version }}" == "3.12" ]]; then
+            coverage run -m pytest
+            coverage xml
+          else
+            pytest
+          fi
       - name: Upload coverage to Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
         uses: codecov/codecov-action@v5
