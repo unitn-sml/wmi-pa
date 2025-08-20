@@ -1,19 +1,10 @@
 import queue
 import threading
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    Collection,
-    Generator,
-    Iterable,
-    Optional,
-    cast,
-)
+from typing import Callable, Collection, Generator, Iterable, Optional, cast
 
 import pysmt.operators as op
 from pysmt.environment import Environment, get_env
 from pysmt.fnode import FNode
-from pysmt.formula import FormulaManager
 from pysmt.solvers.msat import MSatConverter
 from pysmt.typing import BOOL
 from pysmt.walkers import TreeWalker, handles
@@ -26,9 +17,6 @@ try:
 except ImportError as e:
     mathsat = None
     _IMPORT_ERR = e
-
-if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import AllSMTSolver
 
 
 class SAEnumerator:
@@ -197,12 +185,6 @@ class SAEnumerator:
             if not atom.is_symbol(BOOL):
                 _ = self.normalizer.normalize(atom, remember_alias=True)
 
-        solver = self.env.factory.Solver(name="msat", solver_options=msat_options)
-        converter: MSatConverter = solver.converter
-        solver.add_assertion(formula)
-
-        msat_env = solver.msat_env()
-
         def callback(model: list["mathsat.msat_term"]) -> dict[FNode, bool]:
             converted_model = [converter.back(v) for v in model]
             assignments: dict[FNode, bool] = {}
@@ -223,7 +205,15 @@ class SAEnumerator:
 
             return assignments
 
-        return self._all_sat_stream(msat_env, atoms, converter, callback)
+        with self.env.factory.Solver(
+            name="msat", solver_options=msat_options
+        ) as solver:
+            converter: MSatConverter = solver.converter
+            solver.add_assertion(formula)
+
+            msat_env = solver.msat_env()
+
+            return self._all_sat_stream(msat_env, atoms, converter, callback)
 
     def _all_sat_stream(
         self,
