@@ -2,7 +2,7 @@ name: Build and Test (Python 3.9+, macOS, Linux)
 
 on:
   push:
-    branches: [ main, featherweight ]
+    branches: [ main, featherweight, debug-workflow-hanging ]
   pull_request:
     branches: [ main, featherweight ]
 
