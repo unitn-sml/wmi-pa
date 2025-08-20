@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Iterable, Optional, cast
 from pysmt.environment import Environment, get_env
 from pysmt.fnode import FNode
 from pysmt.formula import FormulaManager
+from pysmt.solvers.z3 import Z3Solver
 
 from wmipa.core.weights import Weights
 
@@ -54,16 +55,16 @@ class TotalEnumerator:
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
 
-        smt_solver = self.env.factory.Solver(name="z3")
-        smt_solver.add_assertion(formula)
+        with self.env.factory.Solver(name="z3") as smt_solver:
+            smt_solver.add_assertion(formula)
 
-        while smt_solver.solve():
-            model = {}
-            blocking_clause = []
-            for a in atoms:
-                literal = a if smt_solver.get_value(a).constant_value() else mgr.Not(a)
-                model[a] = not literal.is_not()
-                blocking_clause.append(literal)
+            while smt_solver.solve():
+                model = {}
+                blocking_clause = []
+                for a in atoms:
+                    literal = a if smt_solver.get_value(a).constant_value() else mgr.Not(a)
+                    model[a] = not literal.is_not()
+                    blocking_clause.append(literal)
 
-            smt_solver.add_assertion(mgr.Not(mgr.And(*blocking_clause)))
-            yield model, 0
+                smt_solver.add_assertion(mgr.Not(mgr.And(*blocking_clause)))
+                yield model, 0

@@ -2,7 +2,7 @@ name: Build and Test (Python 3.9+, macOS, Linux)
 
 on:
   push:
-    branches: [ main, featherweight, debug-workflow-hanging ]
+    branches: [ main, featherweight ]
   pull_request:
     branches: [ main, featherweight ]
 
@@ -13,8 +13,8 @@ jobs:
 
     strategy:
       matrix:
-        os: [ macos-latest ]
-        python-version: [ "3.10" ]
+        os: [ ubuntu-latest, macos-latest ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12" ]
 
     steps:
       - name: Checkout code
