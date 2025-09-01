@@ -1,47 +1,66 @@
-import pysmt.shortcuts as smt
+from itertools import product
+import numpy as np
 import pytest
-from pysmt.typing import REAL
 
-from wmipa.core.polytope import Polytope, Inequality
+import pysmt.shortcuts as smt
 
-x = smt.Symbol("X", REAL)
-y = smt.Symbol("Y", REAL)
-z = smt.Symbol("Z", REAL)
-w = smt.Symbol("W", REAL)
-v1 = -3
-v2 = 5
-v3 = 2
-r1 = smt.Real(v1)
-r2 = smt.Real(v2)
-r3 = smt.Real(v3)
-env = smt.get_env()
+from wmipa.core.polytope import Polytope
 
 
-def test_polytope_no_ineq():
-    bounds = []
-    polytope = Polytope(bounds, set(), env=env)
-    assert polytope.inequalities == []
-
-
-def test_polytope_one_bound():
-    atom = smt.LE(x, r1)
-    polytope = Polytope([atom], {x}, env=env)
-    assert len(polytope.inequalities) == 1
-    ineq = Inequality(atom, {x}, env=env)
-    assert str(polytope.inequalities[0]) == str(ineq)
-
-
-def test_polytope_multiple_bounds():
-    ineq = [
-        smt.LE(x, r1),
-        smt.GE(y, smt.Times(r1, x)),
-        smt.LT(smt.Plus(r1, r2), smt.Times(y, r3)),
+def test_polytope_nonlinear():
+    env = smt.get_env()
+    x = smt.Symbol("x", smt.REAL)
+    y = smt.Symbol("y", smt.REAL)
+    inequalities = [
+        smt.LE(x, smt.Real(0)),
+        smt.GE(smt.Pow(y, smt.Real(3)), smt.Real(0)),
     ]
-    polytope = Polytope(ineq, {x, y}, env=env)
-    assert len(polytope.inequalities) == 3
-
-
-def test_polytope_grade_more_than_one():
-    ineq = [smt.LE(x, r1), smt.GE(smt.Pow(y, smt.Real(3)), r3)]
     with pytest.raises(AssertionError):
-        polytope = Polytope(ineq, {x, y}, env=env)
+        polytope = Polytope(inequalities, [x, y], env=env)
+
+
+def test_polytope_unknown_variable():
+    env = smt.get_env()
+    x = smt.Symbol("x", smt.REAL)
+    y = smt.Symbol("y", smt.REAL)
+    z = smt.Symbol("z", smt.REAL)
+    inequalities = [
+        smt.LE(x, smt.Real(0)),
+        smt.GE(z, smt.Real(1)),
+    ]
+    with pytest.raises(AssertionError):
+        polytope = Polytope(inequalities, [x, y], env=env)
+
+
+@pytest.fixture(params=product(range(1, 5), repeat=2))
+def Ab(request):
+    M, N = request.param
+    np.random.seed(10 * N + M)
+    A = np.random.random((M, N))
+    b = np.random.random((M,))
+    return A, b
+
+
+def test_polytope_conversion(Ab):
+    env = smt.get_env()
+    A, b = Ab
+    M, N = A.shape
+    vx = [smt.Symbol(f"x{i}", smt.REAL) for i in range(N)]
+    inequalities = []
+    for i in range(M):
+        ineq = smt.LE(
+            smt.Plus([smt.Times(smt.Real(float(A[i][j])), vx[j]) for j in range(N)]),
+            smt.Real(float(b[i])),
+        )
+        inequalities.append(ineq)
+
+    polytope = Polytope(inequalities, vx, env=env)
+    Aconv, bconv = polytope.to_numpy()
+    assert (Aconv == A).all(), f"numpy conversion error\nA:\n{A}\nA':\n{Aconv}"
+    assert (bconv == b).all(), f"numpy conversion error\nb:\n{b}\nb':\n{bconv}"
+
+    f = smt.And(*inequalities)
+    fconv = polytope.to_pysmt()
+    assert not smt.is_sat(
+        smt.Not(smt.Iff(f, fconv))
+    ), "pysmt conversion error\nf:\n{smt.serialize(f)}\nf':{smt.serialize(fconv)}"
