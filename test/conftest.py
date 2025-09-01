@@ -49,12 +49,12 @@ enumerators = [
             support, weights, env, max_queue_size=1
         ),
     ),
-    (
-        "async-total",
-        lambda support, weights, env: AsyncWrapper(
-            TotalEnumerator(support, weights, env)
-        ),
-    ),
+    # (
+    #     "async-total",
+    #     lambda support, weights, env: AsyncWrapper(
+    #         TotalEnumerator(support, weights, env)
+    #     ),
+    # ),
     (
         "async-sae_q0",
         lambda support, weights, env: AsyncWrapper(
