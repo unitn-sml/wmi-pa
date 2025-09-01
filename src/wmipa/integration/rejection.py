@@ -55,31 +55,3 @@ class RejectionIntegrator:
             volumes.append(self.integrate(polytope, integrand))
 
         return np.array(volumes)
-
-
-if __name__ == "__main__":
-    # avoid polluting the global namespace
-    import pysmt.shortcuts as smt
-    import pysmt.typing as smt_typing
-
-    import wmipa.core as wmipa_ds
-
-    x = smt.Symbol("x", smt_typing.REAL)
-    y = smt.Symbol("y", smt_typing.REAL)
-    env = smt.get_env()
-
-    variables = [x, y]
-
-    h1 = smt.LE(smt.Real(0), x)
-    h2 = smt.LE(smt.Real(0), y)
-    h3 = smt.LE(smt.Plus(x, y), smt.Real(1))
-
-    # w = smt.Minus(smt.Real(1), smt.Plus(x, y))
-    w = smt.Plus(x, y)
-
-    pt = wmipa_ds.Polytope([h1, h2, h3], variables, env=env)
-    pn = wmipa_ds.Polynomial(w, variables, env=env)
-
-    integrator = RejectionIntegrator(100000)
-
-    print("integral:", integrator.integrate(pt, pn))

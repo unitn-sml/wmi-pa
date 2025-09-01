@@ -41,24 +41,3 @@ class Polytope:
 
     def __str__(self) -> str:
         return "\n".join(["[" + str(b) + "]" for b in self.inequalities])
-
-
-if __name__ == "__main__":
-
-    import pysmt.shortcuts as smt
-
-    x = smt.Symbol("x", smt.REAL)
-    y = smt.Symbol("y", smt.REAL)
-    variables = [x, y]
-
-    h1 = smt.LE(
-        smt.Plus(smt.Times(smt.Real(3), x), smt.Times(smt.Real(5), y), smt.Real(7)), x
-    )
-    h2 = smt.LE(x, y)
-
-    p = Polytope([h1, h2], variables, smt.get_env())
-    print("p:", p)
-    print("pysmt:", smt.serialize(p.to_pysmt()))
-    A, b = p.to_numpy()
-    print("A:", A)
-    print("b:", b)
