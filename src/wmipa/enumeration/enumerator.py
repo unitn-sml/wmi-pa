@@ -8,8 +8,14 @@ if TYPE_CHECKING:
 
 
 class Enumerator(Protocol):
-    """
-    Protocol for classes that can enumerate partial truth assignments for weighted SMT formulas.
+    """Protocol for classes that can enumerate partial truth assignments for weighted SMT formulas.
+
+    An Enumerator always contains:
+        weights: the weight function (a pysmt term)
+        support: the support of the weight function (a pysmt formula)
+        env: the pysmt environment
+
+    An Enumerator implements the 'enumerate' method that, given a query SMT formula, return all the truth assignments that are consistent with both support and query. In other terms, Enumerator returns a convex partitioning of the intersection of support and query.
     """
 
     @property
@@ -21,22 +27,20 @@ class Enumerator(Protocol):
     @property
     def env(self) -> Environment: ...
 
-    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
-        """
-        Enumerate partial truth assignments for the given formula.
+    def enumerate(self, query: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
+        """Enumerates (possibly partial) truth assignments for the given formula.
 
         Since the truth assignments (TA) might be partial,
         the number of unassigned Boolean variables is also returned.
 
+        Note: Enumerate can return any iterable type: list, tuple, generator, iterator, etc.
+
         Args:
-            phi: A formula node to enumerate partial assignments for
+            query: the query as a pysmt formula
 
         Returns:
-            An iterable of tuples <TA, n> where:
-            - TA is dict {pysmt_atom : bool} representing (partial) truth assignment
-            - n is int representing the number of unassigned Boolean variables
-
-        Note:
-            Can return any iterable type: list, tuple, generator, iterator, etc.
+            An iterable of tuples <TA, NB> where:
+            - TA is a dictionary {pysmt_atom : bool} representing (partial) truth assignment
+            - NB is a non-negative integer representing the number of unassigned Boolean variables
         """
         ...

@@ -1,5 +1,4 @@
 from typing import Any, Collection, Generator, Iterable
-
 import pysmt.operators as op
 from pysmt.environment import Environment
 from pysmt.fnode import FNode
@@ -11,21 +10,25 @@ from pysmt.walkers import DagWalker, IdentityDagWalker, TreeWalker, handles
 
 from wmipa.core.utils import is_atom, is_clause, is_cnf, is_literal
 
+# TODO: (maybe) move WeightAtomsFinder, WeightsEvaluator inside Weights (making them private)?
+
 
 class Weights:
-    """This class handles a FIUC weight function and provides a method that can evaluate
-        the weight result given a truth assignment of all the conditions inside the
-        weight function.
+    """This class encodes a piecewise weight function.
 
     Attributes:
-        weight_func (FNode): The pysmt formula that represents the weight function.
+        weight_func: the weight function in pysmt format
+        env: the pysmt environment
+        atoms_finder: TODO: add a bit of documentation for this
+        evaluator: internal class for function evaluation
     """
 
     def __init__(self, weight_func: FNode, env: Environment):
-        """Initializes the weight object.
+        """Default constructor.
 
         Args:
-            weight_func (FNode): The pysmt formula representing the weight function.
+            weight_func: the pysmt expression representing the weight function
+            env: the pysmt environment
         """
         self.env = env
         self.weight_func = weight_func
@@ -33,22 +36,29 @@ class Weights:
         self.evaluator = WeightsEvaluator(self)
 
     def compute_skeleton(self) -> FNode:
+        """Computes the "skeleton", a SMT formula that encodes the structure of the weight function.
+        Conjoining the skeleton with the support formula can be advantageous when using partial enumeration.
+
+        Returns:
+           A pysmt formula that encodes the structure of the weight.
+        """
         return WeightConverterSkeleton(env=self.env).convert(self.weight_func)
 
     def get_atoms(self) -> Collection[FNode]:
+        """Returns the atoms contained in the (conditions of the) weight expressions."""
         atoms = self.atoms_finder.get_atoms(self.weight_func)
         return atoms if atoms is not None else frozenset([])
 
     def weight_from_assignment(self, assignment: dict[FNode, bool]) -> FNode:
-        """Given a truth assignment of the conditions inside the weight function,
-            this method evaluates the resulting value based on the assignment.
+        """Evaluates the weight function given a total truth assignment to its conditions.
 
         Args:
-            assignment (dict {FNode : bool}): The dictionary containing all the
-                assignments of each condition (e.g: {(x < 3) : True, (y < 5) : False}).
+            assignment: the truth assignment as returned by an Enumerator
 
         Returns:
-            FNode: The result of the weight function on the given assignment.
+            A pysmt term that correspond to unconditional weight function obtained by assigning a truth value to the conditions.
+        Raises:
+            ValueError if the TA is not total.
         """
         return self.evaluator.evaluate(assignment)
 
@@ -63,9 +73,7 @@ class Weights:
 
 
 class WeightsEvaluator(TreeWalker):
-    """This class evaluates a weight function given a truth assignment of the conditions inside the
-    weight function.
-    """
+    """This internal class implements the weight evaluation given a truth assignment to its conditions."""
 
     def __init__(self, weights: Weights):
         super().__init__(weights.env)
@@ -78,8 +86,13 @@ class WeightsEvaluator(TreeWalker):
         self.result: list[FNode] = []  # stack to store the results of the evaluation
 
     def evaluate(self, assignment: dict[FNode, bool]) -> FNode:
-        """Evaluate the weight function given a truth assignment of the conditions inside the
-        weight function.
+        """Evaluates the weight function given a total TA to its conditions.
+
+        Returns:
+            The simplified expression in pysmt format.
+
+        Raises:
+            ValueError if the TA is not total.
         """
         self.result.clear()
         self.assignment = {atom: self.mgr.Bool(v) for atom, v in assignment.items()}
@@ -112,18 +125,22 @@ class WeightsEvaluator(TreeWalker):
         val = self.simplifier.simplify(
             self.substituter.substitute(condition, self.assignment)
         )
-        assert val.is_bool_constant(), (
-            "Weight condition "
-            + self.env.serializer.serialize(condition)
-            + "\n\n cannot be evaluated with assignment "
-            + "\n".join([str((x, v)) for x, v in self.assignment.items()])
-            + "\n\n simplified into "
-            + self.env.serializer.serialize(condition)
-        )
+        if not val.is_bool_constant():
+            msg = (
+                "Weight condition "
+                + self.env.serializer.serialize(condition)
+                + "\n\n cannot be evaluated with assignment "
+                + "\n".join([str((x, v)) for x, v in self.assignment.items()])
+                + "\n\n simplified into "
+                + self.env.serializer.serialize(condition)
+            )
+            raise ValueError(msg)
+
         return val.constant_value()
 
 
 class WeightAtomsFinder(AtomsOracle):
+    """TODO"""
 
     def walk_ite(
         self, formula: FNode, args: list[frozenset[FNode]], **kwargs: Any
@@ -138,7 +155,7 @@ class WeightAtomsFinder(AtomsOracle):
 
 
 class WeightConverterSkeleton(TreeWalker):
-    """Implements the conversion of a weight function into a weight skeleton,
+    """This internal class implements the conversion of a weight function into a weight skeleton,
     as described in "Enhancing SMT-based Weighted Model Integration by structure awareness"
     (Spallitta et al., 2024).
     """
@@ -225,9 +242,7 @@ class WeightConverterSkeleton(TreeWalker):
 
 
 class CNFPreprocessor(IdentityDagWalker):
-    """
-    Convert nested ORs and ANDs into flat lists of ORs and ANDs, and Implies into Or.
-    """
+    """Converts nested ORs and ANDs into flat lists of ORs and ANDs, and Implies into Or."""
 
     def __init__(self, env: Environment):
         super().__init__(env)
@@ -297,9 +312,8 @@ class PolarityCNFizer(DagWalker):
             return self.mgr.Not(formula)
 
     def convert(self, formula: FNode) -> frozenset[frozenset[FNode]]:
-        """Convert formula into an equisatisfiable CNF.
-
-        Returns a set of clauses: a set of sets of literals.
+        """Converts formula into an equisatisfiable CNF.
+        Returns a set of clauses, i.e. a set of sets of literals.
         """
 
         def literals_in_clause(clause: FNode) -> Iterable[FNode]:

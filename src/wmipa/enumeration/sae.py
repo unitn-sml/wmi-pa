@@ -20,6 +20,17 @@ except ImportError as e:
 
 
 class SAEnumerator:
+    """This class implements the Structure-Aware partial enumerator described in:
+
+        "Enhancing SMT-based Weighted Model Integration by structure awareness" (Spallitta et al., 2024).
+
+    In contrast with the baseline TotalEnumerator, this enumerator:
+    - uses MathSAT partial AllSMT enumeration
+    - accounts for the structure of the weight function (i.e. its skeleton) in order to minimize the number of truth assignment returned.
+
+    TODO: better describe the effect of 'max_queue_size' (wouldn't it be more clear to have a boolean flag 'blocking' instead?) and why its there.
+    """
+
     def __init__(
         self,
         support: FNode,
@@ -27,13 +38,13 @@ class SAEnumerator:
         env: Optional[Environment] = None,
         max_queue_size: int = 1,
     ) -> None:
-        """
-        Constructs a SAEnumerator instance.
+        """Default constructor.
+
         Args:
-            weights (Weights): The representation of the weight function.
-            support (FNode): The pysmt formula that contains the support of the formula
-            env (Environment) : The pysmt environment
-            max_queue_size: Maximum number of assignments to compute in parallel.
+            weights: the weight function as a pysmt term
+            support: the support of the weight function (a pysmt formula)
+            env: the pysmt environment (optional)
+            max_queue_size: maximum number of assignments to compute in parallel (optional):
                              1 means we will compute the assignments one by one.
                              0 means no limit.
         """
@@ -66,23 +77,23 @@ class SAEnumerator:
         self.normalizer = LiteralNormalizer(self.env)
         self.assignment_extractor = AssignmentExtractor(self.env)
 
-    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
-        """Enumerates the convex fragments of (phi & support), using
-        MathSAT's partial enumeration and structurally aware WMI
-        enumeration. Since the truth assignments (TA) are partial,
-        the number of unassigned Boolean variables is also returned.
+    def enumerate(self, query: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
+        """Enumerates (possibly partial) truth assignments for the given formula.
 
-        Yields:
-        <TA, n>
+        Since the truth assignments (TA) might be partial, the number of unassigned Boolean variables is also returned.
 
-        where:
-        - TA is dict {pysmt_atom : bool}
-        - n is int
+        Args:
+            query: the query as a pysmt formula
+
+        Returns:
+            An iterable of tuples <TA, NB> where:
+            - TA is a dictionary {pysmt_atom : bool} representing (partial) truth assignment
+            - NB is a non-negative integer representing the number of unassigned Boolean variables
         """
         mgr = self.env.formula_manager
 
         # conjoin query and support
-        formula = mgr.And(phi, self.support)
+        formula = mgr.And(query, self.support)
 
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()
@@ -226,6 +237,7 @@ class SAEnumerator:
         Enumerates all satisfying assignments for the given atoms in the MathSAT
         environment. This function runs asynchronously and yields results as
         soon as they are found.
+
         Args:
             msat_env: The MathSAT environment.
             atoms: The atoms to enumerate.
@@ -280,7 +292,7 @@ class SAEnumerator:
         truth_assignment: dict[FNode, bool],
         scope: set[FNode],
     ) -> tuple[bool, FNode]:
-        """Substitute the subs in the formula and iteratively simplify it.
+        """Substitutes the subs in the formula and iteratively simplify it.
         truth_assignment is updated with unit-propagated atoms.
 
         Args:
@@ -341,6 +353,7 @@ class AssignmentExtractor(TreeWalker):
 
         Args:
             formula: The formula to extract the assignment from.
+
         Returns:
             A tuple containing:
                 - A dictionary with forced literals as keys and their truth values as values.

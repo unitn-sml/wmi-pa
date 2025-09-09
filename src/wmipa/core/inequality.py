@@ -7,15 +7,26 @@ from wmipa.core.polynomial import Polynomial
 
 
 class Inequality:
-    """Internal representations of inequalities in canonical form:
+    """Internal class for inequalities in the canonical form:
 
-    Polynomial {<,<=} 0
+        P {<,<=} 0
 
-    where Polynomial is also in canonical form.
+    where P is a degree 1 polynomial.
 
+    Attributes:
+        strict: boolean flag, true when the inequality is <
+        mgr: pysmt formula manager
+        polynomial: the Polynomial P
     """
 
     def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
+        """Default constructor.
+
+        Args:
+            expr: the inequality in pysmt format
+            variables: the continuous integration domain
+            env: the pysmt environment
+        """
         if expr.is_le() or expr.is_lt():
             self.strict = expr.is_lt()
         else:
@@ -33,6 +44,11 @@ class Inequality:
         assert self.polynomial.degree == 1
 
     def to_pysmt(self) -> FNode:
+        """Converts the inequality in pysmt format.
+
+        Returns:
+            Either a LT (less-than) or LE (less-or-equal-than) atom.
+        """
         op = self.mgr.LT if self.strict else self.mgr.LE
         return op(self.polynomial.to_pysmt(), self.mgr.Real(0))
 

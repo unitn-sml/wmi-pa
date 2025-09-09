@@ -13,14 +13,17 @@ if TYPE_CHECKING:  # avoid circular import
 
 
 class AsyncWrapper(Enumerator):
+    """This class implements a wrapper around an arbitrary Enumerator.
+    The enclosed enumerator will run on a separate thread, enabling asychronous execution.
+
+    """
+
     def __init__(self, enumerator: "Enumerator", max_queue_size: int = 0) -> None:
-        """
-        Initializes the AsyncEnumerator with the given enumerator and queue size.
+        """Default constructor.
 
         Args:
-            enumerator: An instance of Enumerator to be used for enumeration.
-            max_queue_size: Maximum number of assignments to compute in parallel.
-                             0 means no limit.
+            enumerator: the enclosed Enumerator
+            max_queue_size: maximum number of assignments to compute in parallel
         """
         self.enumerator = enumerator
         self.max_queue_size = max_queue_size
@@ -37,15 +40,18 @@ class AsyncWrapper(Enumerator):
     def env(self) -> Environment:
         return self.enumerator.env
 
-    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
-        """
-        Enumerates the convex fragments of the given formula.
+    def enumerate(self, query: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
+        """Enumerates (possibly partial) truth assignments for the given formula using the enclosed enumerator.
+
+        The class attribute max_queue_size controls the size of the queue, regulating how many truth assignments can be enumerated without further processing.
 
         Args:
-            phi: The formula to be enumerated.
+            query: the query as a pysmt formula
 
-        Yields:
-            A tuple containing a dictionary of truth assignments and the number of unassigned variables.
+        Returns:
+            An iterable of tuples <TA, NB> where:
+            - TA is a dictionary {pysmt_atom : bool} representing (partial) truth assignment
+            - NB is a non-negative integer representing the number of unassigned Boolean variables
         """
         q: queue.Queue = queue.Queue(maxsize=self.max_queue_size)
         stop_token = object()
@@ -56,7 +62,7 @@ class AsyncWrapper(Enumerator):
 
         def run() -> None:
             try:
-                for result in self.enumerator.enumerate(phi):
+                for result in self.enumerator.enumerate(query):
                     q.put(result)
                     if thread_stop_event.is_set():
                         break

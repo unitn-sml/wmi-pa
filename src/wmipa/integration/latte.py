@@ -31,6 +31,14 @@ class LattEIntegrator:
     _OUTPUT_FILENAME = "output.txt"
 
     def __init__(self, algorithm: str = DEF_ALGORITHM):
+        """Default constructor.
+
+        Args:
+            algorithm: either "--triangulate" or "--cone-decompose"
+
+        Raises:
+            ValueError if algorithm is not supported."
+        """
         if not LATTE_INSTALLED:
             raise RuntimeError(
                 "Can't execute LattE's 'integrate' command. Use 'wmipa install --latte' to install it."
@@ -40,6 +48,15 @@ class LattEIntegrator:
         self.algorithm = algorithm
 
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
+        """Computes a convex integral.
+
+        Args:
+            polytope: convex integration bounds (a Polytope)
+            polynomial: integrand (a Polynomial)
+
+        Returns:
+            The result of the integration as a non-negative scalar value.
+        """
 
         with TemporaryDirectory(dir=".") as tmpdir:
             tmpdir_path = Path(tmpdir).resolve()
@@ -72,7 +89,7 @@ class LattEIntegrator:
                     # Unfortunately LattE returns an exit status != 0 if the polytope is empty.
                     # In the general case this may happen, raising an exception
                     # is not a good idea.
-                    # TODO HANDLE THIS PROPERLY!!
+                    # TODO: handle this properly.
 
                 result = LattEIntegrator._read_output_file(output_path)
 
@@ -83,6 +100,14 @@ class LattEIntegrator:
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
     ) -> np.ndarray:
+        """Computes a batch of integrals.
+
+        Args:
+            convex_integrals: a collection of bounds/integrand pairs
+
+        Returns:
+            The result of the batch of integrations as a numpy array.
+        """
         volumes = []
         for polytope, polynomial in convex_integrals:
             volumes.append(self.integrate(polytope, polynomial))
@@ -101,6 +126,10 @@ class LattEIntegrator:
 
     @staticmethod
     def _write_polytope_file(polytope: Polytope, path: Path) -> None:
+        """Writes the polytope in a file with LattE's format.
+
+        This requires converting all the coefficients to integers.
+        """
         A, b = polytope.to_numpy()
         bA = np.concatenate((b.reshape(-1, 1), A), axis=1)
 

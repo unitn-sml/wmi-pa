@@ -11,17 +11,30 @@ from wmipa.enumeration.enumerator import Enumerator
 
 
 class AssignmentConverter:
-    """
-    This class is responsible of converting the pysmt assignments
-    returned by an enumerator into pairs <Polytope, Polynomial>.
-    """
+    """This class is responsible of converting the pysmt assignments returned by an enumerator into pairs <Polytope, Polynomial>."""
 
     def __init__(self, enumerator: "Enumerator") -> None:
+        """Default constructor.
+
+        Args:
+            enumerator: the enumerator instance
+        """
         self.enumerator = enumerator
 
     def convert(
         self, truth_assignment: dict[FNode, bool], domain: Collection[FNode]
     ) -> tuple[Polytope, Polynomial]:
+        """Converts a truth assignment (as returned by an Enumerator)
+        into a <Polytope, Polynomial> pair.
+
+        Args:
+            truth_assignment: mapping pysmt atoms to bool
+            domain: list of real variables in pysmt format
+
+        Returns:
+            A convex integration problem as a pair of instances of Polytope and Polynomial.
+            The two represent the convex integration bounds and integrand respectively.
+        """
 
         mgr = self.enumerator.env.formula_manager
 

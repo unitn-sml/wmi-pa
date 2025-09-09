@@ -10,19 +10,37 @@ if TYPE_CHECKING:
 
 
 class AxisAlignedWrapper:
-    """
-    Before calling a general self.integrator, checks if:
+    """This class implements an integration wrapper for efficiently handling the following special case:
     - the polytope is axis-aligned
     - the integrand is constant
 
     possibly computing the integral in linear time.
 
+    The enclosed integrator is called whenever the problem doesn't fall into this subcase.
+
+    TODO: fix inconsistencies with the returned type.
     """
 
     def __init__(self, integrator: "Integrator"):
+        """Default constructor.
+
+        Args:
+            integrator: the enclosed integrator instance
+        """
         self.integrator = integrator
 
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
+        """Computes a convex integral.
+
+        If the integrand is a constant and the integration bounds are all axis-aligned, the integral is computed in linear time.
+
+        Args:
+            polytope: convex integration bounds (a Polytope)
+            polynomial: integrand (a Polynomial)
+
+        Returns:
+            The result of the integration as a non-negative scalar value.
+        """
         w = AxisAlignedWrapper._constant_integrand(polynomial)
         if w is not None:
             vol = AxisAlignedWrapper._axis_aligned_volume(polytope)
@@ -34,6 +52,14 @@ class AxisAlignedWrapper:
     def integrate_batch(
         self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
     ) -> np.ndarray:
+        """Computes a batch of integrals.
+
+        Args:
+            convex_integrals: a collection of bounds/integrand pairs
+
+        Returns:
+            The result of the batch of integrations as a numpy array.
+        """
         volumes = []
         for polytope, polynomial in convex_integrals:
             volumes.append(self.integrate(polytope, polynomial))

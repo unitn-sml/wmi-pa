@@ -12,14 +12,27 @@ Monomials = dict[tuple[int, ...], float]  # Maps exponent tuples to coefficients
 
 
 class Polynomial:
-    """Internal representation of a canonical polynomial.
+    """Internal class representing canonical polynomials.
     Implemented as a dict, having for each monomial: {key : coefficient}
     where key is a tuple encoding exponents of the ordered variables.
 
     E.g. {(2,0,1): 3} = "3 * x^2 * y^0 * z^1"
+
+    Attributes:
+        monomials: the monomial dictionary
+        variables: the continuous integration domain
+        ordered_keys: sorted list of monomial keys
+        mgr: the pysmt formula manager
     """
 
     def __init__(self, expr: FNode, variables: Collection[FNode], env: Environment):
+        """Default constructor.
+
+        Args:
+            expr: the polynomial in pysmt format
+            variables: the continuous integration domain
+            env: the pysmt environment
+        """
         self.monomials = PolynomialParser(variables).parse(expr)
         const_key = tuple(0 for _ in range(len(variables)))
         if const_key in self.monomials and self.monomials[const_key] == 0:
@@ -30,12 +43,17 @@ class Polynomial:
 
     @property
     def degree(self) -> int:
+        """Returns the degree of the polynomial."""
         if len(self.monomials) == 0:
             return 0
         else:
             return max(sum(exponents) for exponents in self.monomials)
 
     def to_numpy(self) -> Callable[[np.ndarray], np.ndarray]:
+        """Returns the polynomial as a callable function.
+
+        This function can be used to evaluate a numpy array.
+        """
         return lambda x: np.sum(
             np.array(
                 [k * np.prod(np.pow(x, e), axis=1) for e, k in self.monomials.items()]
@@ -44,7 +62,7 @@ class Polynomial:
         )
 
     def to_pysmt(self) -> FNode:
-
+        """Returns the polynomial in pysmt format."""
         if len(self.monomials) == 0:
             return self.mgr.Real(0)
 
@@ -156,7 +174,7 @@ class PolynomialParser(DagWalker):
 
     @staticmethod
     def _multiply_polys(mono_first: Monomials, mono_second: Monomials) -> Monomials:
-        """Multiply two polynomials represented as monomial dictionaries."""
+        """Multiplies two polynomials represented as monomial dictionaries."""
         result = {}
         n = (
             len(next(iter(mono_first.keys())))
@@ -178,7 +196,7 @@ class PolynomialParser(DagWalker):
 
     @classmethod
     def _expand_power(cls, base_poly: Monomials, exp_val: int) -> Monomials:
-        """Expand (polynomial)^n by repeated multiplication."""
+        """Expands (polynomial)^n by repeated multiplication."""
         if exp_val == 0:
             n = len(next(iter(base_poly.keys())))
             return {tuple(0 for _ in range(n)): 1}

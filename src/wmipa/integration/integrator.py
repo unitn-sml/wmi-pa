@@ -14,27 +14,26 @@ class Integrator(Protocol):
     """
 
     def integrate(self, polytope: Polytope, polynomial: Polynomial) -> float:
-        """
-        Integrate a polynomial over a polytope.
+        """Computes a convex integral.
 
         Args:
-            polytope: The polytope domain to integrate over
-            polynomial: The polynomial function to integrate
+            polytope: convex integration bounds
+            polynomial: the integrand
 
         Returns:
-            The numerical result of the integration as a float
+            The result of the integration as a non-negative scalar value.
         """
         ...
 
-    def integrate_batch(self, convex_integrals: Collection[tuple[Polytope, Polynomial]]) -> np.ndarray:
-        """
-        Perform batch integration of multiple polynomial-polytope pairs.
+    def integrate_batch(
+        self, convex_integrals: Collection[tuple[Polytope, Polynomial]]
+    ) -> np.ndarray:
+        """Computes a batch of integrals.
 
         Args:
-            convex_integrals: An iterable of (polytope, polynomial) pairs to integrate
+            convex_integrals: a collection of bounds/integrand pairs
 
         Returns:
-            A numpy array containing the integration results, where each element
-            corresponds to the integration of the respective (polytope, polynomial) pair
+            The result of the batch of integrations as a numpy array.
         """
         ...

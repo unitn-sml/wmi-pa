@@ -7,6 +7,7 @@ from wmipa.core.weights import Weights
 
 
 class TotalEnumerator:
+    """This class implements a baseline total enumerator using the Z3 SMT solver."""
 
     def __init__(
         self,
@@ -14,12 +15,12 @@ class TotalEnumerator:
         weight: Optional[FNode] = None,
         env: Optional[Environment] = None,
     ) -> None:
-        """
-        Constructs a TotalEnumerator instance.
+        """Default constructor.
+
         Args:
-            weights (Weights): The representation of the weight function.
-            support (FNode): The pysmt formula that contains the support of the formula
-            env (Environment) : The pysmt environment
+            weights: the weight function as a pysmt term
+            support: the support of the weight function (a pysmt formula)
+            env: the pysmt environment (optional)
         """
         self.support = support
 
@@ -33,22 +34,23 @@ class TotalEnumerator:
 
         self.weights = Weights(weight, self.env)
 
-    def enumerate(self, phi: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
-        """Enumerates the convex fragments of (phi & support), using
-        Z3 with blocking clauses. Since the truth assignments (TA) are total,
+    def enumerate(self, query: FNode) -> Iterable[tuple[dict[FNode, bool], int]]:
+        """Enumerates (possibly partial) truth assignments for the given formula.
+
+        Since the truth assignments (TA) are always total,
         the number of unassigned Boolean variables is always 0.
 
-        Yields:
-        <TA, n>
+        Args:
+            query: the query (a pysmt formula)
 
-        where:
-        - TA is dict {pysmt_atom : bool}
-        - n is int
+        Returns:
+            An iterable of tuples <TA, 0> where:
+            - TA is a dictionary {pysmt_atom : bool} representing (partial) truth assignment
         """
         mgr = self.env.formula_manager
 
         # conjoin query and support
-        formula = mgr.And(phi, self.support)
+        formula = mgr.And(query, self.support)
 
         # sort the different atoms
         atoms = self.env.ao.get_atoms(formula) | self.weights.get_atoms()

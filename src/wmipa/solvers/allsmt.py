@@ -13,16 +13,13 @@ from wmipa.integration import Integrator, RejectionIntegrator
 
 
 class AllSMTSolver:
-    """The class that has the purpose to calculate the WMI via
-    exhaustive enumeration.
+    """The class implements a WMI solver based on exhaustive enumeration.
 
-    This WMI solver is based upon:
-    - a Satisfiability Modulo Theories solver supporting All-SMT (e.g. MathSAT)
-    - a procedure for computing the integral of polynomials over polytopes (e.g. LattE Integrale)
+    The weighted model integral is solved sequentially:
+    1) enumerator first computes the set of satisfiable truth assignments (TAs);
+    2) the TAs are converted into convex integration problems and jointly passed to the integrator of choice.
 
-    Attributes:
-        enumerator (Enumerator): The enumerator to use.
-        integrator (Integrator): The integrator to use.
+    The weight and its support are contained inside the enumerator, with the AssignmentConverter being in charge of converting TAs into <Polytope, Polynomial> pairs.
 
     """
 
@@ -34,7 +31,12 @@ class AllSMTSolver:
         enumerator: Enumerator,
         integrator: Optional[Integrator] = None,
     ):
+        """Default constructor.
 
+        Args:
+            enumerator: the enumerator to use (default: TotalEnumerator)
+            integrator: the integrator to use (default: RejectionIntegrator)
+        """
         self.enumerator = enumerator
 
         if integrator is not None:
@@ -44,13 +46,22 @@ class AllSMTSolver:
 
         self.converter = AssignmentConverter(self.enumerator)
 
-    def compute(
-        self, phi: FNode, domain: Collection[FNode], cache: int = -1
-    ) -> dict[str, np.ndarray]:
+    def compute(self, query: FNode, domain: Collection[FNode]) -> dict[str, np.ndarray]:
+        """Computes the weighted model integral of a given query formula.
 
+        Args:
+            query: the query as a pysmt formula
+            domain: the continuous integration domain (a list of pysmt real variables)
+
+
+        Returns:
+            A dictionary containing the following entries:
+            "wmi": the weighted model integral as a non-negative scalar value
+            "npolys": the number of convex fragments enumerated
+        """
         convex_integrals = []
         n_unassigned_bools = []
-        for truth_assignment, nub in self.enumerator.enumerate(phi):
+        for truth_assignment, nub in self.enumerator.enumerate(query):
             convex_integrals.append(self.converter.convert(truth_assignment, domain))
             n_unassigned_bools.append(nub)
 
