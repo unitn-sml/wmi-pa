@@ -28,6 +28,7 @@ Homepage = "https://github.com/unitn-sml/wmi-pa"
 Repository = "https://github.com/unitn-sml/wmi-pa"
 
 [project.optional-dependencies]
+docs = ["sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints", "nbsphinx", "ipython", "jupytext", "jupyter", "matplotlib"]
 test = ["pytest", "pytest-runner", "pytest-cov"]
 typing = [
     "mypy",
