@@ -49,3 +49,6 @@ I2 = smt.And(
 
 print("inactive in I1?", not smt.is_sat(smt.And(unit, firing, I1)))
 print("inactive in I2?", not smt.is_sat(smt.And(unit, firing, I2)))
+
+# >>> inactive in I1? False
+# >>> inactive in I2? True
