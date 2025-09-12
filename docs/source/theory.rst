@@ -1,30 +1,17 @@
 
+.. _theory:
 
-.. _introduction:
-
-Getting started
-===============
-
-Check our installation guide for setting up ``wmipy`` on your system.
-
-This section also includes a brief theoretical background for those
-unfamiliar with SMT and WMI.
-
-
-Installation
-------------
-
-The library currently supports `python 3.9+` on Linux and MacOS systems.
-
-TODO
+Theory
+======
 
 Theoretical background
 ----------------------
 
-Satisfiability Modulo Theory
-""""""""""""""""""""""""""""
 
-`Satisfiability Modulo Theory
+Satisfiability Modulo Theories
+""""""""""""""""""""""""""""""
+
+`Satisfiability Modulo Theories
 <https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__ (SMT)
 is concerned with determining the satisfiability of formulas
 containing both propositional and *theory* atoms. In this sense, it is
@@ -274,12 +261,25 @@ distribution with domain :math:`[-l, u]` and mode :math:`m`:
 
    x = Symbol("x", REAL)
 
+   height = 2 / (u - l) # ensures a normalized distribution
+
+   a1 = height / (m - l)
+   b1 = -a1 * l
+
+   a2 = height / (m - u)
+   b2 = -a2 * u
+
    support = And(LE(Real(l), x), LE(x, Real(u)))
 
-   w = Ite(LE(x, m),
-           left,
-	   right
-   )
-   
+   linear = lambda a, b : Plus(Times(Real(a), x), Real(b))
+
+   w = Ite(LE(x, Real(m)), linear(a1, b1), linear(a2, b2))
 
 
+Relevant papers
+---------------
+
+**Satisfiability Modulo Theories** \\\\
+Clark Barrett, Roberto Sebastiani, Sanjit A. Seshia, and Cesare Tinelli \\\\
+`book chapter
+<https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__
