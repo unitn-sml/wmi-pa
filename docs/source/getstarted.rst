@@ -40,22 +40,27 @@ Notice that the WMI task gracefully decomposes into two subtasks:
 1. **Enumerating** the satisfying TAs :math:`\mu` given a weighted SMT formula :math:`\langle \Delta, w \rangle`
 2. **Integrating** the resulting convex polytopes / integrands
 
-We are designing ``wmipy`` in order to be modular. TODO: continue
+A core design principle of ``wmipy`` is **modularity**. For this
+reason, we designed different classes in order to be used as
+stand-alone objects as well as sub-components of a larger solver.
+
 
 Enumerators
 """""""""""
 
-The library offer different stand-alone enumerators. An enumerator constructor takes as
-input a weighted SMT formula (plus the current ``pysmt`` environment).
+The library offer different enumerators in the submodule
+``wmipa.enumeration``. An enumerator constructor takes as input a
+weighted SMT formula (plus the current ``pysmt`` environment).
 
 .. code-block:: python
 
-   import pysmt.shortcuts as smt
+   from pysmt.shortcuts import *
    from wmipa.enumeration import TotalEnumerator
 
    ...
 
-   enumerator = TotalEnumerator(support, w, smt.get_env())
+   smt_env = get_env()
+   enumerator = TotalEnumerator(support, w, smt_env)
 
 Enumerators provide an ``enumerate`` method that takes as input a
 ``query`` SMT-formula (encoding a subset of the support of interest)
@@ -68,7 +73,7 @@ and returns an `Iterable` over pairs of:
 
    ...
 
-   query = smt.LE(x, smt.Real(5))
+   query = LE(x, Real(5))
    for ta, nb in enumerator.enumerate(query):
         print("TA:", ta, "\nUnassigned booleans:", nb, "\n")
 
@@ -78,6 +83,27 @@ and returns an `Iterable` over pairs of:
    The number of unassigned Booleans is fundamental for computing the
    count/integral. It will always be 0 (and therefore it can be ignored) for
    enumerators returning *total* TAs, such as ``TotalEnumerator``.
+
+
+Enumerators can be used as stand-alone components. For instance, the
+code below uses ``wmipy`` for implementing a procedure that turns
+arbitrary SMT-LRA formulas in disjunctive normal form (DNF),
+i.e. disjunctions of conjunctions of literals (atoms or their
+negation).
+   
+.. code-block:: python
+
+   from pysmt.shortcuts import *
+   from wmipa.enumeration import SAEnumerator
+
+   def to_dnf(formula, smt_env):
+       partial_enumerator = SAEnumerator(formula, Real(1), smt_env)
+       disjuncts = []
+       for ta, _ in partial_enumerator.enumerate(Bool(True)):
+           conj = And(*[atom if is_true else Not(atom) for atom, is_true in ta.items()])
+           disjuncts.append(conj)
+
+       return Or(*disjuncts)
 
 
 Polytopes and  Polynomials
@@ -92,7 +118,7 @@ representations for polytopes and polynomials. The classes
 function for manipulating these algebraic objects.
 
 ``AssignmentConverter`` implements a wrapper around enumerators that
-converts TAs into ``tuple(Polytope, Polynomial)``:
+converts TAs into pairs ``(Polytope, Polynomial)``:
 
 .. code-block:: python
 
@@ -125,4 +151,50 @@ representation, or convert them back to (canonical) ``pysmt`` formulas
 Integration
 """""""""""
 
-TODO
+The submodule ``wmipa.integration`` contains a number of integrators,
+which can be divided into *base* integrators and *wrappers*.
+
+Base integrators implement an ``integrate`` method that takes as input
+a pair ``(Polytope, Polynomial)``, respectively encoding the
+integration bounds and the integrand. Additionally, an
+``integrate_batch`` method is also provided, solving collections of
+integral at once.
+
+.. literalinclude :: ../examples/integration.py
+    :language: python
+
+Wrappers are objects that add some functionality to integrators, which
+are passed as argument to their constructor. Once instantiated, these
+implement the same ``integrate`` and ``integrate_batch`` functionality
+as baseline integrators.
+
+Some useful wrappers include:
+
+* ``AxisAlignedWrapper`` computes in linear time (in :math:`|\mathbf{x}|`) the integral if the integration domain is an axis-aligned bounding box and the integrand is constant. Otherwise, the enclosed integrator is called.
+
+* ``ParallelWrapper`` uses multiprocessing for parallelizing ``integrate_batch`` calls using the enclosed integration method.
+
+* ``CacheWrapper`` implements a caching mechanism, possibly retrieving pre-computed results.
+
+Wrappers can be combined:
+
+.. code-block:: python
+
+   ...
+
+   from pysmt.integration import *
+
+   integrator = CacheWrapper(ParallelWrapper(LattEIntegrator()))
+
+augments an the exact integrator based on `LattE Integrale
+<https://www.math.ucdavis.edu/~latte/>`__ with both caching and
+multiprocessing.
+
+
+Solvers
+"""""""
+
+Different modules can be combined into more advanced solvers.
+
+As a notable example, ``wmipy`` implements the state-of-the-art WMI solver
+SAE4WMI [:ref:`3 <bib-sae4wmi>`].

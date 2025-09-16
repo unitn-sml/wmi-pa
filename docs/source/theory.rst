@@ -11,7 +11,7 @@ Theoretical background
 Satisfiability Modulo Theories
 """"""""""""""""""""""""""""""
 
-:ref:`Satisfiability Modulo Theories <bib-smt>` (SMT) is concerned
+Satisfiability Modulo Theories (SMT) [:ref:`1 <bib-smt>`] is concerned
 with determining the satisfiability of formulas containing both
 propositional and *theory* atoms. In this sense, it is a strict
 generalization of propositional satisfiability (SAT) to formulas that
@@ -220,9 +220,9 @@ models are *uniformly* distributed.
 Weighted Model Integration
 """"""""""""""""""""""""""
 
-:ref:`Weighted Model Integration <bib-wmi>` (WMI) is a
-formalism introduced in the context of probabilistic inference with
-logical and algebraic constraints.
+Weighted Model Integration (WMI) [:ref:`2 <bib-wmi>`] is a formalism
+introduced in the context of probabilistic inference with logical and
+algebraic constraints.
 
 
 Simply put, quantitative SMT-LRA reasoning is complemented with a
@@ -296,12 +296,19 @@ Bibliography
 
 .. _bib-smt:
 
-| **Satisfiability Modulo Theories**
+| [1] **Satisfiability Modulo Theories**
 | Clark Barrett, Roberto Sebastiani, Sanjit A. Seshia and Cesare Tinelli
 | `book chapter <https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__
 
 .. _bib-wmi:
 
-| **Probabilistic inference in hybrid domains by weighted model integration**
+| [2] **Probabilistic inference in hybrid domains by weighted model integration**
 | Vaishak Belle, Andrea Passerini and Guy Van den Broeck
 | `conference paper <https://www.ijcai.org/Proceedings/15/Papers/392.pdf>`__
+
+.. _bib-sae4wmi:
+
+| [3] **Enhancing SMT-based Weighted Model Integration by structure awareness**
+| Giuseppe Spallitta, Gabriele Masina, Paolo Morettin, Andrea Passerini and Roberto Sebastiani
+| `journal paper <https://disi.unitn.it/rseba/papers/AIJ24.pdf>`__
+
