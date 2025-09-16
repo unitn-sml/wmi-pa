@@ -29,6 +29,7 @@ extensions = [
     "sphinx_autodoc_typehints",  # Automatically document param types (less noise in class signature)
     "nbsphinx",  # Integrate Jupyter Notebooks and Sphinx
     "IPython.sphinxext.ipython_console_highlighting",
+    "myst_parser", # For importing Markdown
 ]
 
 # Mappings for sphinx.ext.intersphinx. Projects have to have Sphinx-generated doc! (.inv file)

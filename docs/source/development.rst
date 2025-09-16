@@ -24,7 +24,7 @@ How to contribute
 Feedback, pull requests, active development.. any form of contribution
 is much welcome!
 
-If you want to get in touch, contact paolo.morettin@unitn.it.
+If you want to get in touch, contact Paolo Morettin (paolo.morettin@unitn.it).
 
 
 Acknowledgements

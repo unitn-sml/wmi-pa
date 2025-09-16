@@ -6,8 +6,8 @@
    :maxdepth: 0
 
    Home page <self>
-   Get started <installation>
    Theory <theory>
+   Get started <getstarted>
    Jupyter tutorials <tutorials>
    API reference <_autosummary/wmipa>
    Development <development>
@@ -37,7 +37,7 @@ Welcome to the wmipy documentation
 .. centered::
    ... ``pip install wmipy`` !
 
-   
+
 ``wmipy`` is a modular library for solving **Weighted Model
 Integration** (WMI) and related quantitative reasoning tasks over
 mixed continuous / logical domains.
@@ -47,10 +47,10 @@ Our goals:
 * Facilitating the integration of state-of-the-art WMI technology into your project
 * Providing a flexible framework for the development of novel solvers
 
-Eager to start? :ref:`Install <installation>` it now!
+**Unfamiliar with WMI or SMT?** :ref:`Read <theory>` our theory primer first.
 
-Unfamiliar with WMI? Check our :ref:`theory <theory>` primer.
+**Eager to code?** :ref:`Get started <getstarted>` now!
 
-Curious about advanced use cases? See our Jupyter :ref:`tutorials <tutorials>` and :ref:`API reference <_autosummary/wmipa>`.
+**Curious about advanced use cases?** :ref:`Check out <tutorials>` our Jupiter notebooks.
 
-Want to contribute? You are :ref:`welcome <development>`!
+**Want to be part of** ``wmipy`` **?** :ref:`Learn <development>` how to contribute.

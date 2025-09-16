@@ -11,19 +11,32 @@ Theoretical background
 Satisfiability Modulo Theories
 """"""""""""""""""""""""""""""
 
-`Satisfiability Modulo Theories
-<https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__ (SMT)
-is concerned with determining the satisfiability of formulas
-containing both propositional and *theory* atoms. In this sense, it is
-a strict generalization of propositional satisfiability (SAT) to
-formulas that not only contain Boolean variables.
+:ref:`Satisfiability Modulo Theories <bib-smt>` (SMT) is concerned
+with determining the satisfiability of formulas containing both
+propositional and *theory* atoms. In this sense, it is a strict
+generalization of propositional satisfiability (SAT) to formulas that
+not only contain Boolean variables (as known as propositions),
+i.e. variables that evaluates to true (:math:`\top`) or false
+(:math:`\bot`).
 
-As in SAT, the outcome of :math:`SMT(\Delta)` is binary: the formula
-:math:`\Delta` is either **sat**\ isfiable or **unsat**\ isfiable. In
-the former case, typically a satisfying *truth assignment* (TA) to the
-formula's atoms is also returned by the SMT solver. In the following,
-:math:`\mu \models \Delta` denotes that the TA :math:`\mu` satisfies
-:math:`\Delta`.
+As in SAT, :math:`SMT(\Delta)` is a binary decision problem: the
+formula :math:`\Delta` is either **sat**\ isfiable or **unsat**\
+isfiable.
+
+:math:`\Delta` is **sat** if there exists a *satisfying truth
+assignment* (TA) to the formula's atoms.
+
+* A TA is a mapping:
+
+  .. math::
+
+     \mu: \text{Atoms}(\Delta) \rightarrow \{ \top, \bot\}
+	
+* A TA *propositionally satisfies* :math:`\Delta` if the formula
+  obtained by substituting the atoms with their respective truth
+  values evaluates to :math:`\top`.
+* In contrast with SAT, in SMT a TA can be *theory unsatisfiable*.
+* A *satisfying* TA in SMT both *propositionally satisfies* :math:`\Delta` and is *theory-satisfiable* (denoted :math:`\mu \models \Delta` ).
 
 The existence of a satisfying TA implies that there exist at
 least a value assignment to the variables of the formula that satisfy
@@ -118,7 +131,7 @@ Our library builds upon ``pysmt`` for defining SMT-LRA formulas.
    The following code implements :ref:`Example 1 <ex1>` for a toy scenario with 2 input variables.
    The parameters are set to :math:`\mathbf{w} = [1,1]` for simplicity in the following examples.
 
-   .. literalinclude :: ../examples/example1.py
+   .. literalinclude :: ../examples/theory1.py
        :language: python
 
 
@@ -139,8 +152,11 @@ In order to enable quantitative reasoning on top of SMT, a few aspects
 have to be addressed.
 
 First, instead of searching for a single satisfying TA, we need to
-**enumerate** them all, i.e., compute the set :math:`\{\mu \:|\: \mu
-\models \Delta \}`.
+**enumerate** them all, i.e., compute a set :math:`M` such that:
+
+* :math:`\forall \mu \in M \:.\: \mu \models \Delta` (they satisfy the formula)
+* :math:`\forall \mu_i, \mu_j \in M \:.\: i \neq j \implies \mu_i \land \mu_j \models \bot` (they are mutually disjoint)
+* :math:`\cup_{\mu \in M} \equiv \Delta` (they form a complete partitioning of the formula)
 
 .. _ex2:
 .. admonition:: Example 2
@@ -204,8 +220,7 @@ models are *uniformly* distributed.
 Weighted Model Integration
 """"""""""""""""""""""""""
 
-`Weighted Model Integration
-<https://www.ijcai.org/Proceedings/15/Papers/392.pdf>`__ (WMI) is a
+:ref:`Weighted Model Integration <bib-wmi>` (WMI) is a
 formalism introduced in the context of probabilistic inference with
 logical and algebraic constraints.
 
@@ -246,7 +261,7 @@ true or false.
    * constant 1 (i.e. unweighted)
    * the quadratic polynomial :math:`x^2 + 1`
 
-   .. literalinclude :: ../examples/example2.py
+   .. literalinclude :: ../examples/theory2.py
        :language: python
 
 More complex weight functions can be defined by combining valid weight
@@ -276,10 +291,17 @@ distribution with domain :math:`[-l, u]` and mode :math:`m`:
    w = Ite(LE(x, Real(m)), linear(a1, b1), linear(a2, b2))
 
 
-Relevant papers
----------------
+Bibliography
+------------
 
-**Satisfiability Modulo Theories** \\\\
-Clark Barrett, Roberto Sebastiani, Sanjit A. Seshia, and Cesare Tinelli \\\\
-`book chapter
-<https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__
+.. _bib-smt:
+
+| **Satisfiability Modulo Theories**
+| Clark Barrett, Roberto Sebastiani, Sanjit A. Seshia and Cesare Tinelli
+| `book chapter <https://escholarship.org/content/qt11n7z852/qt11n7z852.pdf>`__
+
+.. _bib-wmi:
+
+| **Probabilistic inference in hybrid domains by weighted model integration**
+| Vaishak Belle, Andrea Passerini and Guy Van den Broeck
+| `conference paper <https://www.ijcai.org/Proceedings/15/Papers/392.pdf>`__
