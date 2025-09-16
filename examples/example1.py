@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
-from wmipa.solvers import AllSMTSolver
+from wmipa.solvers import WMISolver
 from wmipa.integration import LattEIntegrator
 from wmipa.integration import VolestiIntegrator
 
@@ -31,7 +31,7 @@ print("Support:", chi.serialize())
 
 print()
 for integrator in (LattEIntegrator(), VolestiIntegrator()):
-    wmi = AllSMTSolver(chi, w, integrator=integrator)
+    wmi = WMISolver(chi, w, integrator=integrator)
     result, n_integrations = wmi.compute(phi, domain)
     print(
         "WMI (integrator: {:20})\t "

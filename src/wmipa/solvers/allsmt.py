@@ -12,7 +12,7 @@ from wmipa.enumeration import Enumerator, TotalEnumerator
 from wmipa.integration import Integrator, RejectionIntegrator
 
 
-class AllSMTSolver:
+class WMISolver:
     """The class implements a WMI solver based on exhaustive enumeration.
 
     The weighted model integral is solved sequentially:

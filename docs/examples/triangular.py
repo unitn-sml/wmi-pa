@@ -2,7 +2,7 @@
 from sys import argv
 from pysmt.shortcuts import *
 
-from wmipa.solvers import AllSMTSolver
+from wmipa.solvers import WMISolver
 from wmipa.enumeration import TotalEnumerator
 from wmipa.integration import LattEIntegrator
 
@@ -31,7 +31,7 @@ w = Ite(LE(x, Real(m)),
 enumerator = TotalEnumerator(support, w, get_env())
 integrator = LattEIntegrator()
 
-wmi_solver = AllSMTSolver(enumerator, integrator)
+wmi_solver = WMISolver(enumerator, integrator)
 
  
 print(f"WMI of {serialize(w)} is:", wmi_solver.compute( Bool(True), {x})["wmi"])

@@ -25,7 +25,7 @@ class SAEnumerator:
         "Enhancing SMT-based Weighted Model Integration by structure awareness" (Spallitta et al., 2024).
 
     In contrast with the baseline TotalEnumerator, this enumerator:
-    - uses MathSAT partial AllSMT enumeration
+    - uses MathSAT partial WMI enumeration
     - accounts for the structure of the weight function (i.e. its skeleton) in order to minimize the number of truth assignment returned.
 
     TODO: better describe the effect of 'max_queue_size' (wouldn't it be more clear to have a boolean flag 'blocking' instead?) and why its there.

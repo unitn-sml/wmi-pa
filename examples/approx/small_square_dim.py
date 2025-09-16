@@ -1,7 +1,7 @@
 from pysmt.shortcuts import And, Bool
 
 from approx import make_domain, make_small_square, make_polynomial, get_results, plot_results
-from wmipa.solvers import AllSMTSolver
+from wmipa.solvers import WMISolver
 
 if __name__ == "__main__":
     # small square with increasing dimension
@@ -14,7 +14,7 @@ if __name__ == "__main__":
         # in each dimension
         support = domain.get_bounds()
 
-        res = AllSMTSolver(And(q, support), w).compute(Bool(True))[0]
+        res = WMISolver(And(q, support), w).compute(Bool(True))[0]
         return res
 
 

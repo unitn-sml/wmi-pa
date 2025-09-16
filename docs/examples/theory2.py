@@ -2,7 +2,7 @@
 from pysmt.shortcuts import *
 
 # wmipy's design is modular
-from wmipa.solvers import AllSMTSolver
+from wmipa.solvers import WMISolver
 
 # in this example, we pair total TA enumeration...
 from wmipa.enumeration import TotalEnumerator
@@ -35,7 +35,7 @@ for w in [weight1, weight2]:
     enumerator = TotalEnumerator(support, w, get_env())
     integrator = LattEIntegrator()
 
-    wmi_solver = AllSMTSolver(enumerator, integrator)
+    wmi_solver = WMISolver(enumerator, integrator)
 
     # we set query to true in order to compute the full WMI of <support, w>
     query = Bool(True)

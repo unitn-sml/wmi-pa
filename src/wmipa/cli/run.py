@@ -5,7 +5,7 @@ from typing import Callable
 from pysmt.fnode import FNode
 import pysmt.shortcuts as smt
 
-from wmipa.solvers import AllSMTSolver
+from wmipa.solvers import WMISolver
 from wmipa.cli.density import Density
 from wmipa.cli.log import logger
 from wmipa.core.weights import Weights
@@ -135,7 +135,7 @@ def run(args: argparse.Namespace) -> None:
     integrator = parse_integrator(args)
 
     t0 = time()
-    solver = AllSMTSolver(enumerator, integrator=integrator)
+    solver = WMISolver(enumerator, integrator=integrator)
 
     result = solver.compute(smt.Bool(True), variables)
     tZ = time() - t0
