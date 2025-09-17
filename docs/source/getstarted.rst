@@ -40,10 +40,14 @@ Notice that the WMI task gracefully decomposes into two subtasks:
 1. **Enumerating** the satisfying TAs :math:`\mu` given a weighted SMT formula :math:`\langle \Delta, w \rangle`
 2. **Integrating** the resulting convex polytopes / integrands
 
-A core design principle of ``wmipy`` is **modularity**. For this
-reason, we designed different classes in order to be used as
-stand-alone objects as well as sub-components of a larger solver.
+The initial phases of development were driven by questions like:
 
+* What if one is only interested in the enumeration subtask?
+* What if the convex subtask is not continuous integration?
+
+As a result, the core design principle of ``wmipy`` is **modularity**:
+we designed different classes in order to be used as stand-alone
+objects as well as sub-components of a larger solver.
 
 Enumerators
 """""""""""
@@ -104,7 +108,6 @@ negation).
            disjuncts.append(conj)
 
        return Or(*disjuncts)
-
 
 Polytopes and  Polynomials
 """"""""""""""""""""""""""
@@ -196,5 +199,13 @@ Solvers
 
 Different modules can be combined into more advanced solvers.
 
-As a notable example, ``wmipy`` implements the state-of-the-art WMI solver
-SAE4WMI [:ref:`3 <bib-sae4wmi>`].
+These solvers can be found in ``wmipy.solvers``.  Currently, the only
+available solver is a WMI meta-solver ``WMISolver``, which can be
+instantiated with any ``enumerator`` and ``integrator``.
+
+For instance, the following lines implement the state-of-the-art WMI solver
+SAE4WMI [:ref:`3 <bib-sae4wmi>`]:
+
+.. literalinclude :: ../examples/sae4wmi.py
+    :language: python
+

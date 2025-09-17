@@ -1,1 +1,1 @@
-from .allsmt import WMISolver
+from .wmisolver import WMISolver
