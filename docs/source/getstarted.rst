@@ -4,24 +4,13 @@
 Get started
 ===========
 
-Installation
-------------
+Installation and Command Line Interface
+---------------------------------------
 
 
 .. include:: ../../INSTALL.md
    :parser: myst_parser.sphinx_
 
-TODO
-
-
-Command Line Interface
-----------------------
-
-
-.. include:: ../../CLI.md
-   :parser: myst_parser.sphinx_
-
-TODO
 
 A short tour
 ------------
