@@ -9,7 +9,7 @@ from wmipa.enumeration.enumerator import Enumerator
 from wmipa.core.weights import Weights
 
 if TYPE_CHECKING:  # avoid circular import
-    from wmipa.solver import WMISolver
+    from wmipa.solvers import WMISolver
 
 
 class AsyncWrapper(Enumerator):
