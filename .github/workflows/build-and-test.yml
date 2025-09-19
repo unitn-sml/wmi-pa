@@ -2,9 +2,9 @@ name: Build and Test (Python 3.9+, macOS, Linux)
 
 on:
   push:
-    branches: [ main, featherweight ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, featherweight ]
+    branches: [ main ]
 
 jobs:
   test:

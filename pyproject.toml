@@ -24,8 +24,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/unitn-sml/wmi-pa"
-Repository = "https://github.com/unitn-sml/wmi-pa"
+Homepage = "https://github.com/unitn-sml/wmpy"
+Repository = "https://github.com/unitn-sml/wmpy"
 
 [project.optional-dependencies]
 docs = ["sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints", "nbsphinx", "ipython", "jupytext", "jupyter", "matplotlib", "myst-parser"]
