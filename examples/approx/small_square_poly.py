@@ -2,7 +2,7 @@ import numpy as np
 from pysmt.shortcuts import And, Bool
 
 from approx import make_domain, make_small_square, make_polynomial, get_results, plot_results
-from wmipa import WMISolver
+from wmpy.solvers import WMISolver
 
 if __name__ == "__main__":
     # small square with increasing polynomial degree
@@ -11,7 +11,7 @@ if __name__ == "__main__":
     support = domain.get_bounds()
 
     problems = [(q := make_small_square(0.5), w := make_polynomial(degree),
-                 WMISolver(And(q, support), w).computeWMI(Bool(True))[0],
+                 WMISolver(And(q, support), w).compute(Bool(True))[0],
                  domain)
                 for degree in range(2, MD + 1, 2)]
 

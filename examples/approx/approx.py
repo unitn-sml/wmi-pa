@@ -7,8 +7,8 @@ import numpy as np
 from pysmt.shortcuts import And, Or, LE, GE, Real, Plus, Pow, Bool
 from pywmi import Domain, RejectionEngine
 
-from wmipa import WMISolver
-from wmipa.integration import VolestiIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.integration import VolestiIntegrator
 
 N = 100
 
@@ -60,7 +60,7 @@ def make_polynomial(degree, dim=2):
 def volesti(support, q, w):
     def volesti_wmi(seed):
         wmi = WMISolver(And(q, support), w, integrator=VolestiIntegrator(seed=seed, walk_type="CDHR", N=1000))
-        return wmi.computeWMI(Bool(True))[0]
+        return wmi.compute(Bool(True))[0]
 
     return volesti_wmi
 

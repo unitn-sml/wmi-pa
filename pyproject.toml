@@ -1,0 +1,81 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wmpy"
+version = "1.0"
+description = "WM*PY"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "wmpy team" }]
+requires-python = ">=3.9.0"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "networkx",
+    "numpy",
+    "PySMT>=0.9.7.dev333",
+    "scipy",
+    "z3-solver",
+]
+
+[project.urls]
+Homepage = "https://github.com/unitn-sml/wmi-pa"
+Repository = "https://github.com/unitn-sml/wmi-pa"
+
+[project.optional-dependencies]
+docs = ["sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints", "nbsphinx", "ipython", "jupytext", "jupyter", "matplotlib", "myst-parser"]
+test = ["pytest", "pytest-runner", "pytest-cov"]
+typing = [
+    "mypy",
+    "types-networkx; python_version>='3.10'",
+    "scipy-stubs; python_version>='3.11'",
+]
+#nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
+
+[project.scripts]
+wmpy = "wmpy.cli.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.black]
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = "3.9"
+follow_imports = "silent"
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+warn_unused_configs = true
+disable_error_code = ["import-untyped"]
+
+files = ["src/wmpy/"] # files to check
+
+[[tool.mypy.overrides]]
+module = ["mathsat", "pysmt.*"]
+ignore_missing_imports = true
+
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+
+[tool.coverage.run]
+branch = true
+source = ["src/"]
+omit = ["src/wmpy/cli/*"]
+
+[tool.coverage.report]
+exclude_also = [
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+]

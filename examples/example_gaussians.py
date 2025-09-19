@@ -2,13 +2,13 @@ try:
     from pysmt.shortcuts import PI, Exp
 except ImportError:
     raise ImportError("""Couldn't import PI or Exp from pysmt.shortcuts.
-Install wmipa with the extras_require option for non-linear arithmetic: 
-    pip install wmipa[nra]""")
+Install wmpy with the extras_require option for non-linear arithmetic: 
+    pip install wmpy[nra]""")
 from pysmt.shortcuts import GE, LE, And, Bool, Pow, Real, Symbol, Div, Times
 from pysmt.typing import REAL
 
-from wmipa import WMISolver
-from wmipa.integration import VolestiIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.integration import VolestiIntegrator
 
 # variables definition
 x = Symbol("x", REAL)
@@ -31,7 +31,7 @@ print("Weight function:", w.serialize())
 
 print()
 wmi = WMISolver(chi, w, integrator=VolestiIntegrator())
-result, n_integrations = wmi.computeWMI(phi, {x})
+result, n_integrations = wmi.compute(phi, {x})
 print(
     "WMI \t result = {}, \t # integrations = {}".format(
         result, n_integrations

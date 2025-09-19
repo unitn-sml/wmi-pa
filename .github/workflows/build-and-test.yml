@@ -1,0 +1,80 @@
+name: Build and Test (Python 3.9+, macOS, Linux)
+
+on:
+  push:
+    branches: [ main, featherweight ]
+  pull_request:
+    branches: [ main, featherweight ]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }} with Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+        python-version: [ "3.9", "3.10", "3.11", "3.12" ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
+
+      - name: Install setuptools
+        run: pip install setuptools
+
+      - name: Install package
+        run: pip install -e ".[test,typing]"
+
+      - name: Install system dependencies
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+              echo "Waiting for apt lock to be released..."
+              sleep 5
+            done
+            sudo apt update
+            sudo apt install -y g++ libboost-dev libcdd-dev libcdd-tools libgmp-dev libmpfr-dev libntl-dev make
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install gmp boost cddlib mpfr ntl
+          fi
+        shell: bash
+
+      - name: Run wmpy install
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+          fi
+          wmpy install --msat --latte --install-path ./wmpy-bin -y
+          echo "$GITHUB_WORKSPACE/wmpy-bin/latte/bin" >> $GITHUB_PATH
+        shell: bash
+
+      - name: Run mypy
+        # NOTE: some type stubs are not available for Python < 3.11
+        run: mypy
+
+      - name: Run tests and collect coverage
+        # NOTE: coverage is only collected for Python 3.12 on Linux
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
+          fi
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python-version }}" == "3.12" ]]; then
+            coverage run -m pytest
+            coverage xml
+          else
+            pytest
+          fi
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
