@@ -42,8 +42,10 @@ class RejectionIntegrator:
         for i in range(polytope.N):
             cost = np.array([1 if j == i else 0 for j in range(polytope.N)])
             res = linprog(cost, A_ub=A, b_ub=b, method="highs-ds", bounds=(None, None))
-            lowerl.append(res.x[i])
+            assert(res.x is not None)
+            lowerl.append(res.x[i])          
             res = linprog(-cost, A_ub=A, b_ub=b, method="highs-ds", bounds=(None, None))
+            assert(res.x is not None)
             upperl.append(res.x[i])
 
         lower, upper = np.array(lowerl), np.array(upperl)

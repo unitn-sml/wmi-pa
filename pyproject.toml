@@ -16,11 +16,11 @@ classifiers = [
     "Programming Language :: Python :: 3",
 ]
 dependencies = [
-    "networkx",
-    "numpy",
+    "networkx==3.5",
+    "numpy==2.3.3",
     "PySMT>=0.9.7.dev333",
-    "scipy",
-    "z3-solver",
+    "scipy==1.16.2",
+    "z3-solver==4.15.3.0",
 ]
 
 [project.urls]
@@ -32,8 +32,8 @@ docs = ["sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints", "nbsphinx", "i
 test = ["pytest", "pytest-runner", "pytest-cov"]
 typing = [
     "mypy",
-    "types-networkx; python_version>='3.10'",
-    "scipy-stubs; python_version>='3.11'",
+    "types-networkx==3.5.0.20250918; python_version>='3.10'",
+    "scipy-stubs==1.16.2.0; python_version>='3.11'",
 ]
 #nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 
