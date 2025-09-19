@@ -25,7 +25,7 @@ in Artificial Intelligence, Volume 328, 2024
 Base version:
 
 ```bash
-pip install wmipa
+pip install git+https://github.com/unitn-sml/wmpy.git@wmipa
 ```
 
 ### Additional requirements
