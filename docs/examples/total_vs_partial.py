@@ -1,6 +1,6 @@
 import pysmt.shortcuts as smt
 
-from wmipa.enumeration import SAEnumerator, TotalEnumerator
+from wmpy.enumeration import SAEnumerator, TotalEnumerator
 
 a = smt.Symbol("a", smt.BOOL)
 b = smt.Symbol("b", smt.BOOL)

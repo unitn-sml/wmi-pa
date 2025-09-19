@@ -48,13 +48,13 @@ jobs:
           fi
         shell: bash
 
-      - name: Run wmipa install
+      - name: Run wmpy install
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
           fi
-          wmipa install --msat --latte --install-path ./wmipa-bin -y
-          echo "$GITHUB_WORKSPACE/wmipa-bin/latte/bin" >> $GITHUB_PATH
+          wmpy install --msat --latte --install-path ./wmpy-bin -y
+          echo "$GITHUB_WORKSPACE/wmpy-bin/latte/bin" >> $GITHUB_PATH
         shell: bash
 
       - name: Run mypy

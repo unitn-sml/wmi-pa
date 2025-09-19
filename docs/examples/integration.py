@@ -1,8 +1,8 @@
 
 from pysmt.shortcuts import *
 
-from wmipa.core import Polynomial, Polytope
-from wmipa.integration import RejectionIntegrator
+from wmpy.core import Polynomial, Polytope
+from wmpy.integration import RejectionIntegrator
 
 smt_env = get_env()   
 x = Symbol("x", REAL)

@@ -1,5 +1,5 @@
 from pysmt.shortcuts import *
-from wmipa.enumeration import SAEnumerator
+from wmpy.enumeration import SAEnumerator
 
 
 def to_dnf(formula, smt_env):

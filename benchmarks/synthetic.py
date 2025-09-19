@@ -2,7 +2,7 @@ import numpy as np
 from os.path import join
 from pysmt.shortcuts import *
 
-from wmipa.cli.density import Density
+from wmpy.cli.density import Density
 
 
 def random_cnf(

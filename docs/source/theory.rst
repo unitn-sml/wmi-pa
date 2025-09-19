@@ -247,7 +247,7 @@ weights*.  The reason is twofold:
 * They are easy to work with, being closed under the following operations: :math:`+, \cdot, \int_\mu`
 
 
-``wmipy`` uses the ``pysmt`` formulas for defining the weight.  In
+``wmpy`` uses the ``pysmt`` formulas for defining the weight.  In
 practice, while the support is a standard SMT-LRA formula, the weight
 function is an LRA term, i.e. an expression that does not evaluate to
 true or false.

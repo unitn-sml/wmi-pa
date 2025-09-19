@@ -3,7 +3,7 @@ import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 from pysmt.walkers import IdentityDagWalker
 
-from wmipa.core import Polynomial
+from wmpy.core import Polynomial
 
 env = smt.get_env()
 x = smt.Symbol("X", REAL)
@@ -11,7 +11,7 @@ y = smt.Symbol("Y", REAL)
 
 
 class PowSimplifier(IdentityDagWalker):
-    """This is needed here because wmipa follows python's convention
+    """This is needed here because wmpy follows python's convention
     on 0 ** 0 == 1. This is not the case for most SMT solvers.
 
     """

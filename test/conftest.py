@@ -1,7 +1,7 @@
 import pytest
 
-from wmipa.enumeration import *
-from wmipa.integration import *
+from wmpy.enumeration import *
+from wmpy.integration import *
 
 from numerical import *
 

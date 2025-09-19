@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Equals, Plus, Real, Symbol
 from pysmt.typing import REAL
 
-from wmipa.solvers import WMISolver
+from wmpy.solvers import WMISolver
 
 # variables definition
 x = Symbol("x", REAL)

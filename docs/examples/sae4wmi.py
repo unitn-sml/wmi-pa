@@ -1,9 +1,9 @@
 from pysmt.shortcuts import *
 
-from wmipa.solvers import WMISolver
+from wmpy.solvers import WMISolver
 
-from wmipa.enumeration import SAEnumerator
-from wmipa.integration import CacheWrapper, LattEIntegrator, ParallelWrapper
+from wmpy.enumeration import SAEnumerator
+from wmpy.integration import CacheWrapper, LattEIntegrator, ParallelWrapper
 
 
 def instantiate_sae4wmi(support, w, smt_env, n_processes):

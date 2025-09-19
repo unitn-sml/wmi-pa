@@ -5,7 +5,7 @@ import pysmt.shortcuts as smt
 from pysmt.typing import REAL
 from scipy.spatial import ConvexHull
 
-from wmipa.core import Polynomial, Polytope
+from wmpy.core import Polynomial, Polytope
 
 
 def _polytope_from_inequalities(A, b):

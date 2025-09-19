@@ -11,9 +11,9 @@ sys.path.insert(0, os.path.abspath("../src/"))  # Source code dir relative to th
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = "wmipy"
-copyright = "2025, the wmipy team"
-author = "the wmipy team"
+project = "wmpy"
+copyright = "2025, the wmpy team"
+author = "the wmpy team"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -50,7 +50,7 @@ html_show_sourcelink = (
 
 autodoc_inherit_docstrings = True  # If no docstring, inherit from base class
 
-autodoc_mock_imports = ["wmipa.cli"]  # Do not create API reference for the CLI
+autodoc_mock_imports = ["wmpy.cli"]  # Do not create API reference for the CLI
 
 set_type_checking_flag = True  # Enable 'expensive' imports for sphinx_autodoc_typehints
 

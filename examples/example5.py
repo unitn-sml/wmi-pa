@@ -1,7 +1,7 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
-from wmipa.solvers import WMISolver
+from wmpy.solvers import WMISolver
 
 # variables definition
 a = Symbol("A", BOOL)

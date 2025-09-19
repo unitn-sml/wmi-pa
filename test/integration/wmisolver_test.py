@@ -2,9 +2,9 @@ import numpy as np
 import pysmt.shortcuts as smt
 from pysmt.typing import BOOL, REAL
 
-from wmipa.solvers import WMISolver
-from wmipa.enumeration import TotalEnumerator, SAEnumerator
-from wmipa.integration import LattEIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.enumeration import TotalEnumerator, SAEnumerator
+from wmpy.integration import LattEIntegrator
 
 env = smt.get_env()
 a = smt.Symbol("A", BOOL)

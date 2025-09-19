@@ -1,7 +1,7 @@
 from pysmt.shortcuts import And, Bool
 
 from approx import make_domain, make_small_square, make_polynomial, get_results, plot_results
-from wmipa.solvers import WMISolver
+from wmpy.solvers import WMISolver
 
 if __name__ == "__main__":
     # small square with increasing dimension

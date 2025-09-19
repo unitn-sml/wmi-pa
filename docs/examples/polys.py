@@ -1,7 +1,7 @@
 import numpy as np
 from pysmt.shortcuts import *
 
-from wmipa.core import Polytope, Polynomial
+from wmpy.core import Polytope, Polynomial
 
 #### CONSTRUCTION
 

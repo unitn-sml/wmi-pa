@@ -34,7 +34,7 @@ do
 	echo "Skipping "$FILENAME" with latte"
     else
 	echo "Computing "$FILENAME" with latte"
-	timeout $TIMEOUT wmipa run $INPUT_DIR$FILENAME --integrator latte > $RESULTS
+	timeout $TIMEOUT wmpy run $INPUT_DIR$FILENAME --integrator latte > $RESULTS
     fi
     
     RESULTS=$REJ_DIR$FILENAME
@@ -43,7 +43,7 @@ do
 	echo "Skipping "$FILENAME" with rejection"
     else	
 	echo "Computing "$FILENAME" with rejection"
-	timeout $TIMEOUT wmipa run $INPUT_DIR$FILENAME --integrator rejection > $REJ_DIR$FILENAME
+	timeout $TIMEOUT wmpy run $INPUT_DIR$FILENAME --integrator rejection > $REJ_DIR$FILENAME
     fi
 done
 

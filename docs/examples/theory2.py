@@ -1,14 +1,14 @@
 # now we import everything in order to avoid the "smt." clutter
 from pysmt.shortcuts import *
 
-# wmipy's design is modular
-from wmipa.solvers import WMISolver
+# wmpy's design is modular
+from wmpy.solvers import WMISolver
 
 # in this example, we pair total TA enumeration...
-from wmipa.enumeration import TotalEnumerator
+from wmpy.enumeration import TotalEnumerator
 
 # ...with exact integration based on the LattE integrale software
-from wmipa.integration import LattEIntegrator
+from wmpy.integration import LattEIntegrator
 
 
 x = Symbol("x", REAL)

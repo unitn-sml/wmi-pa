@@ -7,8 +7,8 @@ import numpy as np
 from pysmt.shortcuts import And, Or, LE, GE, Real, Plus, Pow, Bool
 from pywmi import Domain, RejectionEngine
 
-from wmipa.solvers import WMISolver
-from wmipa.integration import VolestiIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.integration import VolestiIntegrator
 
 N = 100
 

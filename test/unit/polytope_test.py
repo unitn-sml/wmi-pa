@@ -4,7 +4,7 @@ import pytest
 
 import pysmt.shortcuts as smt
 
-from wmipa.core.polytope import Polytope
+from wmpy.core.polytope import Polytope
 
 
 def test_polytope_nonlinear():

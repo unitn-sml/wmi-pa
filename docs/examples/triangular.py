@@ -2,9 +2,9 @@
 from sys import argv
 from pysmt.shortcuts import *
 
-from wmipa.solvers import WMISolver
-from wmipa.enumeration import TotalEnumerator
-from wmipa.integration import LattEIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.enumeration import TotalEnumerator
+from wmpy.integration import LattEIntegrator
 
 
 l, u, m = map(float, argv[1:])

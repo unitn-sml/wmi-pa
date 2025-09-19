@@ -3,12 +3,12 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wmipa"
-version = "0.1.8"
-description = "Weighted Model Integration PA (Predicate Abstraction) solver."
+name = "wmpy"
+version = "1.0"
+description = "WM*PY"
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "wmipa team" }]
+authors = [{ name = "wmpy team" }]
 requires-python = ">=3.9.0"
 classifiers = [
     "License :: OSI Approved :: MIT License",
@@ -38,7 +38,7 @@ typing = [
 #nra = ["pysmt @ git+https://git@github.com/masinag/pysmt@nrat#egg=pysmt"]
 
 [project.scripts]
-wmipa = "wmipa.cli.cli:cli"
+wmpy = "wmpy.cli.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -59,7 +59,7 @@ warn_unreachable = true
 warn_unused_configs = true
 disable_error_code = ["import-untyped"]
 
-files = ["src/wmipa/"] # files to check
+files = ["src/wmpy/"] # files to check
 
 [[tool.mypy.overrides]]
 module = ["mathsat", "pysmt.*"]
@@ -72,7 +72,7 @@ testpaths = ["test"]
 [tool.coverage.run]
 branch = true
 source = ["src/"]
-omit = ["src/wmipa/cli/*"]
+omit = ["src/wmpy/cli/*"]
 
 [tool.coverage.report]
 exclude_also = [

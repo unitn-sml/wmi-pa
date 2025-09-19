@@ -1,9 +1,9 @@
 from pysmt.shortcuts import GE, LE, And, Bool, Iff, Ite, Real, Symbol, Times
 from pysmt.typing import BOOL, REAL
 
-from wmipa.solvers import WMISolver
-from wmipa.integration import LattEIntegrator
-from wmipa.integration import VolestiIntegrator
+from wmpy.solvers import WMISolver
+from wmpy.integration import LattEIntegrator
+from wmpy.integration import VolestiIntegrator
 
 # variables definition
 a = Symbol("A", BOOL)

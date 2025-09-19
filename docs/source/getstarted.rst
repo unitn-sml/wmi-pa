@@ -15,7 +15,7 @@ Installation and Command Line Interface
 A short tour
 ------------
 
-``wmipy`` evolved from ``wmipa``, a state-of-the-art SMT-based WMI
+``wmpy`` evolved from ``wmpy``, a state-of-the-art SMT-based WMI
 solver, with the goal of further extending its modular approach and
 potentially accomodate other computational tasks over weighted SMT formulas.
 
@@ -34,7 +34,7 @@ The initial phases of development were driven by questions like:
 * What if one is only interested in the enumeration subtask?
 * What if the convex subtask is not continuous integration?
 
-As a result, the core design principle of ``wmipy`` is **modularity**:
+As a result, the core design principle of ``wmpy`` is **modularity**:
 we designed different classes in order to be used as stand-alone
 objects as well as sub-components of a larger solver.
 
@@ -42,13 +42,13 @@ Enumerators
 """""""""""
 
 The library offer different enumerators in the submodule
-``wmipa.enumeration``. An enumerator constructor takes as input a
+``wmpy.enumeration``. An enumerator constructor takes as input a
 weighted SMT formula (plus the current ``pysmt`` environment).
 
 .. code-block:: python
 
    from pysmt.shortcuts import *
-   from wmipa.enumeration import TotalEnumerator
+   from wmpy.enumeration import TotalEnumerator
 
    ...
 
@@ -79,7 +79,7 @@ and returns an `Iterable` over pairs of:
 
 
 Enumerators can be used as stand-alone components. For instance, the
-code below uses ``wmipy`` for implementing a procedure that turns
+code below uses ``wmpy`` for implementing a procedure that turns
 arbitrary SMT-LRA formulas in disjunctive normal form (DNF),
 i.e. disjunctions of conjunctions of literals (atoms or their
 negation).
@@ -87,7 +87,7 @@ negation).
 .. code-block:: python
 
    from pysmt.shortcuts import *
-   from wmipa.enumeration import SAEnumerator
+   from wmpy.enumeration import SAEnumerator
 
    def to_dnf(formula, smt_env):
        partial_enumerator = SAEnumerator(formula, Real(1), smt_env)
@@ -104,7 +104,7 @@ Polytopes and  Polynomials
 For some applications, the output of an enumerator is already in the
 ideal format.
 
-For all other use cases, ``wmipy`` leverages intermediate internal
+For all other use cases, ``wmpy`` leverages intermediate internal
 representations for polytopes and polynomials. The classes
 ``Polytope`` and ``Polynomial`` are meant to implement all the useful
 function for manipulating these algebraic objects.
@@ -114,7 +114,7 @@ converts TAs into pairs ``(Polytope, Polynomial)``:
 
 .. code-block:: python
 
-   from wmipa.core import AssignmentConverter
+   from wmpy.core import AssignmentConverter
 
    ...
 
@@ -143,7 +143,7 @@ representation, or convert them back to (canonical) ``pysmt`` formulas
 Integration
 """""""""""
 
-The submodule ``wmipa.integration`` contains a number of integrators,
+The submodule ``wmpy.integration`` contains a number of integrators,
 which can be divided into *base* integrators and *wrappers*.
 
 Base integrators implement an ``integrate`` method that takes as input
@@ -188,7 +188,7 @@ Solvers
 
 Different modules can be combined into more advanced solvers.
 
-These solvers can be found in ``wmipy.solvers``.  Currently, the only
+These solvers can be found in ``wmpy.solvers``.  Currently, the only
 available solver is a WMI meta-solver ``WMISolver``, which can be
 instantiated with any ``enumerator`` and ``integrator``.
 

@@ -9,21 +9,21 @@
    Theory <theory>
    Get started <getstarted>
    Jupyter tutorials <tutorials>
-   API reference <_autosummary/wmipa>
+   API reference <_autosummary/wmpy>
    Development <development>
 
 .. autosummary::
    :hidden:
    :recursive:
 
-   wmipa
+   wmpy
 
 
-Welcome to the wmipy documentation
+Welcome to the wmpy documentation
 ==================================
 
 .. centered::
-   ``wmipy`` :math:`=` **quantitative reasoning** over **algebraic** and
+   ``wmpy`` :math:`=` **quantitative reasoning** over **algebraic** and
    **logical constraints** in ``python3``
 
 .. math::
@@ -35,16 +35,15 @@ Welcome to the wmipy documentation
    :align: center
 
 .. centered::
-   ... ``pip install wmipy`` !
+   ... ``pip install wmpy`` !
 
 
-``wmipy`` is a modular library for solving **Weighted Model
-Integration** (WMI) and related quantitative reasoning tasks over
-mixed continuous / logical domains.
+**WM\*PY** (``wmpy``) is a modular library for solving quantitative
+ reasoning tasks over logical and algebraic constraints.
 
 Our goals:
 
-* Facilitating the integration of state-of-the-art WMI technology into your project
+* Facilitating the integration of state-of-the-art WM* technology into your project
 * Providing a flexible framework for the development of novel solvers
 
 **Unfamiliar with WMI or SMT?** :ref:`Read <theory>` our theory primer first.
@@ -53,4 +52,4 @@ Our goals:
 
 **Curious about advanced use cases?** :ref:`Check out <tutorials>` our Jupiter notebooks.
 
-**Want to be part of** ``wmipy`` **?** :ref:`Learn <development>` how to contribute.
+**Want to be part of** ``wmpy`` **?** :ref:`Learn <development>` how to contribute.

@@ -3,8 +3,8 @@ import pytest
 
 import pysmt.shortcuts as smt
 
-from wmipa.core import Polynomial, Polytope
-from wmipa.integration import AxisAlignedWrapper
+from wmpy.core import Polynomial, Polytope
+from wmpy.integration import AxisAlignedWrapper
 
 env = smt.get_env()
 np.random.seed(666)

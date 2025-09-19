@@ -4,8 +4,8 @@ import pytest
 
 import pysmt.shortcuts as smt
 
-from wmipa.core import Polynomial, Polytope
-from wmipa.integration import RejectionIntegrator
+from wmpy.core import Polynomial, Polytope
+from wmpy.integration import RejectionIntegrator
 
 
 @pytest.mark.parametrize(

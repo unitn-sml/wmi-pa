@@ -1,7 +1,7 @@
 import pysmt.shortcuts as smt
 from pysmt.typing import BOOL, REAL
 
-from wmipa.core.weights import Weights, WeightsEvaluator
+from wmpy.core.weights import Weights, WeightsEvaluator
 
 env = smt.get_env()
 a = smt.Symbol("A", BOOL)
